@@ -1,0 +1,24 @@
+import puppeteer from 'puppeteer-core';
+const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
+const page = await browser.newPage();
+await page.setViewport({ width: 800, height: 600 });
+page.on('pageerror', (e) => console.log('PAGEERROR', e.message));
+page.on('console', (m) => { const t = m.text(); if (/rror|WARN|GL_/i.test(t)) console.log('console:', t.slice(0, 300)); });
+await page.goto('http://localhost:3101/?autojoin=1&name=Probe&grass=0', { waitUntil: 'load' });
+await page.waitForFunction("window.__ready === true && window.__game.state === 'playing'", { timeout: 120000 });
+await new Promise((r) => setTimeout(r, 800));
+const r = await page.evaluate(async () => {
+  const g = __game; g.teleport(-20, 40, 0);
+  await new Promise((r) => setTimeout(r, 400));
+  g.studio = { yaw: 1.57, pitch: 0.12, dist: 3.4, h: 1.0, fov: 50 };
+  g.timeScale = 0.2;
+  g.combat.startAttack(g.ctrl, 'U5');
+  await new Promise((r) => setTimeout(r, 1200));
+  g.timeScale = 0;
+  const t = g.movefx.trails[0];
+  const s = t.s.slice(-3).map((x) => [x.a.toArray().map((v) => +v.toFixed(2)), x.b.toArray().map((v) => +v.toFixed(2)), +x.t.toFixed(3)]);
+  return { now: g.movefx.time, pos: g.player.pos.toArray(), s, alpha: Array.from(t.alpha.slice(0, 12)).map((v) => +v.toFixed(2)), p0: Array.from(t.pos.slice(0, 6)), mat: t.mat.type, prog: !!g.renderer.properties.get(t.mat).currentProgram, parent: t.mesh.parent?.type, layers: t.mesh.layers.mask, f: g.player.view.act.t * 60 };
+});
+console.log(JSON.stringify(r));
+await page.screenshot({ path: 'shots/m1/probe3.png' });
+await browser.close();

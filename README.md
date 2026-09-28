@@ -1,0 +1,143 @@
+# SHINOBI ARENA
+
+A multiplayer anime ninja arena fighter in the browser: a free-for-all for up to 6 players. Pick your ninja (Naruto,
+Sage Naruto, Madara or Obito) and type your name on the title screen.
+
+## Play
+
+1. Install once: `npm install`
+2. Start: `npm start` (builds the game and starts the server on port **3100**)
+3. Open **http://localhost:3100** in Chrome. On the right: type **your name** (e.g. "Nova") and pick a **character card**
+   (click it, or press its number **1**-**4** / the arrow keys). Then click **JOIN**, press **Enter** in the name box, or press any
+   other key. Your name and character are remembered next time. Leave the name empty and you are named after your
+   character ("Naruto", "Sage Naruto 2"...).
+4. Friends on the same Wi-Fi open the "Friends (LAN)" address the server prints.
+
+### Play over the internet
+
+The game is live on the VPS: **https://shinobi.185-2-49-69.sslip.io** (send friends this link; it runs 24/7, your
+laptop can be off; the old http://185.2.49.69:3100 still works).
+After changing the game, run `npm run deploy` to upload, build and restart it there (it kicks anyone playing, so
+deploy when nobody is on).
+
+Without the VPS: run `npm run share` in a second terminal. It prints a `https://....trycloudflare.com` link: send it to your friend.
+(It uses HTTP/2 on purpose: the default QUIC was very slow on this network.)
+
+## Controls
+
+| Action | Keyboard + mouse | Gamepad (Xbox) |
+|---|---|---|
+| Move / look | WASD / mouse | left stick / right stick |
+| Jump, double jump | Space | A |
+| Wall run | hold Space against a wall, cliff or tree trunk (run up a trunk into a branch to climb onto it, or all the way up to stand on top of the tree) | hold A |
+| Dash (in hitstun: Substitution) | Shift | B |
+| Light attack / M1 (two 5-hit strings, see below) | left click | X |
+| Heavy attack | hold left click, or V | Y |
+| Guard | right click, or C | LB |
+| Chakra charge | hold F | RT |
+| Shuriken | 1 | LT + X |
+| Rasengan / Shadow Clone Rush | Q / E | LT + Y / LT + B |
+| Rasenshuriken (ultimate) | R | LT + RT |
+| Lock on (wheel switches target) | T or middle mouse | RB |
+| Zoom in / out | mouse wheel (when not locked on) | |
+| Scoreboard / menu | Tab / Esc | View / Menu |
+| Performance overlay | F3 | |
+| Hitbox view (debug) | F4 | |
+
+### M1: the two combo strings
+
+Press left click (X) up to five times. What comes out depends on how you start:
+
+- **From a standstill or a walk: Uzumaki Barrage.** A lunging straight punch, a switch roundhouse to the head, a
+  wind-chakra double palm (a burst of wind shoves them back), a front-flip heel drop, and a jumping whirlwind
+  roundhouse that sends them flying.
+- **While running, sprinting or right out of a dash: Scroll Rush.** A sliding kick along the ground, then Naruto draws
+  a scroll from his back and clubs them with it, grabs them and heaves them into the air, leaps after them for a rising
+  scroll strike, and finishes with a flipping scroll slam that smashes them into the ground (you land with them).
+
+Every hit carries you (and them) forward: a full string covers 8-10 m. Each press counts, so five quick presses
+give all five hits even if you press faster than the moves. Hold left click (or V) for the heavy axe kick instead.
+
+### Substitution (the log trick)
+
+When you are being hit, press **Dash** (Shift / B) to escape: you leave a log where you stood, vanish in a puff of
+smoke and reappear about 6 m away, off to one side and facing your attacker, briefly invulnerable.
+
+- It only works **while you are reeling from a hit** (hitstun, or flying from a launch/knockback, up to landing).
+  Pressing Shift when you are not being hit is just a normal dash.
+- It costs one **substitution pip**: the three small dots under your HP bar. You have 3; a used pip comes back after
+  8 seconds (one at a time). With no pips left, Shift in hitstun does nothing.
+- Not the same as the **tech roll**: pressing Dash just as you hit the ground after a knockdown rolls you back onto
+  your feet (free, no pip).
+- A K.O. can't be substituted: once your HP hits zero you are thrown down and stay down until you respawn.
+
+### Aiming jutsu
+
+Shadow Clone Rush (E), the shuriken (1) and the Rasenshuriken (R) go for **whoever your camera is looking at** (the
+enemy closest to the middle of the screen, within 30 m). No lock-on needed; if you are locked on (T), they go for your
+lock-on target. The clones chase their target the whole time: they jump up to someone on a roof or ledge, drop off
+edges after them, and run after a target that dashes away between hits.
+
+**Zoom:** scroll up to zoom in, down to zoom out; the camera glides in toward your fighter over the shoulder (from
+3.3 m behind down to 1 m) and back out. Fully zoomed out is the normal view; the field of view always stays the one
+you picked in the settings. Walls and trees behind you still push the camera in. When you are locked on, the wheel
+switches targets instead.
+
+### The map
+
+"Training Grounds": the village (shops, the ramen stand, stone stairs up to the upper street), the forest of giant
+trees, the cliffs and waterfall, the river with its bridge and stepping stones, and the training field.
+
+- **Trees:** run up a trunk (hold Space) into a branch above you to climb onto it; branches are wide enough to run
+  along and jump between. Keep running up the trunk and you come out on top of the canopy, the highest lookout in
+  the forest. Leaves never block you or your view: they fade when the camera gets close.
+- **Houses:** run up a wall and you vault onto the roof. Roofs are solid all the way through (you can no longer end
+  up inside one).
+- **Stairs:** the stone stairs between the ramen shop and the next house take you from the square to the upper
+  street; walk or sprint up them smoothly.
+
+In the pause menu (Esc): mouse sensitivity, invert Y, field of view, volume, music, and the graphics preset
+(Auto picks one from your graphics card; Low / Medium / High / Ultra; High and Ultra render at full resolution).
+Sound starts when you join. F3 shows fps, frame times, draw calls, ping, interpolation delay and network stalls.
+
+## Characters
+
+All characters play exactly the same (moves, damage, speed, jutsu, hitboxes); only the look differs.
+
+- **Naruto**: your VRoid model once you add it (below); until then the stand-in avatar.
+- **Sage Naruto**: "Naruto Sage" by **ninjatorent13** on Sketchfab
+  (https://sketchfab.com/3d-models/naruto-sage-161369399a0d4b6e9657023a1bcbfb31), licensed CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/). Rigged for this game (skeleton, skin weights, finger bones, headband
+  physics, toon materials) and scaled to the other character's body size; the credit is also on its character card.
+- **Madara**: "FreeFire New 3D Character Madara Uchiha." by **AJ Studio** on Sketchfab
+  (https://sketchfab.com/3d-models/freefire-new-3d-character-madara-uchiha-83e56a5dd37a4902b5887625a2e3905d), licensed
+  CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Rigged for this game (arms lifted from the model's A-pose
+  into a T-pose, skeleton, skin weights, finger bones, the long hair on spring physics, the robe and armour plates
+  following the thighs, toon materials) and scaled close to the other characters' body size (he has shorter legs for
+  his height, so his hips sit ~5 cm lower); the credit is also on his character card and in the VRM's meta.
+- **Obito** (Ten-Tails Jinchūriki): "Free Fire New 3D Character Obito Uchiha" by **AJ Studio** on Sketchfab
+  (https://sketchfab.com/3d-models/free-fire-new-3d-character-obito-uchiha-d032e721b7514a269b8ac83a0e472675), licensed
+  CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Rigged for this game (arms lifted from the model's A-pose
+  into a T-pose, skeleton, skin weights, finger bones, the cloak following the thighs, the Truth-Seeking orbs floating
+  with the body, toon materials) and scaled to the same body size; the credit is also on its character card and in the
+  VRM's meta.
+
+### Adding a character from an unrigged model (.glb)
+
+`npm run rig -- models/<name>.rig.json` turns a T-pose .glb into a game-ready .vrm (see
+`models/naruto_sage.rig.json` for the config: joint positions, finger bands, coat/ribbon rules). An A-pose model
+(arms hanging) gets an `apose` block that lifts the arms first (see `models/madara.rig.json` and
+`models/obito.rig.json`; `TPOSE=out.glb npm run rig -- ...` writes the lifted mesh to measure the rest of the config
+on). Long hair or ribbons become spring chains (`chains`), armour plates over a coat `plates`. Then register it in
+`src/shared/characters.js`. Check the result with `node scripts/debug/modelview.mjs <file.vrm> out.png front,left
+"bones,pose=run"`.
+
+### Your VRoid Naruto
+
+Put your VRoid Naruto at `public/assets/characters/naruto.vrm` (see `ASSETS.md`). Until then a stand-in avatar is
+used (the browser console then shows one harmless 404 for `naruto.vrm`). Mixamo animations go in `mixamo/` (names in
+`ASSETS.md`), then run `npm run anims`, then `npm start` again (it rebuilds).
+
+## Requirements
+
+Node.js 20+, Chrome (or Edge). A dedicated graphics card is recommended.

@@ -1,0 +1,7 @@
+# All files tracked per repository push configuration
+# node_modules/
+# dist/
+# dist-test/
+# dist-base/
+# shots/
+# /mixamo/*.fbx

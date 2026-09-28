@@ -1,0 +1,33 @@
+{
+  "name": "shinobi-arena",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Multiplayer third-person anime ninja arena fighter (Three.js + VRM + WebSockets)",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build",
+    "start": "vite build && node server/index.js",
+    "serve": "node server/index.js",
+    "share": "npx --yes cloudflared tunnel --protocol http2 --url http://localhost:3100",
+    "deploy": "node scripts/tools/deploy.mjs",
+    "anims":"node scripts/tools/anims.mjs",
+    "rig": "node scripts/tools/rig.mjs",
+    "fonts": "node scripts/tools/fonts.mjs",
+    "build:test": "vite build --outDir dist-test --emptyOutDir",
+    "test:mp": "node scripts/test/mp.mjs http://localhost:3101/ shots",
+    "test:mp-lag": "node scripts/test/mp.mjs http://localhost:3102/ shots",
+    "test:errs": "node scripts/test/errs.mjs http://localhost:3101/?autojoin=1",
+    "test:chars": "node scripts/test/chars.mjs http://localhost:3101/"
+  },
+  "dependencies": {
+    "@pixiv/three-vrm": "^3.5.5",
+    "postprocessing": "^6.39.5",
+    "three": "0.186.1",
+    "ws": "^8.22.0"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^25.12.0",
+    "vite": "^8.3.1"
+  }
+}

@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SHINOBI ARENA</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%23111'/><path d='M16 4l3 9 9 3-9 3-3 9-3-9-9-3 9-3z' fill='%23ff8a1f'/><circle cx='16' cy='16' r='2.6' fill='%23111'/></svg>" />
+    <!-- local fonts (scripts/tools/fonts.mjs); non-blocking: the boot screen paints with system fonts first -->
+    <link rel="stylesheet" href="/assets/fonts/fonts.css" media="print" onload="this.media='all'" />
+    <!-- Boot screen styles live here, not in style.css: they must work before any other file has loaded. -->
+    <style>
+      #boot { --o: #ff8a1f; --o2: #ffc15a; --ink: #f4efe6; --dim: rgba(244,239,230,.55); --f: 'Barlow Condensed', 'Bahnschrift', 'Segoe UI', system-ui, sans-serif;
+        position: fixed; inset: 0; z-index: 80; overflow: hidden; color: var(--ink); font-family: var(--f); user-select: none;
+        background: radial-gradient(ellipse 80% 70% at 70% 30%, #3a1f12 0%, #140c0a 55%, #070506 100%); transition: opacity .8s cubic-bezier(.4,0,.2,1); }
+      #boot * { box-sizing: border-box; }
+      .bt-sun { position: absolute; width: 70vmin; height: 70vmin; right: -8vmin; top: -14vmin; border-radius: 50%;
+        background: radial-gradient(circle, rgba(255,150,50,.55) 0%, rgba(255,110,30,.22) 38%, rgba(255,90,20,0) 70%); filter: blur(4px); animation: bt-breathe 6s ease-in-out infinite; }
+      @keyframes bt-breathe { 50% { transform: scale(1.06); opacity: .85; } }
+      .bt-art { position: absolute; inset: 0; background: center / cover no-repeat; opacity: 0; transition: opacity 1.4s ease; }
+      .bt-art.on { opacity: .55; animation: bt-kb 18s linear both; }
+      @keyframes bt-kb { from { transform: scale(1.03); } to { transform: scale(1.12) translate3d(-1.5%,-.6%,0); } }
+      .bt-shade { position: absolute; inset: 0; background: linear-gradient(0deg, rgba(7,5,6,.96) 0%, rgba(7,5,6,.55) 30%, rgba(7,5,6,0) 60%), linear-gradient(90deg, rgba(7,5,6,.75), rgba(7,5,6,0) 55%); }
+      .bt-leaves i { position: absolute; top: -5vh; width: 14px; height: 7px; border-radius: 0 100% 0 100%; background: #7fc24a; opacity: .5; animation: bt-leaf linear infinite; }
+      @keyframes bt-leaf { to { transform: translate3d(-30vw, 112vh, 0) rotate(720deg); } }
+      .bt-ui { position: absolute; inset: 0; padding: clamp(28px, 4.5vw, 70px); display: flex; flex-direction: column; justify-content: space-between; animation: bt-in .9s cubic-bezier(.2,.8,.2,1) both; }
+      @keyframes bt-in { from { opacity: 0; transform: translate3d(0,12px,0); } }
+      .bt-top { display: flex; justify-content: space-between; align-items: flex-start; }
+      .bt-srv { display: inline-flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; letter-spacing: .2em; color: var(--dim); }
+      .bt-srv i { width: 8px; height: 8px; border-radius: 50%; background: #777; }
+      .bt-srv.ok { color: var(--ink); } .bt-srv.ok i { background: #6fe28a; box-shadow: 0 0 10px #6fe28a; }
+      .bt-srv.bad i { background: #ff5a4a; box-shadow: 0 0 10px #ff5a4a; }
+      .bt-logo { position: relative; }
+      .bt-logo b { display: block; font-family: 'Dela Gothic One', 'Impact', sans-serif; font-weight: 400; font-size: clamp(56px, 9vw, 150px); line-height: .88; letter-spacing: .01em;
+        color: var(--o); -webkit-text-stroke: 3px #120a07; paint-order: stroke fill; text-shadow: 0 8px 0 #120a07, 0 18px 50px rgba(255,120,30,.35); transform: skewX(-6deg); }
+      .bt-logo b span { color: var(--ink); }
+      .bt-logo small { display: block; margin: 14px 0 0 6px; font-weight: 700; font-size: clamp(13px, 1.3vw, 18px); letter-spacing: .5em; color: var(--o2); }
+      .bt-foot { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 18px 32px; }
+      .bt-status { display: flex; align-items: center; gap: 16px; min-width: 0; }
+      .bt-spin { width: 42px; height: 42px; flex: none; animation: bt-rot 1s linear infinite; }
+      @keyframes bt-rot { to { transform: rotate(360deg); } }
+      .bt-phase { display: block; font-weight: 800; font-style: italic; font-size: 26px; letter-spacing: .14em; white-space: nowrap; }
+      .bt-detail { display: block; margin-top: 2px; font-weight: 600; font-size: 14px; letter-spacing: .12em; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 62vw; }
+      .bt-pct { font-weight: 800; font-style: italic; font-size: clamp(56px, 6vw, 92px); line-height: .8; font-variant-numeric: tabular-nums; }
+      .bt-pct small { font-size: .36em; margin-left: 4px; color: var(--o); }
+      .bt-bar { grid-column: 1 / -1; position: relative; height: 12px; background: rgba(255,255,255,.07); clip-path: polygon(0 35%, 1% 0, 99% 18%, 100% 60%, 98.5% 100%, 0.6% 85%); }
+      .bt-fill { position: absolute; inset: 0; transform: translate3d(-100%,0,0); will-change: transform; background: linear-gradient(90deg, #b94a0c, var(--o) 70%, var(--o2)); }
+      .bt-fill::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 60px; background: linear-gradient(90deg, transparent, rgba(255,240,210,.9)); }
+      .bt-tip { grid-column: 1 / -1; font: 500 15px/1.4 'Barlow Condensed', 'Segoe UI', sans-serif; letter-spacing: .04em; color: var(--dim); transition: opacity .5s; }
+      .bt-tip b { color: var(--o); letter-spacing: .3em; margin-right: 12px; font-weight: 800; }
+      .bt-tip.hide { opacity: 0; }
+      #boot.fail .bt-phase { color: #ff5a4a; } #boot.fail .bt-spin { display: none; } #boot.fail .bt-fill { background: #ff5a4a; }
+      .bt-retry { margin-left: 18px; padding: 8px 20px; border: 2px solid var(--o); background: rgba(255,138,31,.15); color: var(--ink); font: 800 15px var(--f); letter-spacing: .2em; cursor: pointer; }
+      #boot.out { opacity: 0; pointer-events: none; }
+      @media (prefers-reduced-motion: reduce) { .bt-art.on, .bt-sun, .bt-leaves i, .bt-spin { animation: none; } }
+    </style>
+    <script type="module" crossorigin src="/assets/index-vKJpOiXA.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-DKccRncu.css">
+  </head>
+  <body>
+    <!-- ============ BOOT (loading) SCREEN: inline so it shows before the game code has downloaded ============ -->
+    <div id="boot">
+      <div class="bt-sun"></div>
+      <div class="bt-art" data-src="/assets/boot/key1.jpg"></div>
+      <div class="bt-art" data-src="/assets/boot/key2.jpg"></div>
+      <div class="bt-art" data-src="/assets/boot/key3.jpg"></div>
+      <div class="bt-shade"></div>
+      <div class="bt-leaves" id="bt-leaves"></div>
+      <div class="bt-ui">
+        <header class="bt-top">
+          <div class="bt-logo"><b>SHINOBI<br /><span>ARENA</span></b><small>FREE-FOR-ALL · UP TO 6 NINJA</small></div>
+          <div class="bt-srv" id="bt-srv"><i></i><span>CONTACTING SERVER…</span></div>
+        </header>
+        <footer class="bt-foot">
+          <div class="bt-status">
+            <svg class="bt-spin" viewBox="-20 -20 40 40"><path d="M0-18 L4-4 L18 0 L4 4 L0 18 L-4 4 L-18 0 L-4-4Z" fill="#ff8a1f" stroke="#120a07" stroke-width="1.5" /><circle r="3.2" fill="#120a07" /></svg>
+            <div style="min-width:0"><b class="bt-phase" id="bt-phase">DOWNLOADING</b><span class="bt-detail" id="bt-detail">Game client…</span></div>
+          </div>
+          <div class="bt-pct"><span id="bt-pct">0</span><small>%</small></div>
+          <div class="bt-bar"><div class="bt-fill" id="bt-fill"></div></div>
+          <div class="bt-tip" id="bt-tip"></div>
+        </footer>
+      </div>
+    </div>
+    <script>
+      // Boot screen driver. Plain script (not a module) so it runs before the game bundle has downloaded.
+      // main.js reports through window.BOOT: phase(key, detail, label), detail(t), frac(0..1 in the phase), track(manager), done(), fail(msg).
+      (function () {
+        var $ = function (id) { return document.getElementById(id); };
+        var root = $('boot');
+        var auto = navigator.webdriver; // headless tests: no animations, removed at once when done
+        var TIPS = [
+          'Hold <b>Space</b> against a wall, a cliff or a tree trunk to run up it on chakra.',
+          'Press <b>Shift</b> while you are being hit to swap with a log: the Substitution Jutsu.',
+          'Five light attacks make a combo. The last one launches.',
+          'Hold <b>left click</b> for the guard-breaking axe kick.',
+          'Hold <b>F</b> to charge chakra. You are open while you do it.',
+          'Press <b>T</b> or the middle mouse button to lock on to the nearest enemy.',
+          'Dashes are invulnerable for their first moment. Dodge on reaction.',
+          'After half a second of running you break into the ninja sprint.',
+          'Knocked down? Press <b>Shift</b> as you land to roll back up.',
+          'The Rasenshuriken needs a full ultimate gauge: deal and take damage to fill it.',
+        ];
+        var PH = { client: [0, 0.06], assets: [0.06, 0.78], shaders: [0.78, 0.94], world: [0.94, 0.995] };
+        var LABEL = { client: 'DOWNLOADING', assets: 'LOADING', shaders: 'PREPARING SHADERS', world: 'BUILDING THE ARENA' };
+        var cur = 'client', target = 0, shown = 0, lastBump = performance.now(), lastPaint = lastBump, finished = false;
+
+        if (!auto) {
+          var lv = $('bt-leaves');
+          for (var i = 0; i < 14; i++) { var l = document.createElement('i'); l.style.left = (Math.random() * 120) + 'vw'; l.style.animationDuration = (7 + Math.random() * 9) + 's'; l.style.animationDelay = (-Math.random() * 12) + 's'; l.style.transform = 'scale(' + (0.6 + Math.random()) + ')'; lv.appendChild(l); }
+        }
+        // key art: one image after another, so they never compete with the game's downloads
+        var arts = root.querySelectorAll('.bt-art'), art = -1, okArt = [];
+        (function load(i) {
+          if (i >= arts.length || auto) return;
+          var img = new Image();
+          img.onload = function () { arts[i].style.backgroundImage = 'url(' + img.src + ')'; okArt[i] = true; if (art < 0) nextArt(); load(i + 1); };
+          img.onerror = function () { load(i + 1); };
+          img.src = arts[i].getAttribute('data-src');
+        })(0);
+        function nextArt() {
+          var n = art;
+          for (var k = 1; k <= arts.length; k++) { var j = (art + k) % arts.length; if (okArt[j]) { n = j; break; } }
+          if (n === art) return;
+          if (art >= 0) arts[art].classList.remove('on');
+          arts[n].classList.add('on');
+          art = n;
+        }
+        var artTimer = setInterval(nextArt, 7000);
+
+        var tip = Math.floor(Math.random() * TIPS.length), tipEl = $('bt-tip');
+        function showTip() { tipEl.innerHTML = '<b>TIP</b>' + TIPS[tip]; }
+        showTip();
+        var tipTimer = setInterval(function () { tipEl.classList.add('hide'); setTimeout(function () { tip = (tip + 1) % TIPS.length; showTip(); tipEl.classList.remove('hide'); }, 500); }, 6500);
+
+        function status() {
+          fetch('/api/status', { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }).then(function (s) {
+            var el = $('bt-srv'); if (!el) return;
+            el.className = 'bt-srv ok';
+            el.lastChild.textContent = 'SERVER ONLINE · ' + s.players + '/' + s.max + ' NINJA' + (s.match && s.match.ph === 'live' ? ' · MATCH LIVE' : '');
+          }).catch(function () { var el = $('bt-srv'); if (!el) return; el.className = 'bt-srv bad'; el.lastChild.textContent = 'SERVER UNREACHABLE'; });
+        }
+        status();
+        var statusTimer = setInterval(status, 5000);
+
+        // asset progress weighted by file size (/asset-sizes.json from the build)
+        var sizes = null, started = new Map(), ended = new Map(), expect = 16e6;
+        try { expect = +localStorage.getItem('shinobi.bootBytes') || expect; } catch (e) {}
+        fetch('/asset-sizes.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { sizes = j; }).catch(function () {});
+        function key(url) { try { return decodeURIComponent(new URL(url, location.href).pathname); } catch (e) { return url; } }
+        function size(k) { return (sizes && sizes[k]) || 200000; }
+        function sum(m) { var t = 0; m.forEach(function (n, k) { t += n * size(k); }); return t; }
+        function nice(k) {
+          var p = k.split('/'), f = p[p.length - 1].replace(/\.\w+$/, '');
+          var what = { characters: 'CHARACTER', anims: 'ANIMATIONS', textures: 'TEXTURE', fonts: 'FONT', audio: 'SOUND', boot: 'KEY ART' }[p[2]] || 'FILE';
+          return what + ' · ' + f.replace(/[_-]+/g, ' ').toUpperCase();
+        }
+        function paint() {
+          var r = PH[cur], now = performance.now();
+          var dt = Math.min(1, (now - lastPaint) / 1000);
+          lastPaint = now;
+          // creep only during steps that report nothing (bundle download, shader compile) so the bar never looks frozen
+          if (!finished && (cur === 'client' || cur === 'shaders' || cur === 'world') && now - lastBump > 400) target = Math.max(target, Math.min(r[0] + (r[1] - r[0]) * 0.92, target + (r[1] - r[0]) * 0.08 * dt));
+          shown += (target - shown) * (finished ? 0.25 : 0.1);
+          if (Math.abs(target - shown) < 0.0005) shown = target;
+          $('bt-fill').style.transform = 'translate3d(' + (shown * 100 - 100).toFixed(2) + '%,0,0)';
+          $('bt-pct').textContent = Math.min(100, Math.floor(shown * 100 + 1e-6));
+        }
+        var raf = 0;
+        (function loop() { paint(); raf = requestAnimationFrame(loop); })();
+        function set(v) { v = Math.min(1, v); if (v > target) { target = v; lastBump = performance.now(); } }
+
+        window.BOOT = {
+          phase: function (k, detail, label) { cur = k; set(PH[k][0]); $('bt-phase').textContent = label || LABEL[k]; if (detail != null) $('bt-detail').textContent = detail; },
+          detail: function (t) { $('bt-detail').textContent = t; },
+          frac: function (f) { var r = PH[cur]; set(r[0] + (r[1] - r[0]) * Math.max(0, Math.min(1, f))); },
+          /** Wraps a THREE.LoadingManager: every load it starts or finishes moves the bar by its file size. */
+          track: function (manager) {
+            var s = manager.itemStart, e = manager.itemEnd;
+            manager.itemStart = function (url) { var k = key(url); started.set(k, (started.get(k) || 0) + 1); s.call(manager, url); };
+            manager.itemEnd = function (url) {
+              var k = key(url); ended.set(k, (ended.get(k) || 0) + 1); e.call(manager, url);
+              if (cur === 'assets') { var t = Math.max(sum(started), expect); BOOT.frac(t ? sum(ended) / t : 0); $('bt-detail').textContent = nice(k); }
+            };
+          },
+          /** A fetch() the bar knows about (same weighting as track). */
+          fetch: function (url, opt) {
+            var k = key(url); started.set(k, (started.get(k) || 0) + 1);
+            return fetch(url, opt).then(function (r) { return r.arrayBuffer().then(function (b) {
+              ended.set(k, (ended.get(k) || 0) + 1);
+              if (cur === 'assets') { var t = Math.max(sum(started), expect); BOOT.frac(t ? sum(ended) / t : 0); $('bt-detail').textContent = nice(k); }
+              if (!r.ok) throw new Error(url + ': ' + r.status);
+              return b;
+            }); });
+          },
+          done: function () {
+            finished = true; target = 1;
+            var total = sum(started);
+            try { if (total > 1e6) localStorage.setItem('shinobi.bootBytes', String(total)); } catch (e) {}
+            $('bt-phase').textContent = 'READY'; $('bt-detail').textContent = 'Believe it!';
+            var end = function () { cancelAnimationFrame(raf); [artTimer, tipTimer, statusTimer].forEach(clearInterval); root.remove(); };
+            if (auto) return end();
+            setTimeout(function () { root.classList.add('out'); setTimeout(end, 900); }, 450);
+          },
+          fail: function (msg) {
+            finished = true; root.classList.add('fail');
+            $('bt-phase').textContent = 'FAILED TO LOAD';
+            $('bt-detail').textContent = msg || 'Unknown error';
+            var b = document.createElement('button'); b.className = 'bt-retry'; b.textContent = 'RETRY'; b.onclick = function () { location.reload(); };
+            $('bt-phase').parentNode.parentNode.appendChild(b);
+          },
+        };
+        BOOT.phase('client', 'Game client…');
+      })();
+    </script>
+
+    <div id="app"></div>
+
+    <!-- ============ TITLE ============ -->
+    <section id="title" class="screen hidden">
+      <div class="ti-shade"></div>
+      <div class="ti-inner">
+        <div class="ti-logo"><b>SHINOBI<br /><span>ARENA</span></b><small>FREE-FOR-ALL · UP TO 6 NINJA</small></div>
+        <button id="join" class="ti-join"><span>JOIN</span><i>press any key</i></button>
+        <div class="ti-status" id="ti-status"></div>
+      </div>
+      <div class="ti-foot"><span>WASD move · Space jump / wall run · Shift dash · LMB attack · RMB guard · Q E R jutsu · Esc menu</span></div>
+    </section>
+
+    <!-- ============ HUD (built by src/ui/hud.js) ============ -->
+    <div id="hud" class="hidden"></div>
+    <div id="plates"></div>
+
+    <!-- ============ PAUSE ============ -->
+    <section id="pause" class="screen hidden"></section>
+
+  </body>
+</html>

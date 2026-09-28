@@ -1,0 +1,69 @@
+{
+  "_": "npm run rig -- models/madara.rig.json. The source is an A-pose: `apose` lifts the arms into a T-pose first (its points are in the A-pose); everything else is measured on the T-posed mesh (TPOSE=out.glb npm run rig -- models/madara.rig.json writes it), in source units (facing +z, its left = +x, y up, feet at 0). scale 1.12: shoulders 1.25 m, hips 0.86 m, head 1.43 m, between the other two bodies' (the legs are ~15% shorter for the torso, so no scale matches both hips and shoulders).",
+  "source": "madara.glb",
+  "out": "../public/assets/characters/madara.vrm",
+  "name": "Madara Uchiha",
+  "scale": 1.12,
+  "apose": {
+    "_": "only the robe/arms/gloves mesh (material 3) has arms; the plates on the shoulders turn rigidly",
+    "materials": [3],
+    "shoulder": [0.15, 1.12, -0.03],
+    "elbow": [0.293, 0.96, -0.03],
+    "wrist": [0.42, 0.815, -0.015],
+    "x": [0.12, 0.17],
+    "under": [-0.08, -0.05],
+    "elbowBand": 0.03,
+    "rigidTris": 200
+  },
+  "bones": {
+    "hips": [0, 0.765, -0.01],
+    "spine": [0, 0.84, -0.01],
+    "chest": [0, 0.94, -0.015],
+    "upperChest": [0, 1.04, -0.02],
+    "neck": [0, 1.19, -0.015],
+    "head": [0, 1.268, -0.005],
+    "shoulder": [0.03, 1.13, -0.03],
+    "upperArm": [0.15, 1.12, -0.033],
+    "lowerArm": [0.365, 1.12, -0.033],
+    "hand": [0.545, 1.115, -0.035],
+    "knuckleX": 0.6,
+    "thumbBase": [0.56, 1.1, -0.012],
+    "thumbZ": -0.014,
+    "upperLeg": [0.085, 0.72, 0.0],
+    "lowerLeg": [0.118, 0.39, -0.025],
+    "foot": [0.143, 0.07, -0.04],
+    "toes": [0.16, 0.025, 0.065]
+  },
+  "masks": {
+    "armX": [0.07, 0.14],
+    "armpitY": [1.02, 1.07],
+    "sleeveX": [0.6, 0.7],
+    "sleeveY": [2.0, 2.1],
+    "crotchY": [0.74, 0.64],
+    "waistY": 0.86,
+    "skirtMax": 0.6,
+    "skirtPow": 1.0,
+    "skirtSplit": 0.08
+  },
+  "islands": {
+    "_": "face, ears and side locks follow the head; the robe (one piece with the torso and arms) is a coat below the waist; the tassets and their cords are plates; the long hair is a spring chain",
+    "head": [{ "material": 0, "minY": 1.2 }],
+    "rigid": [
+      { "_": "the tall collar flaps", "select": { "material": 3, "minTris": 150, "maxTris": 160, "minY": 1.1 }, "bone": "upperChest" }
+    ],
+    "plates": [{ "material": 3, "maxTris": 140, "maxY": 0.87 }],
+    "skirt": [{ "material": 3, "minTris": 3000 }],
+    "smallTris": 160,
+    "smallSize": 0.3
+  },
+  "chains": [
+    { "name": "hair", "parent": "head", "select": { "material": 0 }, "front": [-0.03, -0.085], "points": [[0, 1.33, -0.13], [0, 1.13, -0.17], [0, 0.93, -0.19], [0, 0.76, -0.185], [0, 0.63, -0.16]], "stiffness": 1.1, "gravity": 0.45, "drag": 0.55, "hitRadius": 0.025 }
+  ],
+  "colliders": [
+    { "bone": "upperChest", "offset": [0, -0.06, -0.01], "capsule": [0, 0.12, -0.01], "radius": 0.085 },
+    { "bone": "spine", "offset": [0, 0.0, -0.03], "capsule": [0, 0.1, -0.03], "radius": 0.085 },
+    { "bone": "hips", "offset": [0, -0.08, -0.03], "capsule": [0, 0.12, -0.03], "radius": 0.085 },
+    { "bone": "neck", "offset": [0, 0.0, 0.0], "radius": 0.06 }
+  ],
+  "mtoon": { "shade": [0.78, 0.62, 0.66], "shift": -0.05, "toony": 0.9 }
+}

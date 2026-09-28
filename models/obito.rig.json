@@ -1,0 +1,65 @@
+{
+  "_": "npm run rig -- models/obito.rig.json. The source is an A-pose (arms ~50 deg down): `apose` lifts the arms into a T-pose first (its points are in the A-pose); everything else is measured on the T-posed mesh (TPOSE=out.glb npm run rig -- models/obito.rig.json writes it), in source units (facing +z, its left = +x, y up, feet at 0). scale 1.101 = the other bodies' size (hips 0.908 m, shoulders 1.25 m), so every character has the same hurtboxes.",
+  "source": "obito.glb",
+  "out": "../public/assets/characters/obito.vrm",
+  "name": "Obito Uchiha",
+  "scale": 1.101,
+  "apose": {
+    "_": "only the body mesh (material 0) has arms; the orbs (behind the back, and the two beside the hands) stay where they are (keep): on the hands they covered the face in the guard stance",
+    "materials": [0],
+    "shoulder": [0.15, 1.14, -0.03],
+    "elbow": [0.272, 0.99, -0.045],
+    "wrist": [0.4, 0.842, -0.024],
+    "x": [0.11, 0.16],
+    "under": [-0.08, -0.05],
+    "elbowBand": 0.03,
+    "rigidTris": 200,
+    "keep": [{ "maxZ": -0.1, "maxTris": 200 }, { "minX": 0.45, "maxTris": 200 }, { "maxX": -0.45, "maxTris": 200 }]
+  },
+  "bones": {
+    "hips": [0, 0.83, -0.005],
+    "spine": [0, 0.89, -0.01],
+    "chest": [0, 0.98, -0.01],
+    "upperChest": [0, 1.075, -0.015],
+    "neck": [0, 1.195, -0.025],
+    "head": [0, 1.265, -0.01],
+    "shoulder": [0.03, 1.15, -0.025],
+    "upperArm": [0.15, 1.14, -0.03],
+    "lowerArm": [0.344, 1.14, -0.035],
+    "hand": [0.537, 1.143, -0.03],
+    "knuckleX": 0.635,
+    "fingerZ": [-0.073, -0.057, -0.044, -0.027],
+    "thumbBase": [0.555, 1.12, -0.008],
+    "thumbTip": [0.646, 1.094, 0.0],
+    "thumbZ": -0.016,
+    "thumbRadius": 0.016,
+    "upperLeg": [0.085, 0.78, 0.0],
+    "lowerLeg": [0.124, 0.44, 0.01],
+    "foot": [0.163, 0.075, -0.035],
+    "toes": [0.168, 0.022, 0.055]
+  },
+  "masks": {
+    "armX": [0.08, 0.145],
+    "armpitY": [1.05, 1.1],
+    "sleeveX": [0.6, 0.7],
+    "sleeveY": [2.0, 2.1],
+    "crotchY": [0.8, 0.7],
+    "waistY": 0.88,
+    "skirtMax": 0.6,
+    "skirtPow": 1.0,
+    "skirtSplit": 0.08
+  },
+  "islands": {
+    "_": "the head mesh (face, hair, horns, eyes) follows the head; the Truth-Seeking orbs behind the back and the collar spikes are rigid on the upper chest, the two orbs beside the hands on the hips; the cloak (one piece with the torso and arms) is a coat below the waist; the pants and feet are legs",
+    "head": [{ "material": 1 }],
+    "rigid": [
+      { "_": "the two orbs beside the hands float at the hips", "select": { "material": 0, "maxTris": 200, "maxY": 0.9, "minX": 0.4 }, "bone": "hips" },
+      { "select": { "material": 0, "maxTris": 200, "maxY": 0.9, "maxX": -0.4 }, "bone": "hips" },
+      { "_": "orbs behind the back, collar spikes", "select": { "material": 0, "maxTris": 200, "minY": 0.7 }, "bone": "upperChest" }
+    ],
+    "skirt": [{ "material": 0, "minTris": 3000 }],
+    "smallTris": 0,
+    "smallSize": 0.3
+  },
+  "mtoon": { "shade": [0.7, 0.72, 0.8], "shift": -0.05, "toony": 0.9 }
+}
