@@ -14,6 +14,7 @@ import { segSeg } from './hurtbox.js';
 import { ChakraAura, RasenganFX, RasenshurikenFX, shurikenMesh } from '../gfx/jutsufx.js';
 import { Fighter } from './fighter.js';
 import { MADARA_CASTS, MadaraKit } from './madara.js';
+import { ITACHI_CASTS, ItachiKit } from './itachi.js';
 
 const F = 1 / 60;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -212,12 +213,14 @@ class RasenshurikenAction {
 
 // input actions -> the character's kit slots (C.kit: { jutsu1, jutsu2, jutsu3, ult } = jutsu ids)
 export const SLOTS = ['jutsu1', 'jutsu2', 'jutsu3', 'ult'];
-// jutsu id -> { ok(J, ctrl): can it start now, start(J, ctrl): the action }. Madara's come from madara.js.
+// jutsu id -> { ok(J, ctrl): can it start now, start(J, ctrl): the action }. Madara's come from madara.js, Itachi's
+// from itachi.js.
 const CASTS = {
   rasengan: { ok: () => true, start: (J, ctrl) => new RasenganAction(J, ctrl, J.game.combat.findTarget(ctrl, 10)) },
   clones: { ok: () => true, start: (J, ctrl) => new ClonesAction(J, ctrl, J.game.combat.aimTarget(ctrl, 30)) },
   rasenshuriken: { ok: () => true, start: (J, ctrl) => new RasenshurikenAction(J, ctrl, J.game.combat.aimTarget(ctrl, 30)) },
   ...MADARA_CASTS,
+  ...ITACHI_CASTS,
 };
 
 // ---------------------------------------------------------------- the manager
@@ -242,6 +245,7 @@ export class Jutsu {
     this.time = 0;
     this.fxBy = new Map(); // fighter -> { aura, ras, rsh }
     this.madara = new MadaraKit(this); // Madara's kit: fire, wood, gunbai counter, meteor (madara.js)
+    this.itachi = new ItachiKit(this); // Itachi's kit: fireballs, Tsukuyomi, crow escape, Amaterasu (itachi.js)
   }
 
   /** A new cast / projectile instance id (unique per client, sent with every cast and hit). */
@@ -756,7 +760,7 @@ export class Jutsu {
     const g = this.game;
     const f = r.fighter;
     if (!f) return;
-    if (this.madara.onRemote(m, r)) return;
+    if (this.madara.onRemote(m, r) || this.itachi.onRemote(m, r)) return;
     if (m.k === 'tool' && m.m === 'shuriken' && m.o && m.d) {
       r.act = { clip: 'throw', r: m.r, key: `throw${m.i}`, dur: 19 * F, pause: 0, upper: true };
       this.addProjectile('shuriken', m.id, false, m.i, _v.fromArray(m.o).clone(), _w.fromArray(m.d).clone(), m.tg);
@@ -851,6 +855,7 @@ export class Jutsu {
       each(r.fighter, v.st === ST.charge, ras, rsh);
     }
     this.madara.update(dt);
+    this.itachi.update(dt);
     this.updateProjectiles(dt);
     this.updateBursts(dt);
     this.updateClones(dt);

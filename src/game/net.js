@@ -49,8 +49,8 @@ export class Net {
     return this.serverNow() - this.interp;
   }
 
-  join(name, ch) {
-    this.wantJoin = { name, ch };
+  join(name, ch, pw) {
+    this.wantJoin = pw ? { name, ch, pw } : { name, ch };
     return new Promise((resolve, reject) => {
       this._resolveJoin = resolve;
       this._rejectJoin = reject;
@@ -161,6 +161,14 @@ export class Net {
         this._rejectJoin?.(new Error(`The arena is full (${m.max} ninja).`));
         this._rejectJoin = null;
         break;
+      case 'locked': {
+        // a password-locked character and a wrong (or no) password: back to the title screen
+        const reject = this._rejectJoin;
+        this._rejectJoin = null;
+        this.leave();
+        reject?.(Object.assign(new Error(m.pw ? 'Wrong password.' : 'This ninja needs a password.'), { locked: m.ch }));
+        break;
+      }
       case 'snap':
         this.measure(m);
         this.emit('snap', m);

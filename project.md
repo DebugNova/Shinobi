@@ -147,6 +147,99 @@ Multiplayer third-person anime ninja arena fighter (Shinobi Striker style). Brie
   than 6 Sages: 2 materials vs 3). The mixed roster (130-146 fps) is held back by the stand-in's VRoid model, not the
   new ones.
 
+## Itachi (2026-09-28, owner's request)
+
+- **Itachi** (id `itachi`, card tag AKATSUKI, key 5): Naruto's data (M1 strings, stats, hitboxes; his own jutsu since:
+  see "Itachi's kit" below) in the body of "Itachi Uchiha Sharingan Akatsuki Amaterasu" by angelolamonaca (Sketchfab, CC BY
+  4.0; credited in README, on the card, in the VRM meta). Akatsuki cloak with clouds, forehead protector, Sharingan,
+  Amaterasu blood under the left eye, leg wraps, sandals with purple toenails.
+- The download is a **display figure**: a head, a closed cloak whose sleeves are fused into its sides (arms hanging
+  inside, never modelled), and the shins + sandals below the hem. No arms, hands, torso or thighs; 46,043 triangles
+  in 28 primitives / 25 materials (a 13,776-triangle necklace and the shirts hidden in the closed collar).
+- Rig (models/itachi.rig.json, `npm run rig`; new optional rig.mjs steps, Sage/Obito/Madara rebuild byte-identical):
+  `shift` (feet to 0), `drop` (the hidden shirt, undershirt, necklace), `simplify` (toes 7,472 -> 1,847, sandals
+  5,212 -> 1,824 triangles, meshoptimizer from three's libs), `reshape` (the fused sleeves pulled into the cloak's
+  sides: it hangs like a cape), `parts` (generated: Akatsuki sleeves with a flared cuff and red lining, wrists, hands
+  with 4 fingers + thumb and purple nails, near-black trousers from the hips into the leg wraps), `islands.noArm`
+  (the cloak, modelled for arms down, never follows the arm bones), a coat split sharply at its front slit
+  (`skirtSplit` 0.03, `skirtMax` 0.75: the front panels part over a striding thigh and show the red lining), `atlas`
+  (all 14 flat colours painted as 32 px cells into the cloud texture's empty middle, ears drawn in the skin colour):
+  **1 material, 1 primitive, 24,320 triangles**, 52 bones (all finger bones; fists close), height 1.61 m, hips
+  0.908 m (the stand-in's proportions; the legs keep the model's wide stance), 1.2 MB. scripts/tools/png.mjs: a small
+  PNG codec for the atlas.
+- Game changes: title screen fits 5 cards in one row (`.five`: wider panel, smaller type and logo; checked at 1280,
+  1600, 1920 wide); the HUD portrait takes `card.face` (m above the head bone; Itachi 0.07: his collar hides
+  everything below the eyes).
+- Tests (dist-test): chars.mjs `CH=itachi` ALL PASS (key 5, remembered, drawn with his model + clip library on the
+  other screen, clones in his body) and default ALL PASS; animcheck `CH=itachi` ALL PASS 2 of 2 (drift max 1.72 cm);
+  the moving combo's one 26 deg leg frame is the strike clip's (Naruto 27.1, Obito 27.2: strikes are not limited);
+  mpcombat `CH=itachi` ALL PASS at 0 ms (flight median 0.2 cm) and 200,40,1 (0.0 cm); kovis `CH=itachi` ALL PASS
+  (KO fall within 6.1 cm on both screens, 6 clone hits). perf 6 Itachis 213-248 fps, 1% low 118-137, CPU 3.3-4.0 ms,
+  68-98 calls, 1.29-1.38 M triangles; 6 Obitos back to back 208-232 fps, 82-114 calls. Programs 65 either way, and
+  65 with Itachi left out of the roster: he adds none (the count was over the 60 budget before, see Madara's kit).
+  Shots in shots/itachi/ (source figure, the cloak alone, the rig in modelview poses, films of run/combo/idle/guard).
+
+## Itachi's kit (2026-09-28, owner's request)
+
+Itachi keeps Naruto's movement, M1 strings, heavy and shuriken, with his own jutsu (data src/shared/itachi.js, shared
+geometry itachikit.js, client src/game/itachi.js, visuals src/gfx/itachifx.js + Madara's Billows, clips
+src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, n:1.. the effect).
+- **Q Phoenix Sage Fire** (30 chakra, 9 s): seal, fingers to the mouth, fireballs at frames 18/30/42 (each phase n =
+  1..3 with its origin + direction; they leave spread ±0.32 rad and curve in). Homing = a turn-rate limit (4.2 rad/s)
+  toward an intercept point (the target's smoothed drawn velocity × time to reach it): a sprinting target is hit;
+  a dash (the target's ST.dash or FLAG.invuln on this screen) loses the lock for good. The caster's copy detects hits
+  (swept sphere vs drawn hurtboxes, like the shuriken); other screens fast-forward a late copy and burst it on bodies.
+  45 flinch, 45 flinch, 75 knockback (`phoenixFire:shot`/`:last`, cls proj: Madara's barrier reflects them).
+  The dodge is also the server's (`spec.dodge`): a ball's hit is refused ("dodged") when the victim dashed or
+  substituted while it flew (its phase time to the hit), whatever the caster saw: at 200 ms the caster sees the dash
+  ~330 ms late and its ball would "hit" where the victim was (found by the lag run, one in three).
+- **E Tsukuyomi** (35 chakra, 15 s): the gaze at frame 18 (n:1: his eyes + facing); the **server** takes everyone in
+  the cone (18 m, 38° + body radius, ±5 m height, clear line from his eyes to the chest, not invulnerable at that
+  time, each victim where its own screen had it: like the meteor). New reaction `REACT.daze` (9): 5 s standing
+  (stun 300), unblockable, no substitution (no stun window), opens no combo. `keepDaze` (shared/combat.js): a hit
+  that doesn't throw a dazed victim leaves it dazed to the genjutsu's end (`dz`, in hitr; the attacker predicts the
+  same); a launch/knockdown breaks it; the knockdown rule (3.5 s / 12 hits) still applies. Visuals: a Mangekyō eye
+  opening over the victim's head (EyeMarks), the `dazed` loop clip, on the victim's own screen the GenjutsuEffect
+  (red-and-black world, the Mangekyō over the view as it takes hold) + a heartbeat.
+- **G Crow Clone Escape** (20 chakra, 10 s): the spot is picked at the press (itachikit escapeSpot: rings 7-12 m,
+  free standing room, no drop, not the river, in bounds; score = distance from the nearest enemy + 6 if no enemy can
+  see it + a little randomness). Frame 5: n:1 with the spot, moved there locally (not teleportTo: it ends the action);
+  the server checks reach (15 m) and room and broadcasts it to everyone incl. the sender (no seq bump needed: the
+  socket keeps order). Invulnerable 0.6 s from the press (`p.escape`, FLAG.invuln). Hidden from frame 5 until the
+  crows have gathered (form 26; a late screen still gets >= 0.25 s of gathering). Crows: instanced low-poly birds,
+  two-joint flapping wings in the vertex shader, banking; feathers fall on the GPU.
+- **R Amaterasu** (ult): fingers to the right eye, the focus (the world dims and desaturates near him), the eye opens
+  at frame 30 (n:1): the server takes the cone (30 m, 34°, ±8 m, line of sight): `amaterasu:ignite` (40, stagger)
+  then `v.burn`: server ticks every 18 frames (25, react none, through invulnerability, substitution and barriers)
+  until the flames have taken 50% of max HP (the ignition counted; the last tick is the remainder). A KO or respawn
+  puts them out. Black flames: Billows with `black` (ink-black, crimson-violet rims, tall tongues: `stretchK`),
+  licking off the victim's hurtbox capsules; burn ticks don't white-flash.
+- Server hits (the gazes, the burn) go through `serverHit` (now returns whether it applied; `srv` hits don't
+  count toward the attacker's rate limit). The attacker's screen shows their feedback from hitr (SERVER_HIT).
+- Tests: `scripts/test/itachi.mjs` (26 checks: fireballs hit + sync + HP, dash dodge (client and server-only), Amaterasu exactly 300 of 600
+  through a dash on both screens, Tsukuyomi 5 s daze on both screens + no move/sub + a hit keeps the daze + free after +
+  none behind him, crow burst/hidden/re-form 7-12 m away at the same spot on both screens, invulnerable, a runner hit
+  by all 3) **26/26 at 0 ms (:3104) and 26/26 at 200,40,1 (:3102)**, several runs each. Regressions ALL PASS:
+  madara.mjs, mpcombat, mp, chars (default and CH=itachi; its clone check skips kits without clones);
+  clipflips-live `^(ita_|dazed)`: no flips on any body. perf 6 Itachis 231-254 fps, 1% low 122-139, CPU 3.2-3.6 ms,
+  69 programs (+4: black flames, eye marks, crows, feathers; all compiled at load). `scripts/test/itachiperf.mjs`
+  (1080p High, each ability on the dummy): quiet 305 fps, everything at once 255 fps (1% low 141), 0 programs
+  compiled mid-fight. Shots in shots/itachi/ (look*, film_*, duo_*: both screens).
+- Not yet: the owner's review (looks, feel, balance: a 5 s stun every 15 s is strong; Amaterasu's 50% is certain
+  once caught); Madara's barrier reflects a fireball as a shuriken.
+
+## Itachi password lock (2026-09-28, owner's request)
+
+- Itachi can only be played with the password **HUNNY** (exact, case-sensitive). The SERVER checks it
+  (server/index.js `LOCKED`; never in the client bundle): `join{..., pw}` for a locked character with a wrong or no
+  password gets `locked{ch, pw}` (no player created, logged "refused itachi"). Characters with `locked: true`
+  (itachi.js) get a 🔒 in their card tag and a password field under the cards while picked (focused when picked by
+  hand); Enter in it joins; a missing/wrong password shows a red field + message and stays on the title screen. The
+  password is saved (`shinobi.pw`) once the server accepts it; URL `?pw=` fills it (tests: every script that can join
+  as Itachi adds `&pw=HUNNY`; bots.mjs sends it).
+- Tests: chars.mjs (sage and CH=itachi) ALL PASS, with 3 new checks (field shown + focused, no password stays, wrong
+  password refused by the server); a raw WebSocket join: no password / "hunny" refused, "HUNNY" welcomed.
+
 ## Map pass: trees, houses, stairs (2026-09-28, owner's bug report)
 
 - **Houses: you could end up inside a roof.** Wall-running up a gable end and vaulting landed on the wall's top,
@@ -296,6 +389,10 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
   Scroll Rush's air half (S4/S5) is aimed at the target S3 launched: after a whiffed S3 the leap and the slam still play
   (and look right) but mostly pass over a target standing on the ground. Locomotion animcheck on 2026-09-28 flagged single
   15-20 deg frames (a different scenario each run) only while another session ran headless Chrome: re-run quiet.
+- Itachi: his arms, hands and trousers are generated (the source has none): simple anime-style tubes, fine at play
+  distance, plain up close. The cloak is a coat on the hips + thighs: in deep poses (crouch, high kicks, the guard's
+  back leg) a thigh can still push through it (near-black, so it reads as cloak). His own kit and M1 (Sharingan,
+  Amaterasu, fire style...) are not made yet: he fights with Naruto's.
 - Obito: the source is a low-poly game model (Free Fire). Hands are coarse (fists close, but fingers are blocky up
   close), no facial expressions, and the shoulders stretch where the A-pose arms were lifted (fine at play distance,
   visible in a close T-pose). Licence caveat: the Sketchfab upload is marked CC BY 4.0 by its uploader, but its node

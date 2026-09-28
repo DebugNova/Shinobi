@@ -4,6 +4,7 @@
 // Fighter frame: +z forward, +x = the fighter's LEFT, y up (metres for a 0.908 m hips height).
 import { bakeClip } from './keyframes.js';
 import { MADARA_CLIPS } from './madaramoves.js';
+import { ITACHI_CLIPS } from './itachimoves.js';
 
 // shorthand
 const P = (x, y, z, o = {}) => ({ p: [x, y, z], ...o });
@@ -371,6 +372,6 @@ void LEAD;
 /** Bakes every keyed clip for a rig into the library (mocap clips of the same id stay; see ClipLibrary.add). */
 export function bakeMoves(rig, lib, H0) {
   // keyed clips win over mocap of the same id: a Mixamo attack needs a retime map onto the frame data first
-  // (Madara's jutsu clips live in madaramoves.js; every body gets them, like every other keyed move)
-  for (const [id, def] of Object.entries({ ...MOVE_CLIPS, ...MADARA_CLIPS })) lib.add(bakeClip(rig, id, def, H0), true);
+  // (Madara's and Itachi's jutsu clips live in madaramoves.js / itachimoves.js; every body gets them)
+  for (const [id, def] of Object.entries({ ...MOVE_CLIPS, ...MADARA_CLIPS, ...ITACHI_CLIPS })) lib.add(bakeClip(rig, id, def, H0), true);
 }

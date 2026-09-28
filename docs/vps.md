@@ -24,3 +24,21 @@ touching DNS, the public IP, or when the box is unreachable after an update.
   8.8.8.8), so downloads crawl at ~40 KB/s and a first load takes minutes. Not the VM (it fetches its own public link
   at full speed) and not the tunnel MTU (1420: DF pings pass up to that). Diagnose with `ping -n 30 148.113.16.59`
   from the laptop; the cure is a Dadri-side IP (above).
+
+## Box, access, setup
+
+(Moved verbatim from CLAUDE.md, which keeps a summary.)
+
+- **Live:** **https://shinobi.185-2-49-69.sslip.io** (also http://185.2.49.69:3100). Shulker VPS `games-1`: Eco series (old Intel Xeon V3/V4), 4 vCPU / 8 GB / 50 GB NVMe,
+  monthly ~$5.15 (~Rs 484), Ubuntu 24.04, location in1; the VM is in Dadri (Delhi NCR) on a private NIC (enp0s3 10.77.0.18/16, gateway 10.77.0.1, outbound NAT IP
+  45.122.121.132); the public IP came from "Attach IP" in the panel. It will host all the owner's games: ARMORY next (port 3000, `armory.185-2-49-69.sslip.io`; its dist
+  is ~205 MB and it runs bots on the server), then 3200...: one Caddy block per game, by subdomain (not by path: the games load `/ws`, `/assets`, `/api` from the root).
+  Both games read `PORT` and open the WebSocket on `location.host`: no code changes.
+- **Access:** `ssh root@185.2.49.69` with the owner's laptop key (`~/.ssh/id_ed25519`, made 2026-09-28, no passphrase; to be backed up). Password login is off
+  (`/etc/ssh/sshd_config.d/00-hardening.conf`: keys only, root by key). The root password (Shulker panel, Access) works only on the VNC console `in-1.shulker.in:5939`
+  (RFB 3.8, no VNC password: security None); the owner was told to change it (it was pasted in chat). `scripts/debug/vnc.mjs` drives the console (type + screenshot) when
+  SSH is lost.
+- **Setup:** Node 24 (NodeSource) + pm2 7 as user `kaustab` (`/home/kaustab/games/ecosystem.config.cjs`: shinobi, PORT 3100; `pm2 startup` = starts on boot; logs `su -
+  kaustab -c "pm2 logs shinobi"`), the game in `/home/kaustab/games/shinobi`; ufw allows 22, 80, 443, 3100 (close 3100 once nobody uses the raw link). HTTPS: Caddy 2.6.2
+  (Ubuntu package; `/etc/caddy/Caddyfile`, one block per game `<name>.185-2-49-69.sslip.io { reverse_proxy 127.0.0.1:<port> }`, `systemctl reload caddy`; Let's Encrypt
+  automatic; no measurable latency).

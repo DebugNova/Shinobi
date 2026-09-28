@@ -6,7 +6,7 @@ import { charOf } from './characters.js';
 import { dsin, dcos } from './rng.js';
 import { Flight } from './physics.js';
 
-export const REACT = { none: 0, flinch: 1, stagger: 2, launch: 3, knockback: 4, spike: 5, guard: 6, guardBreak: 7, wobble: 8 };
+export const REACT = { none: 0, flinch: 1, stagger: 2, launch: 3, knockback: 4, spike: 5, guard: 6, guardBreak: 7, wobble: 8, daze: 9 };
 export const REACT_NAME = Object.fromEntries(Object.entries(REACT).map(([k, v]) => [v, k]));
 // reactions that throw the victim through the air (deterministic flight until landing, then knocked down)
 export const AIRBORNE = new Set([REACT.launch, REACT.knockback, REACT.spike]);
@@ -91,6 +91,17 @@ export function resolveHit(spec, ctx) {
     out.n = 0;
     return out;
   }
+  // a genjutsu (Tsukuyomi): stunned where it stands for the whole stun, never guarded, no scaling; it doesn't open a
+  // combo (the hits during it start one: they keep the victim in it, see server/combat.js apply)
+  if (spec.react === REACT.daze) {
+    out.dmg = Math.max(1, Math.round(base));
+    out.n = 0;
+    if (ctx.dummy) {
+      out.react = REACT.wobble;
+      out.stun = 0;
+    }
+    return out;
+  }
   // guard: the attacker is in front of the victim (front 180 degrees)
   if (ctx.guard && !spec.unblockable) {
     const fx = -dsin(ctx.vyaw), fz = -dcos(ctx.vyaw);
@@ -171,6 +182,20 @@ export function comboAfter(combo, t, result, until) {
   if (result.blocked) return combo;
   const cont = combo && t <= combo.until + 0.05;
   return { n: cont ? combo.n + 1 : 1, start: cont ? combo.start : t, until };
+}
+
+/**
+ * A victim inside a genjutsu stays in it after a hit that doesn't throw it (a flinch, a stagger): the reaction's end
+ * moves out to the daze's end (dz, ms). Same rule on the server (apply) and the attacker's prediction. Mutates and
+ * returns { end, dz } (dz set when the victim stays dazed).
+ */
+export function keepDaze(times, react, prevDz, at, ko) {
+  if (react === REACT.daze) times.dz = times.end;
+  else if (prevDz && at < prevDz && !ko && !AIRBORNE.has(react) && react !== REACT.guard && react !== REACT.wobble) {
+    times.dz = prevDz;
+    times.end = Math.max(times.end, prevDz);
+  }
+  return times;
 }
 
 /** Is a hit id's move active at `dt` seconds after the move started (with some network slack)? */

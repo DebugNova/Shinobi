@@ -1,0 +1,90 @@
+[9:10:12 pm] map built in 376 ms (401 colliders, hash 1j3yo5h:401)
+
+  SHINOBI ARENA server running
+
+  This laptop:     http://localhost:3104
+  Friends (LAN):   http://192.168.1.2:3104
+  Over the internet: npm run share  (prints a https link)
+
+[9:13:54 pm] + Itachi joined (#1, 1 in room)
+[9:13:54 pm] + Target joined (#2, 2 in room)
+[9:13:54 pm]   match: live (300s)
+[9:13:57 pm]   Target resynced after a jump of 98.5 m
+[9:13:57 pm]   Itachi resynced after a jump of 69.9 m
+[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 0
+[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 1
+[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 2
+[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 3
+[9:14:07 pm]   Itachi cast phoenixFire #1185002 phase 0
+[9:14:07 pm]   Itachi cast phoenixFire #1185002 phase 1
+[9:14:08 pm]   Itachi cast phoenixFire #1185002 phase 2
+[9:14:08 pm]   Itachi cast phoenixFire #1185002 phase 3
+[9:14:13 pm]   Itachi cast amaterasu #1185003 phase 0
+[9:14:13 pm]   Itachi cast amaterasu #1185003 phase 1
+[9:14:25 pm]   Itachi cast tsukuyomi #1185004 phase 0
+[9:14:26 pm]   Itachi cast tsukuyomi #1185004 phase 1
+[9:14:41 pm]   Target resynced after a jump of 15.3 m
+[9:14:42 pm]   Itachi cast tsukuyomi #1185005 phase 0
+[9:14:43 pm]   Itachi cast tsukuyomi #1185005 phase 1
+[9:14:51 pm]   Target resynced after a jump of 13.8 m
+[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 0
+[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 1
+[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 2
+[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 3
+[9:14:54 pm] - Itachi left (1 in room)
+[9:16:05 pm] - Target left (0 in room)
+[9:16:05 pm]   match: warmup
+[9:16:29 pm] + Itachi joined (#3, 1 in room)
+[9:16:29 pm] + Target joined (#4, 2 in room)
+[9:16:29 pm]   match: live (300s)
+[9:16:35 pm]   Target resynced after a jump of 22.4 m
+[9:16:35 pm]   Itachi resynced after a jump of 136.7 m
+[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 0
+[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 1
+[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 2
+[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 3
+[9:16:45 pm]   Itachi cast phoenixFire #1334002 phase 0
+[9:16:45 pm]   Itachi cast phoenixFire #1334002 phase 1
+[9:16:46 pm]   Itachi cast phoenixFire #1334002 phase 2
+[9:16:46 pm]   Itachi cast phoenixFire #1334002 phase 3
+[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
+[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
+[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:last): dodged
+[9:16:48 pm] - Itachi left (1 in room)
+[9:18:42 pm] - Target left (0 in room)
+[9:18:42 pm]   match: warmup
+[9:24:14 pm] + Itachi joined (#5, 1 in room)
+[9:24:14 pm] + Target joined (#6, 2 in room)
+[9:24:14 pm]   match: live (300s)
+[9:24:17 pm]   Target resynced after a jump of 22.2 m
+[9:24:17 pm]   Itachi resynced after a jump of 136.7 m
+[9:24:18 pm]   Itachi cast phoenixFire #863001 phase 0
+[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 1
+[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 2
+[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 3
+[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 0
+[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 1
+[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 2
+[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 3
+[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 0
+[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 1
+[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 2
+[9:24:38 pm]   Itachi cast phoenixFire #863003 phase 3
+[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:shot): dodged
+[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:shot): dodged
+[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:last): dodged
+[9:24:43 pm]   Itachi cast amaterasu #863004 phase 0
+[9:24:43 pm]   Itachi cast amaterasu #863004 phase 1
+[9:24:55 pm]   Itachi cast tsukuyomi #863005 phase 0
+[9:24:56 pm]   Itachi cast tsukuyomi #863005 phase 1
+[9:25:11 pm]   Target resynced after a jump of 15.3 m
+[9:25:12 pm]   Itachi cast tsukuyomi #863006 phase 0
+[9:25:13 pm]   Itachi cast tsukuyomi #863006 phase 1
+[9:25:21 pm]   Target resynced after a jump of 14.0 m
+[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 0
+[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 1
+[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 2
+[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 3
+[9:25:23 pm] - Itachi left (1 in room)
+[9:26:25 pm] - Target left (0 in room)
+[9:26:25 pm]   match: warmup

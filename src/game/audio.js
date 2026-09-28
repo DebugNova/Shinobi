@@ -409,6 +409,117 @@ export class Audio {
     for (let k = 0; k < 10; k++) this.noise(o, t + 0.3 + Math.random() * 1.6, 0.05, { f0: 300 + Math.random() * 500, q: 2, gain: 0.3 });
   }
 
+  // ---- Itachi's kit
+
+  /** Phoenix Sage Fire: a fireball blown out (a breathy whoomp, a rising roar). */
+  fireball(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.0);
+    this.noise(o, t, 0.45, { type: 'lowpass', f0: 380, f1: 1600, gain: 0.8, pink: true, attack: 0.03 });
+    this.noise(o, t, 0.3, { f0: 900, f1: 2200, q: 0.9, gain: 0.3, attack: 0.02 });
+    this.tone(o, t, 0.3, { f0: 110, f1: 60, gain: 0.35, attack: 0.01 });
+  }
+
+  /** A fireball bursts: a fiery thump and crackles. */
+  fireBoom(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.2);
+    this.tone(o, t, 0.35, { f0: 95, f1: 38, gain: 0.8 });
+    this.noise(o, t, 0.7, { type: 'lowpass', f0: 1400, f1: 180, gain: 0.8, pink: true, attack: 0.005 });
+    for (let k = 0; k < 6; k++) this.noise(o, t + 0.05 + Math.random() * 0.5, 0.03, { type: 'highpass', f0: 2400 + Math.random() * 2500, gain: 0.25 });
+  }
+
+  /**
+   * A genjutsu takes hold (Tsukuyomi): a cold metallic ring over a low drone and a whisper; on the victim's own
+   * screen (victim) louder, with a heartbeat.
+   */
+  genjutsu(pos = null, victim = false) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(victim ? null : pos, victim ? 1.1 : 0.8);
+    for (const f of [1318, 1976, 2637]) this.tone(o, t, 1.4, { type: 'triangle', f0: f, f1: f * 0.992, gain: 0.07 });
+    this.tone(o, t, 1.6, { type: 'sawtooth', f0: 55, f1: 41, gain: 0.08, attack: 0.08 });
+    this.noise(o, t, 1.2, { f0: 2400, f1: 900, q: 3, gain: 0.12, attack: 0.3 });
+    if (victim) {
+      for (const d of [0, 0.22, 0.9, 1.12, 1.8, 2.02]) this.tone(o, t + 0.3 + d, 0.14, { f0: 62, f1: 40, gain: 0.55, attack: 0.01 });
+    }
+  }
+
+  /** Crow Clone Escape: the body bursts into a flock (a storm of wingbeats, a few caws). */
+  crows(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.0);
+    this.noise(o, t, 0.25, { type: 'lowpass', f0: 1200, f1: 300, gain: 0.5, pink: true, attack: 0.005 });
+    for (let k = 0; k < 26; k++) this.noise(o, t + Math.random() * 0.7, 0.05 + Math.random() * 0.04, { f0: 500 + Math.random() * 900, q: 1.3, gain: 0.18 + Math.random() * 0.12, attack: 0.01 });
+    for (let k = 0; k < 3; k++) {
+      const s = t + 0.05 + k * (0.13 + Math.random() * 0.12), f = 640 + Math.random() * 220;
+      this.tone(o, s, 0.15, { type: 'sawtooth', f0: f, f1: f * 0.72, gain: 0.07, attack: 0.012 });
+      this.noise(o, s, 0.14, { f0: f * 1.6, f1: f * 1.2, q: 5, gain: 0.08, attack: 0.012 });
+    }
+  }
+
+  /** He re-forms where the crows gather: a soft rush of wings. */
+  crowForm(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 0.8);
+    for (let k = 0; k < 10; k++) this.noise(o, t + Math.random() * 0.25, 0.05, { f0: 600 + Math.random() * 700, q: 1.2, gain: 0.15, attack: 0.01 });
+    this.noise(o, t, 0.3, { f0: 300, f1: 1200, q: 0.8, gain: 0.25, attack: 0.05 });
+  }
+
+  /** Amaterasu's focus: a deep, swelling pulse (the eye opens on them). */
+  amaterasuFocus(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.2);
+    this.tone(o, t, 0.9, { f0: 48, f1: 30, gain: 0.8, attack: 0.02 });
+    this.noise(o, t, 0.8, { type: 'lowpass', f0: 250, f1: 90, gain: 0.7, pink: true, attack: 0.01 });
+    for (const f of [440, 466]) this.tone(o, t, 1.1, { type: 'triangle', f0: f, f1: f * 0.5, gain: 0.06 });
+  }
+
+  /** A body bursts into black flames: a hollow roar sucked inward, then crackling. */
+  amaterasu(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.2);
+    this.noise(o, t, 0.6, { type: 'lowpass', f0: 180, f1: 900, gain: 0.8, pink: true, attack: 0.25 });
+    this.tone(o, t, 0.6, { f0: 70, f1: 36, gain: 0.5, attack: 0.02 });
+    for (let k = 0; k < 8; k++) this.noise(o, t + 0.2 + Math.random() * 0.5, 0.03, { type: 'highpass', f0: 1800 + Math.random() * 2000, gain: 0.25 });
+  }
+
+  /** Black flames burning on someone (call every frame with on; it fades): a low, dry roar with a hiss in it. */
+  blackFire(key, on, pos) {
+    this.loop(key, on, pos, () => {
+      const c = this.ctx;
+      const g = c.createGain();
+      g.gain.value = 0;
+      const pan = c.createPanner();
+      pan.refDistance = 3;
+      g.connect(pan).connect(this.sfx);
+      const s = c.createBufferSource();
+      s.buffer = this.pink;
+      s.loop = true;
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 420;
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 2600;
+      bp.Q.value = 0.7;
+      // the flicker: the roar's level wavers a few times a second
+      const lfo = c.createOscillator();
+      lfo.frequency.value = 5.3;
+      const lg = c.createGain();
+      lg.gain.value = 0.25;
+      const body = c.createGain();
+      body.gain.value = 0.8;
+      lfo.connect(lg).connect(body.gain);
+      s.connect(lp).connect(body).connect(g);
+      const hiss = c.createGain();
+      hiss.gain.value = 0.12;
+      s.connect(bp).connect(hiss).connect(g);
+      s.start();
+      lfo.start();
+      return { gain: g, pan, level: 0.55, stop: () => [s, lfo].forEach((n) => n.stop()) };
+    });
+  }
+
   /** A burst of crackles (the burning field, a wall splash). */
   crackle(pos = null, n = 4, gain = 0.2) {
     if (!this.ok()) return;

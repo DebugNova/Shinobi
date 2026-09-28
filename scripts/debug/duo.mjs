@@ -2,7 +2,7 @@
 // metres apart facing each other, A runs `castJs`; both game cameras are filmed side by side (A left, B right), one
 // row per frame. For "does it look right on the victim's screen too" reviews, at any lag (point it at :3102).
 // usage: node scripts/debug/duo.mjs <url> <out.png> <castJs> [frames=12] [everyMs=150] [w=560] [h=340]
-//   env: GAP (m, default 9), SETUP_A / SETUP_B (js run before the cast), BVIEW=studio json for B's camera
+//   env: GAP (m, default 9), X / Z (where A stands, default -30, 44: a training post stands at -30, 36), SETUP_A / SETUP_B (js run before the cast), BVIEW=studio json for B's camera
 import puppeteer from 'puppeteer-core';
 
 const [url, out, castJs, frames = '12', every = '150', W = '560', H = '340'] = process.argv.slice(2);
@@ -13,15 +13,16 @@ async function client(name, ch) {
   const p = await b.newPage();
   await p.setViewport({ width: +W, height: +H });
   p.on('pageerror', (e) => { if (!/Pointer Lock/.test(e.message)) console.log(`[${name}] PAGEERROR ${e.message}`); });
-  await p.goto(`${url}?autojoin=1&name=${name}&ch=${ch}`, { waitUntil: 'load' });
+  await p.goto(`${url}?autojoin=1&pw=HUNNY&name=${name}&ch=${ch}`, { waitUntil: 'load' });
   await p.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 });
   return { b, p };
 }
 const [A, B] = await Promise.all([client('Caster', process.env.CH_A || 'madara'), client('Target', process.env.CH_B || 'naruto')]);
 await sleep(2500);
 const gap = +(process.env.GAP || 9);
-await A.p.evaluate(() => { __game.teleport(-30, 44, 0); __game.hud.show(false); __game.ctrl.chakra = 100; });
-await B.p.evaluate((gap) => { __game.teleport(-30, 44 - gap, Math.PI); __game.hud.show(false); }, gap);
+const X = +(process.env.X ?? -30), Z = +(process.env.Z ?? 44);
+await A.p.evaluate(({ X, Z }) => { __game.teleport(X, Z, 0); __game.hud.show(false); __game.ctrl.chakra = 100; }, { X, Z });
+await B.p.evaluate(({ X, Z, gap }) => { __game.teleport(X, Z - gap, Math.PI); __game.hud.show(false); }, { X, Z, gap });
 await sleep(1400);
 await A.p.evaluate(() => { __game.ctrl.lockTarget = __game.pickLock(0); });
 await B.p.evaluate(() => { __game.ctrl.lockTarget = __game.pickLock(0); });

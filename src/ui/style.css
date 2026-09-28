@@ -62,7 +62,19 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b0a0c; col
 .ti-side.many .ti-card b em { font-size: 8.5px; }
 .ti-side.many .ti-card kbd { top: 8px; right: 10px; }
 #title.many .ti-logo b { font-size: clamp(60px, 7.2vw, 150px); }
+/* 5 characters: still one row (a wider panel, smaller card type, a smaller logo) */
+.ti-side.five { width: min(800px, 45vw); padding-left: 22px; padding-right: 22px; }
+.ti-side.five .ti-cards { gap: 8px; }
+.ti-side.five .ti-card b { padding: 9px 7px 10px; font-size: clamp(13px, 0.85vw, 16px); }
+.ti-side.five .ti-card b i { font-size: 8.5px; letter-spacing: 0.14em; }
+.ti-side.five .ti-card b em { font-size: 7.5px; }
+.ti-side.five .ti-card kbd { top: 7px; right: 8px; font-size: 11px; min-width: 18px; padding: 1px 4px; }
+#title.five .ti-logo b { font-size: clamp(54px, 6.3vw, 134px); }
 @media (max-width: 900px) { .ti-side.many { width: auto; } }
+/* a password-locked character (a lock in its card's tag): a password field under the cards while it's picked */
+.ti-pw.hidden { display: none; }
+.ti-pw input { font-size: 24px; }
+.ti-pw.bad input { box-shadow: inset 0 -3px 0 #e8322a; }
 .ti-pick small { font-weight: 600; font-size: 13px; letter-spacing: 0.14em; color: rgba(247, 241, 230, 0.62); }
 @media (max-width: 900px) { .ti-side { position: relative; right: auto; top: auto; transform: none; width: auto; margin: 0 24px; } #title { flex-direction: column; justify-content: center; gap: 24px; overflow-y: auto; } }
 .ti-foot { position: absolute; left: 0; right: 0; bottom: 22px; text-align: center; font-weight: 600; font-size: 14px; letter-spacing: 0.12em; color: rgba(247, 241, 230, 0.55); }

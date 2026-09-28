@@ -44,8 +44,11 @@ const RAMP = /* glsl */ `
 const BILLOW_MAX = 900;
 
 export class Billows {
-  /** soft: alpha-blended smoke (fresnel-soft edges, dissolving), else opaque fire with ink outlines */
-  constructor(scene, soft = false) {
+  /**
+   * soft: alpha-blended smoke (fresnel-soft edges, dissolving), else opaque fire with ink outlines; black: the fire is
+   * Amaterasu's (Itachi: jet black, the rims smouldering crimson-violet)
+   */
+  constructor(scene, soft = false, black = false) {
     const ico = new THREE.IcosahedronGeometry(1, 2);
     const g = new THREE.InstancedBufferGeometry();
     g.index = ico.index;
@@ -62,7 +65,7 @@ export class Billows {
     this.mat = new THREE.ShaderMaterial({
       uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uTime: { value: 0 }, uSun: { value: new THREE.Vector3(0.4, 0.8, 0.3) } }]),
       fog: true,
-      defines: soft ? { SOFT: '' } : {},
+      defines: soft ? { SOFT: '' } : black ? { BLACK: '' } : {},
       transparent: soft,
       depthWrite: !soft,
       vertexShader: /* glsl */ `
@@ -111,7 +114,12 @@ export class Billows {
           float n = mfbm(vObj * 2.6 + vec3(0.0, -uTime * 2.2, 0.0));
           // erosion: the blob breaks up into holes as it burns out; right at the camera it dissolves (a fighter
           // caught in the torrent keeps a view through it instead of a screen of flat orange)
+          #ifdef BLACK
+          // (flames clinging to a body: seen from the burning fighter's own camera, 3 m off; they only thin out right at the lens)
+          if (n < vData.y * 1.15 - 0.12 || smoothstep(0.3, 1.1, vDist) < bayer4(gl_FragCoord.xy)) discard;
+          #else
           if (n < vData.y * 1.15 - 0.12 || smoothstep(1.2, 4.5, vDist) < bayer4(gl_FragCoord.xy)) discard;
+          #endif
           float facing = clamp(dot(normalize(vN), normalize(vView)), 0.0, 1.0);
           float up = normalize(vN).y;
           vec3 col;
@@ -121,6 +129,12 @@ export class Billows {
             // the burnt-out top of a cooling blob turns to smoke
             if (vData.x < 0.45 && up > 0.35 && n > 0.45) v = 0.0;
             col = fireRamp(v);
+            #ifdef BLACK
+            // Amaterasu: flat ink-black flames; where a blob turns away its edge smoulders a deep crimson-violet
+            float rimv = 1.0 - facing + (n - 0.5) * 0.45;
+            col = mix(vec3(0.006, 0.003, 0.01), vec3(0.028, 0.01, 0.034), step(0.56, n));
+            col += vec3(0.62, 0.015, 0.2) * smoothstep(0.66, 0.97, rimv) * (0.3 + vData.x * 0.9);
+            #endif
           } else {
             vec3 sun = normalize((viewMatrix * vec4(uSun, 0.0)).xyz);
             float l = dot(normalize(vN), sun) * 0.5 + 0.5 + (n - 0.5) * 0.3;
@@ -140,6 +154,9 @@ export class Billows {
     this.free = [];
     for (let i = BILLOW_MAX - 1; i >= 0; i--) this.free.push(i);
     this.hi = 0; // instances drawn: 0..hi (the highest slot in use + 1)
+    // how much a moving billow stretches along its motion (Amaterasu's flames: tall tongues)
+    this.stretchK = black ? 0.32 : 1 / 14;
+    this.stretchMax = black ? 1.5 : 0.6;
     this.drift = []; // free-moving billows (smoke, splashes): { i, x, y, z, vx, vy, vz, t, life, r0, r1, heat, smoke, drag }
     this.time = 0;
     this.dirty = false;
@@ -207,7 +224,7 @@ export class Billows {
       b.z += b.vz * dt;
       const e = 1 - (1 - a) * (1 - a);
       const sp = Math.hypot(b.vx, b.vy, b.vz) || 1;
-      this.set(b.i, b.x, b.y, b.z, b.r0 + (b.r1 - b.r0) * e, b.heat * (1 - a), Math.max(0, a - 0.12) / 0.88, b.seed, b.smoke, b.vx / sp, b.vy / sp, b.vz / sp, 1 + Math.min(0.6, sp / 14));
+      this.set(b.i, b.x, b.y, b.z, b.r0 + (b.r1 - b.r0) * e, b.heat * (1 - a), Math.max(0, a - 0.12) / 0.88, b.seed, b.smoke, b.vx / sp, b.vy / sp, b.vz / sp, 1 + Math.min(this.stretchMax, sp * this.stretchK));
       D[w++] = b;
     }
     D.length = w;

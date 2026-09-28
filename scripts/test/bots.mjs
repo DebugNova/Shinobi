@@ -1,6 +1,7 @@
 // Network bots for tests: plain WebSocket clients that join, run circles round a centre (ground-snapped with the
 // shared map), jump now and then and throw attacks (remotes play the clips). Used by perf.mjs and debug/prof.mjs.
 // Characters cycle through the roster (every model on screen at once: the worst case); BOT_CH=<id> gives them all one.
+// (Itachi is password-locked: they send the password.)
 import WebSocket from 'ws';
 import { buildMap } from '../../src/shared/map.js';
 import { CHARACTERS } from '../../src/shared/characters.js';
@@ -13,7 +14,7 @@ const MOVES = process.env.BOT_MOVES ? process.env.BOT_MOVES.split(',') : ['U1', 
 export function bot(URL, i, NB, center) {
   const ws = new WebSocket(URL.replace(/^http/, 'ws').replace(/\/$/, '') + '/ws');
   const B = { ws, id: 0, seq: 0, t0: Date.now(), off: 0, ang: (i / NB) * Math.PI * 2, n: 0, center };
-  ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: `Bot${i + 1}`, ch: process.env.BOT_CH || ROSTER[i % ROSTER.length], token: `perfbot${i}` })));
+  ws.on('open', () => ws.send(JSON.stringify({ t: 'join', name: `Bot${i + 1}`, ch: process.env.BOT_CH || ROSTER[i % ROSTER.length], token: `perfbot${i}`, pw: 'HUNNY' })));
   ws.on('message', (d) => {
     const m = JSON.parse(d);
     if (m.t === 'welcome') {

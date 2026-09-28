@@ -8,7 +8,7 @@ const open = async (name) => {
   const page = await browser.newPage();
   await page.setViewport({ width: 640, height: 400 });
   page.on('pageerror', (e) => console.log(name, 'PAGEERROR', e.message));
-  await page.goto(`${url}?autojoin=1&name=${name}&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+  await page.goto(`${url}?autojoin=1&pw=HUNNY&name=${name}&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
   await page.waitForFunction("window.__ready === true && window.__game.state === 'playing'", { timeout: 120000 });
   return { browser, page };
 };

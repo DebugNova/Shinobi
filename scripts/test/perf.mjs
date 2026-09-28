@@ -22,7 +22,7 @@ const browser = await puppeteer.launch({
 const page = await browser.newPage();
 await page.setViewport({ width: +(process.env.W || 1920), height: +(process.env.H || 1080) });
 page.on('pageerror', (e) => { if (!/Pointer Lock/.test(e.message)) console.log('[pageerror]', e.message); });
-await page.goto(`${URL}?autojoin=1&name=Bench${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+await page.goto(`${URL}?autojoin=1&pw=HUNNY&name=Bench${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
 await page.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 });
 const gpu = await page.evaluate(() => { const gl = __game.renderer.getContext(); const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : '?'; });
 console.log(`GPU: ${gpu}`);

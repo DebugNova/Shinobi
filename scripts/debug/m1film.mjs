@@ -12,7 +12,7 @@ const open = async (name) => {
   await page.setViewport({ width: W, height: H });
   page.on('pageerror', (e) => { if (!/Pointer Lock/.test(e.message)) console.log(name, 'PAGEERROR', e.message); });
   page.on('console', (m) => { const t = m.text(); if (/rror|GL_INVALID/.test(t) && !/404|Pointer Lock/.test(t)) console.log(name, 'console:', t.slice(0, 200)); });
-  await page.goto(`${url}?autojoin=1&name=${name}&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+  await page.goto(`${url}?autojoin=1&pw=HUNNY&name=${name}&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
   await page.waitForFunction("window.__ready === true && window.__game.state === 'playing'", { timeout: 120000 });
   return page;
 };

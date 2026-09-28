@@ -197,6 +197,8 @@ class Game {
     // jutsu effects: visible for the compile, hidden after
     const J = this.jutsu, jfx = [...J.auras.map((a) => a.group), ...J.rasengans.map((a) => a.group), ...J.rsh.flatMap((a) => [a.group, a.boom]), ...J.shuriken, ...this.movefx.warmObjects()];
     this.jutsu.madara.warm(true, sp); // Madara's kit: fire blobs, footprint decals, field flames (world-space, not moved)
+    this.jutsu.itachi.warm(true, sp); // Itachi's kit: black flames, Mangekyō marks, crows, feathers
+    this.post.genjutsu.amt = 0.5; // (its branch compiles either way; this just shows it once)
     for (const o of jfx) {
       o.visible = true;
       o.position.set(sp.x, sp.y, sp.z);
@@ -224,6 +226,7 @@ class Game {
     });
     for (const o of jfx) o.visible = false;
     this.jutsu.madara.warm(false);
+    this.jutsu.itachi.warm(false);
     for (const t of this.art.textures) this.renderer.initTexture(t);
     for (const { e, f, vrm } of warm) {
       f.dispose();
@@ -288,8 +291,8 @@ class Game {
       const onKey = (e) => {
         if (this.state !== 'title' || e.repeat) return;
         if (['Escape', 'F3', 'F4', 'F5', 'F11', 'F12', 'Tab'].includes(e.code)) return;
-        // typing a name: Enter joins, every other key is a letter of the name
-        if (document.activeElement === this.nameEl) {
+        // typing a name or a password: Enter joins, every other key is a letter of it
+        if (document.activeElement === this.nameEl || document.activeElement === this.pwEl) {
           if (e.code === 'Enter' || e.code === 'NumpadEnter') {
             e.preventDefault();
             this.join();
@@ -342,13 +345,21 @@ class Game {
     this.nameEl.addEventListener('input', () => store('shinobi.name', this.nameEl.value.trim()));
     // Esc leaves the field (so the next key joins)
     this.nameEl.addEventListener('keydown', (e) => e.code === 'Escape' && this.nameEl.blur());
+    // password for a locked character (checked by the server; remembered once it let us in)
+    this.pwBox = document.getElementById('ti-pw');
+    this.pwEl = document.getElementById('ti-pw-in');
+    this.pwEl.value = params.get('pw') ?? load('shinobi.pw');
+    this.pwEl.addEventListener('input', () => this.pwBox.classList.remove('bad'));
+    this.pwEl.addEventListener('keydown', (e) => e.code === 'Escape' && this.pwEl.blur());
     const box = document.getElementById('ti-cards');
     box.innerHTML = '';
-    // one row of up to 4 cards; from 3 on, a wider panel with compact cards
+    // one row of up to 5 cards; from 3 on, a wider panel with compact cards; 5: wider still, smaller type
     const n = this.pickable().length;
-    box.style.setProperty('--cols', Math.min(Math.max(n, 2), 4));
+    box.style.setProperty('--cols', Math.min(Math.max(n, 2), 5));
     box.closest('.ti-side')?.classList.toggle('many', n > 2);
+    box.closest('.ti-side')?.classList.toggle('five', n > 4);
     document.getElementById('title')?.classList.toggle('many', n > 2); // (a smaller logo leaves room)
+    document.getElementById('title')?.classList.toggle('five', n > 4);
     this.cardEls = new Map();
     this.pickable().forEach((id, i) => {
       const e = this.chars.get(id), C = e.C;
@@ -358,7 +369,8 @@ class Game {
       el.innerHTML = `<div class="ti-card-in"><img alt="" /><kbd>${i + 1}</kbd><b><span></span><i></i><em></em></b></div>`;
       if (this.cards?.[id]) el.querySelector('img').src = this.cards[id];
       el.querySelector('span').textContent = C.name;
-      el.querySelector('i').textContent = e.standin ? 'STAND-IN MODEL' : C.card?.tag || '';
+      el.querySelector('i').textContent = e.standin ? 'STAND-IN MODEL' : `${C.locked ? '🔒 ' : ''}${C.card?.tag || ''}`;
+      el.classList.toggle('locked', !!C.locked);
       el.querySelector('em').textContent = C.card?.credit || '';
       el.onclick = () => this.pickChar(id);
       box.appendChild(el);
@@ -373,6 +385,12 @@ class Game {
     this.picked = id;
     for (const [k, el] of this.cardEls) el.classList.toggle('on', k === id);
     if (sound) this.audio?.click?.(); // (clicks on a card already make the button sound)
+    const C = this.chars.get(id)?.C;
+    this.pwBox?.classList.toggle('hidden', !C?.locked);
+    if (C?.locked) {
+      document.getElementById('ti-pw-label').textContent = `🔒 ${C.name.toUpperCase()} IS LOCKED · PASSWORD`;
+      if (save && !this.pwEl.value) setTimeout(() => this.pwEl.focus(), 0); // (after the key that picked it)
+    }
     if (save) {
       try {
         localStorage.setItem('shinobi.char', id);
@@ -383,13 +401,27 @@ class Game {
   /** What the title screen says to join as: { name (may be empty: the server names you), ch }. */
   titlePick() {
     const name = (this.nameEl?.value ?? params.get('name') ?? '').trim().slice(0, 16);
-    return { name, ch: this.picked || DEFAULT_CHARACTER };
+    const ch = this.picked || DEFAULT_CHARACTER;
+    const pw = this.chars.get(ch)?.C.locked ? (this.pwEl?.value ?? params.get('pw') ?? '').trim() : '';
+    return { name, ch, pw };
+  }
+
+  /** A locked character's password was missing or wrong: say so on the title screen, put the cursor in the field. */
+  askPassword(msg) {
+    const st = document.getElementById('ti-status');
+    st.textContent = msg;
+    st.className = 'ti-status bad';
+    this.statusHold = performance.now() + 8000; // (the server status line waits)
+    this.pwBox?.classList.remove('hidden');
+    this.pwBox?.classList.add('bad');
+    this.pwEl?.focus();
+    this.pwEl?.select();
   }
 
   async refreshStatus() {
     const s = await fetchStatus();
     const el = document.getElementById('ti-status');
-    if (!el) return;
+    if (!el || performance.now() < (this.statusHold || 0)) return;
     el.textContent = s ? `${s.players} / ${s.max} ninja in the arena${s.match?.ph === 'live' ? ' · match in progress' : ''}` : 'Server unreachable';
     el.className = `ti-status ${s ? 'ok' : 'bad'}`;
   }
@@ -400,6 +432,8 @@ class Game {
 
   async join() {
     if (this.state !== 'title') return;
+    const pick = this.titlePick();
+    if (this.chars.get(pick.ch)?.C.locked && !pick.pw) return this.askPassword(`${this.chars.get(pick.ch).C.name} is locked: enter the password, or pick another ninja.`);
     this.state = 'joining';
     this.audio.start(); // needs the click / key press that got us here
     this.nameEl?.blur();
@@ -407,14 +441,21 @@ class Game {
     const btn = document.getElementById('join');
     btn.classList.add('busy');
     try {
-      const pick = this.titlePick();
-      const w = await this.net.join(pick.name, pick.ch);
+      const w = await this.net.join(pick.name, pick.ch, pick.pw);
+      if (pick.pw) {
+        try {
+          localStorage.setItem('shinobi.pw', pick.pw);
+        } catch {}
+      }
       await this.enter(w);
     } catch (e) {
       console.error(e);
       btn.classList.remove('busy');
-      document.getElementById('ti-status').textContent = e.message;
       this.state = 'title';
+      if (e.locked) {
+        this.input.unlock();
+        this.askPassword(`${e.message} ${this.chars.get(e.locked)?.C.name || 'This ninja'} stays locked: try again, or pick another ninja.`);
+      } else document.getElementById('ti-status').textContent = e.message;
     }
   }
 
@@ -431,7 +472,7 @@ class Game {
     this.hp = w.you.hp;
     this.maxHp = w.you.hp;
     this.match = w.match;
-    this.hud.portrait(this.renderer, vrm, this.shadows);
+    this.hud.portrait(this.renderer, vrm, this.shadows, this.ctrl.C.card?.face);
     if (!this.dummy && w.dummy) this.dummy = new Dummy(this, w.dummy);
     this.player.anim.onStep = (side, speed) => this.footstep(this.player, speed);
     const s = w.you.s;
@@ -525,6 +566,7 @@ class Game {
     n.on('deny', (m) => {
       this.hud.deny?.(m);
       this.jutsu.madara.onDeny(m); // (a denied cast takes its local effect back)
+      this.jutsu.itachi.onDeny(m);
     });
     n.on('rejoined', (m) => {
       for (const id of [...this.remotes.keys()]) this.removeRemote(id);

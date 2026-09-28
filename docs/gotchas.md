@@ -145,3 +145,25 @@ index and other notes refer to it).
     (counterFor) and every client-side check stays off. Its answers are not one-shot: every hit inside the window, and
     every later hit of an attack it answered (`deflected`, 3 s: a Rasenshuriken's burst ticks, a torrent's last
     tick and its burning field) is refused, or the barrier would "run out" on a multi-hit attack.
+49. **A display figure has no body under its clothes; one piece per material costs a draw each:** the Itachi
+    download is a head, a closed cloak (its sleeves fused into its sides, the arms hanging inside, not modelled) and
+    the shins: no arms, hands, torso or thighs. Render it without the outer garment first (modelview on a stripped
+    copy) and list its islands (glbinfo). rig.mjs then generates the missing limbs (`parts`: tubes, with fingers the
+    finger search finds), flattens the fused sleeves (`reshape`), keeps the garment off the arm bones (`islands.noArm`:
+    modelled for arms down, it would fold into the body whenever the arms hang), and splits the coat sharply at its
+    front slit (`skirtSplit` 0.03, `skirtMax` 0.75) so the panels part over a striding thigh instead of the thigh
+    piercing the cloth (trousers near-black so what still pokes through reads as cloak). The source had 25 materials
+    and 28 primitives (46k triangles, 16k of them a necklace hidden in the collar): `drop` + `simplify` + `atlas` (flat
+    colours as palette cells in the texture's empty space) made it 1 material, 1 primitive, 24k triangles.
+50. **Post effects see linear light:** the stack runs before the output's sRGB encode, so a luminance threshold written
+    for what you see (0.1-0.6) puts sunlit grass (~0.1 linear) in the shadows: Tsukuyomi's red world came out dark
+    green. Judge light and shade by `pow(luminance, 1/2.2)` inside an Effect.
+51. **Test lanes need line of sight, not just flat ground:** the training field's posts (x -30, z 36: 1.7 m tall)
+    and a 2.6 m wall at (-38, 48) stood between the test fighters: the fireballs rightly burst on them, the gaze was
+    rightly refused ("spared: cover") and a victim teleported onto the post stood 1.7 m up (a punch went under it).
+    Check a lane with `node scripts/debug/los.mjs x0 h0 z0 x1 h1 z1` (the first collider in the way); Itachi's
+    tests use x -44, z 58 -> 30. A laggy test samples the relayed result when it has arrived (wait for it: a round
+    trip plus jitter, a lost segment one more), never at a fixed delay.
+52. **A keyed hand target is the wrist:** fingers pointing up from a wrist placed at eye height end ~20 cm above the
+    head (Amaterasu's two fingers "at the eye" were over his hair). Put the wrist a hand's length below where the
+    fingertips go (at the chin for the eye).

@@ -1,0 +1,88 @@
+[7:53:08 pm] map built in 285 ms (401 colliders, hash 1j3yo5h:401)
+
+  SHINOBI ARENA server running
+
+  This laptop:     http://localhost:3101
+  Friends (LAN):   http://192.168.1.2:3101
+  Over the internet: npm run share  (prints a https link)
+
+[8:45:37 pm] + F joined (#1, 1 in room)
+[8:45:39 pm]   F resynced after a jump of 136.7 m
+[8:45:46 pm] - F left (0 in room)
+[8:49:40 pm] + F joined (#2, 1 in room)
+[8:49:41 pm]   F resynced after a jump of 69.9 m
+[8:49:45 pm] - F left (0 in room)
+[8:49:53 pm] + F joined (#3, 1 in room)
+[8:49:55 pm]   F resynced after a jump of 69.9 m
+[8:50:03 pm] - F left (0 in room)
+[8:57:08 pm] + Naruto joined (#4, 1 in room)
+[8:57:08 pm] - Naruto left (0 in room)
+[8:57:23 pm] + Naruto joined (#5, 1 in room)
+[8:57:23 pm] - Naruto left (0 in room)
+[8:57:47 pm] + Alpha joined (#6, 1 in room)
+[8:57:47 pm] + Bravo joined (#7, 2 in room)
+[8:57:47 pm]   match: live (300s)
+[8:57:50 pm]   Alpha resynced after a jump of 64.8 m
+[8:57:50 pm]   Bravo resynced after a jump of 93.9 m
+[8:57:54 pm] - Bravo left (1 in room)
+[8:57:55 pm] - Alpha left (0 in room)
+[8:57:55 pm]   match: warmup
+[8:58:04 pm] + Nova joined (#8, 1 in room)
+[8:58:12 pm] + Naruto joined (#9, 2 in room)
+[8:58:12 pm]   match: live (300s)
+[8:58:12 pm]   Nova resynced after a jump of 116.9 m
+[8:58:18 pm] - Nova the Sage left (1 in room)
+[8:58:19 pm] - Naruto left (0 in room)
+[8:58:19 pm]   match: warmup
+[8:58:48 pm] + Nova joined (#10, 1 in room)
+[8:58:55 pm] + Naruto joined (#11, 2 in room)
+[8:58:55 pm]   match: live (300s)
+[8:58:56 pm] - Nova the Sage left (1 in room)
+[8:58:57 pm] - Naruto left (0 in room)
+[8:58:57 pm]   match: warmup
+[8:59:05 pm] + Nova joined (#12, 1 in room)
+[8:59:13 pm] + Naruto joined (#13, 2 in room)
+[8:59:13 pm]   match: live (300s)
+[8:59:14 pm]   Nova resynced after a jump of 116.9 m
+[8:59:15 pm] - Nova the Sage left (1 in room)
+[8:59:16 pm] - Naruto left (0 in room)
+[8:59:16 pm]   match: warmup
+[8:59:32 pm] + Bench joined (#14, 1 in room)
+[8:59:33 pm] + Bot1 joined (#15, 2 in room)
+[8:59:33 pm]   match: live (300s)
+[8:59:33 pm] + Bot2 joined (#16, 3 in room)
+[8:59:33 pm] + Bot3 joined (#17, 4 in room)
+[8:59:33 pm] + Bot4 joined (#18, 5 in room)
+[8:59:33 pm] + Bot5 joined (#19, 6 in room)
+[8:59:36 pm]   Bench resynced after a jump of 66.8 m
+[8:59:43 pm]   Bench resynced after a jump of 60.0 m
+[8:59:43 pm]   Bot1 resynced after a jump of 69.1 m
+[8:59:43 pm]   Bot2 resynced after a jump of 72.1 m
+[8:59:43 pm]   Bot3 resynced after a jump of 68.6 m
+[8:59:43 pm]   Bot4 resynced after a jump of 73.2 m
+[8:59:43 pm]   Bot5 resynced after a jump of 71.9 m
+[8:59:51 pm]   Bench resynced after a jump of 35.8 m
+[8:59:51 pm]   Bot2 resynced after a jump of 44.2 m
+[8:59:51 pm]   Bot3 resynced after a jump of 41.3 m
+[8:59:51 pm]   Bot4 resynced after a jump of 41.4 m
+[8:59:51 pm]   Bot5 resynced after a jump of 47.8 m
+[8:59:51 pm]   Bot1 resynced after a jump of 43.8 m
+[8:59:58 pm]   Bench resynced after a jump of 34.5 m
+[8:59:58 pm]   Bot2 resynced after a jump of 39.9 m
+[8:59:58 pm]   Bot3 resynced after a jump of 34.6 m
+[8:59:58 pm]   Bot4 resynced after a jump of 38.7 m
+[8:59:58 pm]   Bot5 resynced after a jump of 33.9 m
+[8:59:58 pm]   Bot1 resynced after a jump of 35.5 m
+[9:00:06 pm]   Bench resynced after a jump of 27.2 m
+[9:00:06 pm]   Bot1 resynced after a jump of 34.3 m
+[9:00:06 pm]   Bot2 resynced after a jump of 32.8 m
+[9:00:06 pm]   Bot3 resynced after a jump of 28.3 m
+[9:00:06 pm]   Bot4 resynced after a jump of 33.2 m
+[9:00:06 pm]   Bot5 resynced after a jump of 34.7 m
+[9:00:13 pm] - Bot1 left (5 in room)
+[9:00:13 pm] - Bot2 left (4 in room)
+[9:00:13 pm] - Bot3 left (3 in room)
+[9:00:13 pm] - Bot5 left (2 in room)
+[9:00:13 pm] - Bot4 left (1 in room)
+[9:00:13 pm] - Bench left (0 in room)
+[9:00:13 pm]   match: warmup

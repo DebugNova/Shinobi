@@ -1,0 +1,252 @@
+{
+  "_": "npm run rig -- models/itachi.rig.json. The source (Sketchfab 'Itachi Uchiha Sharingan Akatsuki Amaterasu', angelolamonaca, CC BY 4.0) is a display figure: a head, a closed Akatsuki cloak whose sleeves are fused into its sides (arms hanging inside, not modelled) and the shins + sandals below the hem: no arms, hands, torso or thighs. So: `shift` puts the feet at y = 0 (config units: source units, feet at 0, facing +z, its left = +x); `drop` leaves out the shirt, undershirt and necklace (hidden inside the closed collar, 16k triangles); `simplify` thins the toes and sandals; `reshape` pulls the fused sleeves into the cloak's sides (it hangs like a cape); `parts` generates the arms (Akatsuki sleeve, red cuff lining, wrist, hand, fingers, purple nails) and dark trousers tucked into the leg wraps; the cloak follows the torso and (below the waist) the hips + thighs, never the arms (`noArm`); `atlas` makes the whole body one material + one primitive (the flat colours become palette cells in the cloud texture's empty space). Skeleton: the stand-in's proportions at scale 0.9233 (height 1.61 m, hips 0.908 m), so the hurtboxes match; the legs follow the model's wide stance (shins at x 0.19).",
+  "source": "itachi.glb",
+  "out": "../public/assets/characters/itachi.vrm",
+  "name": "Itachi Uchiha",
+  "scale": 0.9233,
+  "shift": [0, 0.8723, 0],
+  "drop": {
+    "_": "Blue_shirt, Blu_vestito, Rete_vestito, Nero (undershirt), Black_Necklace, Metallo_collana: never visible inside the collar",
+    "materials": [4, 5, 6, 7, 8, 9]
+  },
+  "simplify": [
+    {
+      "_": "toes (Skin, below the ankles; the face shares the material)",
+      "material": 14,
+      "maxY": 0.1,
+      "ratio": 0.25,
+      "error": 0.01
+    },
+    {
+      "_": "sandals",
+      "material": 16,
+      "ratio": 0.35,
+      "error": 0.01
+    }
+  ],
+  "reshape": [
+    {
+      "materials": [1, 2, 3],
+      "envelope": [[0.2, 0.285], [0.6, 0.265], [1, 0.245], [1.3, 0.232], [1.8, 0.232]],
+      "soft": 0.12
+    }
+  ],
+  "bones": {
+    "hips": [0, 0.983, 0],
+    "spine": [0, 1.042, -0.005],
+    "chest": [0, 1.164, -0.005],
+    "upperChest": [0, 1.281, -0.01],
+    "neck": [0, 1.431, -0.01],
+    "head": [0, 1.511, 0],
+    "shoulder": [0.03, 1.39, -0.01],
+    "upperArm": [0.14, 1.385, -0.01],
+    "lowerArm": [0.375, 1.385, -0.01],
+    "hand": [0.605, 1.385, -0.01],
+    "knuckleX": 0.68,
+    "fingerZ": [-0.037, -0.019, -0.001, 0.017],
+    "thumbBase": [0.612, 1.38, 0.005],
+    "thumbTip": [0.673, 1.372, 0.068],
+    "thumbZ": 0.03,
+    "thumbRadius": 0.011,
+    "upperLeg": [0.095, 0.94, 0],
+    "lowerLeg": [0.185, 0.559, 0],
+    "foot": [0.205, 0.095, -0.012],
+    "toes": [0.207, 0.025, 0.095]
+  },
+  "masks": {
+    "armX": [0.1, 0.16],
+    "armpitY": [1.28, 1.31],
+    "sleeveX": [2, 2.1],
+    "sleeveY": [3, 3.1],
+    "crotchY": [0.95, 0.85],
+    "waistY": 0.98,
+    "skirtMax": 0.75,
+    "skirtPow": 0.8,
+    "skirtSplit": 0.03
+  },
+  "islands": {
+    "_": "the head pieces (face, hair, eyes, ears, forehead protector, the Amaterasu blood) follow the head; the cloak (black outside, red lining, the cloud decals, the red seam) is a coat that never follows the arms; the generated sleeve lining (red, out at the cuffs) is left out of the cloak rules by its bounds",
+    "head": [
+      {
+        "minY": 1.35,
+        "minX": -0.2,
+        "maxX": 0.2
+      }
+    ],
+    "skirt": [
+      {
+        "material": 1
+      },
+      {
+        "material": 2,
+        "minX": -0.4,
+        "maxX": 0.4
+      },
+      {
+        "material": 3
+      }
+    ],
+    "noArm": [
+      {
+        "material": 1
+      },
+      {
+        "material": 2,
+        "minX": -0.4,
+        "maxX": 0.4
+      },
+      {
+        "material": 3
+      }
+    ],
+    "smallTris": 0,
+    "smallSize": 0.3
+  },
+  "parts": [
+    {
+      "_": "sleeve (black, like the cloak): starts inside the cloak at the shoulder, flares at the cuff; extra rings at the elbow bend",
+      "material": 20,
+      "sides": 14,
+      "rings": [[0.1, 1.385, -0.01, 0.06, 0.062], [0.16, 1.385, -0.01, 0.062, 0.064], [0.24, 1.385, -0.01, 0.059, 0.061], [0.31, 1.385, -0.01, 0.055, 0.058], [0.345, 1.385, -0.01, 0.053, 0.056], [0.375, 1.385, -0.01, 0.052, 0.055], [0.405, 1.385, -0.01, 0.052, 0.055], [0.44, 1.385, -0.01, 0.053, 0.056], [0.52, 1.383, -0.01, 0.057, 0.06], [0.575, 1.381, -0.01, 0.062, 0.065], [0.597, 1.38, -0.01, 0.066, 0.069]]
+    },
+    {
+      "_": "cuff: rim + red lining inside the sleeve end",
+      "material": 2,
+      "sides": 14,
+      "inside": true,
+      "rings": [[0.597, 1.38, -0.01, 0.066, 0.069], [0.593, 1.38, -0.01, 0.0615, 0.0645], [0.53, 1.383, -0.01, 0.055, 0.058]]
+    },
+    {
+      "_": "wrist",
+      "material": 14,
+      "sides": 10,
+      "rings": [[0.5, 1.385, -0.01, 0.022, 0.028], [0.585, 1.385, -0.01, 0.021, 0.027], [0.615, 1.385, -0.01, 0.017, 0.031]]
+    },
+    {
+      "_": "palm (the fingers leave its capped end)",
+      "material": 14,
+      "sides": 12,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.605, 1.385, -0.01, 0.016, 0.032], [0.63, 1.386, -0.01, 0.0135, 0.037], [0.665, 1.386, -0.01, 0.0125, 0.038], [0.686, 1.385, -0.01, 0.0105, 0.035]]
+    },
+    {
+      "_": "little finger",
+      "material": 14,
+      "sides": 8,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.6793, 1.383, -0.037, 0.007, 0.0074], [0.6856, 1.383, -0.037, 0.0069, 0.0072], [0.6968, 1.383, -0.037, 0.0066, 0.007], [0.7035, 1.383, -0.037, 0.0065, 0.0068], [0.708, 1.383, -0.037, 0.0064, 0.0067], [0.717, 1.383, -0.037, 0.0062, 0.0065], [0.7214, 1.383, -0.037, 0.0061, 0.0064], [0.7259, 1.383, -0.037, 0.006, 0.0063], [0.7321, 1.383, -0.037, 0.0058, 0.0061], [0.734, 1.383, -0.037, 0.0043, 0.0046], [0.736, 1.383, -0.037, 0.0021, 0.0022]]
+    },
+    {
+      "_": "ring finger",
+      "material": 14,
+      "sides": 8,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.6792, 1.383, -0.019, 0.008, 0.0084], [0.6868, 1.383, -0.019, 0.0079, 0.0082], [0.7004, 1.383, -0.019, 0.0076, 0.0079], [0.7086, 1.383, -0.019, 0.0074, 0.0078], [0.714, 1.383, -0.019, 0.0073, 0.0076], [0.7249, 1.383, -0.019, 0.007, 0.0074], [0.7303, 1.383, -0.019, 0.0069, 0.0073], [0.7358, 1.383, -0.019, 0.0068, 0.0072], [0.7432, 1.383, -0.019, 0.0067, 0.007], [0.746, 1.383, -0.019, 0.005, 0.0052], [0.748, 1.383, -0.019, 0.0024, 0.0026]]
+    },
+    {
+      "_": "middle finger",
+      "material": 14,
+      "sides": 8,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.6791, 1.383, -0.001, 0.0085, 0.0089], [0.6874, 1.383, -0.001, 0.0083, 0.0088], [0.7022, 1.383, -0.001, 0.008, 0.0084], [0.7111, 1.383, -0.001, 0.0079, 0.0083], [0.717, 1.383, -0.001, 0.0077, 0.0081], [0.7288, 1.383, -0.001, 0.0075, 0.0079], [0.7348, 1.383, -0.001, 0.0074, 0.0077], [0.7407, 1.383, -0.001, 0.0072, 0.0076], [0.7488, 1.383, -0.001, 0.0071, 0.0074], [0.752, 1.383, -0.001, 0.0053, 0.0055], [0.754, 1.383, -0.001, 0.0026, 0.0027]]
+    },
+    {
+      "_": "index finger",
+      "material": 14,
+      "sides": 8,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.6792, 1.383, 0.017, 0.0085, 0.0089], [0.6869, 1.383, 0.017, 0.0083, 0.0088], [0.7007, 1.383, 0.017, 0.008, 0.0084], [0.709, 1.383, 0.017, 0.0079, 0.0083], [0.7145, 1.383, 0.017, 0.0077, 0.0081], [0.7255, 1.383, 0.017, 0.0075, 0.0079], [0.7311, 1.383, 0.017, 0.0074, 0.0077], [0.7366, 1.383, 0.017, 0.0072, 0.0076], [0.7442, 1.383, 0.017, 0.0071, 0.0074], [0.747, 1.383, 0.017, 0.0053, 0.0055], [0.749, 1.383, 0.017, 0.0026, 0.0027]]
+    },
+    {
+      "_": "thumb",
+      "material": 14,
+      "sides": 8,
+      "caps": [
+        false,
+        true
+      ],
+      "rings": [[0.612, 1.38, 0.005, 0.011, 0.011], [0.63, 1.378, 0.026, 0.0105, 0.0105], [0.641, 1.377, 0.038, 0.0098, 0.0098], [0.65, 1.376, 0.047, 0.0094, 0.0094], [0.658, 1.374, 0.055, 0.009, 0.009], [0.666, 1.373, 0.062, 0.0078, 0.0078], [0.671, 1.372, 0.066, 0.0052, 0.0052], [0.673, 1.372, 0.068, 0.0025, 0.0025]]
+    },
+    {
+      "_": "little nail (purple, like the toenails)",
+      "material": 13,
+      "sides": 8,
+      "caps": [
+        true,
+        true
+      ],
+      "rings": [[0.723, 1.388, -0.037, 0.0012, 0.0039], [0.729, 1.3886, -0.037, 0.0016, 0.0048], [0.734, 1.3872, -0.037, 0.0012, 0.0035]]
+    },
+    {
+      "_": "ring nail (purple, like the toenails)",
+      "material": 13,
+      "sides": 8,
+      "caps": [
+        true,
+        true
+      ],
+      "rings": [[0.735, 1.3888, -0.019, 0.0012, 0.0044], [0.741, 1.3894, -0.019, 0.0016, 0.0054], [0.746, 1.388, -0.019, 0.0012, 0.004]]
+    },
+    {
+      "_": "middle nail (purple, like the toenails)",
+      "material": 13,
+      "sides": 8,
+      "caps": [
+        true,
+        true
+      ],
+      "rings": [[0.741, 1.3891, -0.001, 0.0012, 0.0047], [0.747, 1.3897, -0.001, 0.0016, 0.0058], [0.752, 1.3883, -0.001, 0.0012, 0.0043]]
+    },
+    {
+      "_": "index nail (purple, like the toenails)",
+      "material": 13,
+      "sides": 8,
+      "caps": [
+        true,
+        true
+      ],
+      "rings": [[0.736, 1.3891, 0.017, 0.0012, 0.0047], [0.742, 1.3897, 0.017, 0.0016, 0.0058], [0.747, 1.3883, 0.017, 0.0012, 0.0043]]
+    },
+    {
+      "_": "trousers (near-black navy, the forehead protector cloth colour: where a thigh pushes through the cloak it reads as cloak): hip to mid-shin, tucked into the leg wraps; extra rings at the knee",
+      "material": 12,
+      "sides": 14,
+      "ref": [0, 0, 1],
+      "caps": [
+        true,
+        false
+      ],
+      "rings": [[0.09, 1, 0, 0.085, 0.085], [0.1, 0.93, 0, 0.088, 0.085], [0.12, 0.83, 0, 0.082, 0.078], [0.145, 0.72, 0, 0.074, 0.07], [0.162, 0.645, 0, 0.067, 0.064], [0.172, 0.61, 0, 0.063, 0.06], [0.18, 0.585, 0, 0.061, 0.058], [0.185, 0.559, 0, 0.058, 0.056], [0.186, 0.535, -0.002, 0.057, 0.055], [0.187, 0.51, -0.004, 0.056, 0.053], [0.188, 0.46, -0.006, 0.054, 0.05], [0.189, 0.4, -0.01, 0.052, 0.046], [0.189, 0.355, -0.012, 0.05, 0.044], [0.189, 0.33, -0.012, 0.04, 0.034], [0.189, 0.3, -0.012, 0.034, 0.03]]
+    }
+  ],
+  "atlas": {
+    "_": "one material: the cloud texture (image 0) + palette cells in its empty middle; the ears (their own texture, a flat skin tone) take the skin colour",
+    "image": 0,
+    "cells": [456, 384, 6],
+    "size": 32,
+    "flat": {
+      "19": 14
+    },
+    "name": "Itachi"
+  },
+  "mtoon": {
+    "shade": [0.78, 0.62, 0.66],
+    "shift": -0.05,
+    "toony": 0.9
+  }
+}

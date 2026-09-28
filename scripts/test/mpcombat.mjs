@@ -17,7 +17,7 @@ async function client(name) {
   const p = await b.newPage();
   await p.setViewport({ width: 960, height: 540 });
   p.on('pageerror', (e) => { if (!/Pointer Lock/.test(e.message)) console.log(`[${name}] PAGEERROR ${e.message}`); });
-  await p.goto(`${URL}?autojoin=1&name=${name}${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+  await p.goto(`${URL}?autojoin=1&pw=HUNNY&name=${name}${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
   await p.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 });
   return { b, p };
 }

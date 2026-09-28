@@ -13,9 +13,17 @@
 //   thighs (never the shins: a long coat must not fold at the knees), `plates` (armour tassets over a coat) move
 //   rigidly with the coat's weights at their centre, small islands (straps, buckles, cuffs) move rigidly with the
 //   weights at their centre. A-pose models: `apose` lifts the arms into a T-pose first (see unpose()).
+//
+// For display figures (a head, a closed cloak and feet, no limbs under it: models/itachi.rig.json) there are more
+// steps, all optional: `shift` moves the source (feet to y = 0), `drop` leaves out hidden materials, `simplify`
+// thins over-dense flat-coloured pieces (meshoptimizer), `reshape` pulls vertices in to an envelope (a cloak's fused
+// sleeves), `parts` adds generated tubes (arms, hands, legs) weighted like any mesh, `islands.noArm` keeps a garment
+// off the arm bones, and `atlas` merges every material into one textured MToon material and one primitive (flat
+// colours become palette cells in the texture's free space): one draw per fighter instead of one per material.
 import fs from 'fs';
 import path from 'path';
 import { readGlb, accessor, viewBytes, BinBuilder, writeGlb } from './glb.mjs';
+import { decodePng, encodePng } from './png.mjs';
 
 const cfgPath = process.argv[2];
 if (!cfgPath) {
@@ -51,11 +59,15 @@ function mul(a, b) {
 // ------------------------------------------------------------------ source geometry in world space
 const S = C.scale ?? 1;
 const prims = [];
+const DROP = new Set(C.drop?.materials || []);
 function visit(ni, parentM) {
   const n = src.json.nodes[ni];
-  const M = mul(parentM, mat4(n));
+  const NM = mul(parentM, mat4(n));
+  // `shift` moves the positions only (children get the unshifted matrix, or they would move twice)
+  const M = C.shift ? NM.map((v, k) => (k >= 12 && k < 15 ? v + C.shift[k - 12] : v)) : NM;
   if (n.mesh !== undefined) {
     for (const p of src.json.meshes[n.mesh].primitives) {
+      if (DROP.has(p.material ?? 0)) continue; // `drop`: hidden pieces (under a closed collar...)
       const P = accessor(src, p.attributes.POSITION), N = p.attributes.NORMAL !== undefined ? accessor(src, p.attributes.NORMAL) : null;
       const UV = accessor(src, p.attributes.TEXCOORD_0);
       const I = p.indices !== undefined ? accessor(src, p.indices) : Uint32Array.from({ length: P.length / 3 }, (_, i) => i);
@@ -91,10 +103,50 @@ function visit(ni, parentM) {
       prims.push({ material: p.material ?? 0, pos, nrm: N ? nrm : null, uv: UV, idx: I });
     }
   }
-  for (const c of n.children || []) visit(c, M);
+  for (const c of n.children || []) visit(c, NM);
 }
 const I4 = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1];
 for (const ni of src.json.scenes[src.json.scene || 0].nodes) visit(ni, I4);
+if (C.simplify) await simplify(C.simplify);
+
+/**
+ * `simplify`: [{ material, ratio, error? }]: the primitives of that material, welded by position (UVs and normals
+ * are dropped: for flat colours only, e.g. toes modelled with thousands of triangles), reduced to about `ratio` of
+ * their triangles by meshoptimizer (error: a fraction of the piece's size), unused vertices removed; smooth normals
+ * are computed at write time.
+ */
+async function simplify(list) {
+  const { MeshoptSimplifier: MS } = await import('../../node_modules/three/examples/jsm/libs/meshopt_simplifier.module.js');
+  await MS.ready;
+  for (const s of list) for (const p of prims) {
+    if (p.material !== s.material) continue;
+    // `maxY` (source units): only pieces entirely below it (a material shared by the face and the toes)
+    if (s.maxY !== undefined && p.pos.some((v, i) => i % 3 === 1 && v > s.maxY)) continue;
+    const n = p.pos.length / 3, key = new Map(), remap = new Uint32Array(n), pos = [];
+    for (let i = 0; i < n; i++) {
+      const k = `${p.pos[i * 3].toFixed(6)},${p.pos[i * 3 + 1].toFixed(6)},${p.pos[i * 3 + 2].toFixed(6)}`;
+      if (!key.has(k)) {
+        key.set(k, pos.length / 3);
+        pos.push(p.pos[i * 3], p.pos[i * 3 + 1], p.pos[i * 3 + 2]);
+      }
+      remap[i] = key.get(k);
+    }
+    const idx = Uint32Array.from(p.idx, (i) => remap[i]);
+    const target = Math.max(3, Math.floor((idx.length / 3) * s.ratio) * 3);
+    const [out] = MS.simplify(idx, Float32Array.from(pos), 3, target, s.error ?? 0.02, []);
+    // keep only the vertices the reduced triangles use
+    const used = new Map(), P = [];
+    const I = Uint32Array.from(out, (v) => {
+      if (!used.has(v)) {
+        used.set(v, P.length / 3);
+        P.push(pos[v * 3], pos[v * 3 + 1], pos[v * 3 + 2]);
+      }
+      return used.get(v);
+    });
+    console.log(`simplify: material ${s.material} ${idx.length / 3} -> ${I.length / 3} triangles`);
+    Object.assign(p, { pos: Float32Array.from(P), nrm: null, uv: new Float32Array((P.length / 3) * 2), idx: I });
+  }
+}
 // feet on the ground, then the uniform scale
 let minY = Infinity;
 for (const p of prims) for (let i = 1; i < p.pos.length; i += 3) minY = Math.min(minY, p.pos[i]);
@@ -107,6 +159,107 @@ for (const p of prims) for (let i = 0; i < p.pos.length; i += 3) {
 const J = (v) => [v[0] * S, (v[1] - minY) * S, v[2] * S];
 const Jy = (y) => (y - minY) * S;
 const L = (d) => d * S; // lengths
+if (C.reshape) reshape(C.reshape);
+if (C.parts) for (const part of C.parts) addPart(part);
+
+/** Piecewise-linear interpolation in [[t, value], ...] (sorted by t, clamped at the ends). */
+function interp(tab, t) {
+  if (t <= tab[0][0]) return tab[0][1];
+  for (let i = 1; i < tab.length; i++) {
+    if (t <= tab[i][0]) {
+      const [t0, a] = tab[i - 1], [t1, b] = tab[i];
+      return a + ((b - a) * (t - t0)) / (t1 - t0);
+    }
+  }
+  return tab[tab.length - 1][1];
+}
+
+/**
+ * `reshape`: [{ materials, envelope: [[y, maxX], ...], soft }] (source units): vertices of those materials further
+ * out than the envelope at their height are pulled in to it (what stays beyond is scaled by `soft`). Flattens the
+ * sleeves a cloak modelled with the arms hanging inside has fused into its sides: generated arms replace them.
+ */
+function reshape(list) {
+  for (const r of list) {
+    const mats = new Set(r.materials);
+    let moved = 0;
+    for (const p of prims) {
+      if (!mats.has(p.material)) continue;
+      for (let i = 0; i < p.pos.length; i += 3) {
+        const e = L(interp(r.envelope, p.pos[i + 1] / S + minY)), ax = Math.abs(p.pos[i]);
+        if (ax <= e) continue;
+        p.pos[i] = Math.sign(p.pos[i]) * (e + (ax - e) * (r.soft ?? 0));
+        moved++;
+      }
+    }
+    console.log(`reshape: ${moved} vertices pulled in`);
+  }
+}
+
+/**
+ * `parts`: generated tubes in source units, added like source primitives (islands, weights, materials):
+ * { material, uv?: [u, v], rings: [[x, y, z, r1, r2?], ...], ref?: [x, y, z], sides?, caps?: [start, end], inside?,
+ *   mirror? (default true: the same part on the right side, x -> -x) }. Each ring is an ellipse around the path
+ * (r1 along `ref` projected off the path, r2 across); `inside` faces the surface inward (a sleeve's lining).
+ */
+function addPart(part) {
+  const sides = part.sides ?? 12;
+  for (const sx of part.mirror === false ? [1] : [1, -1]) {
+    const R = part.rings.map((r) => ({ c: J([r[0] * sx, r[1], r[2]]), r1: L(r[3]), r2: L(r[4] ?? r[3]) }));
+    const ref = part.ref || [0, 1, 0];
+    const pos = [], nrm = [], idx = [];
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+    const nz = (v) => {
+      const l = Math.hypot(...v) || 1;
+      return v.map((x) => x / l);
+    };
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const frames = R.map((r, i) => {
+      const t = nz(sub(R[Math.min(i + 1, R.length - 1)].c, R[Math.max(i - 1, 0)].c));
+      const u = nz(sub(ref, t.map((x) => x * dot(ref, t))));
+      return { t, u, v: cross(t, u) };
+    });
+    const out = part.inside ? -1 : 1;
+    R.forEach((r, i) => {
+      const { u, v } = frames[i];
+      for (let j = 0; j < sides; j++) {
+        const a = (j / sides) * Math.PI * 2, ca = Math.cos(a), sa = Math.sin(a);
+        pos.push(...[0, 1, 2].map((k) => r.c[k] + u[k] * ca * r.r1 + v[k] * sa * r.r2));
+        nrm.push(...nz([0, 1, 2].map((k) => u[k] * (ca / r.r1) + v[k] * (sa / r.r2))).map((x) => x * out));
+      }
+    });
+    // triangles face along their normal (outward, or inward for a lining)
+    const tri = (a, b, c, want) => {
+      const n = cross(sub(pos.slice(b * 3, b * 3 + 3), pos.slice(a * 3, a * 3 + 3)), sub(pos.slice(c * 3, c * 3 + 3), pos.slice(a * 3, a * 3 + 3)));
+      idx.push(...(dot(n, want) >= 0 ? [a, b, c] : [a, c, b]));
+    };
+    for (let i = 0; i + 1 < R.length; i++) {
+      for (let j = 0; j < sides; j++) {
+        const a = i * sides + j, b = i * sides + ((j + 1) % sides), c = a + sides, d = b + sides;
+        const w = nrm.slice(a * 3, a * 3 + 3);
+        tri(a, b, d, w);
+        tri(a, d, c, w);
+      }
+    }
+    // caps: a fan with its own vertices (flat normal along the path)
+    const caps = part.caps || [false, false];
+    [0, R.length - 1].forEach((ri, e) => {
+      if (!caps[e]) return;
+      const dir = frames[ri].t.map((x) => (e ? x : -x)), base = pos.length / 3;
+      for (let j = 0; j < sides; j++) {
+        pos.push(...pos.slice((ri * sides + j) * 3, (ri * sides + j) * 3 + 3));
+        nrm.push(...dir);
+      }
+      pos.push(...R[ri].c);
+      nrm.push(...dir);
+      for (let j = 0; j < sides; j++) tri(base + sides, base + j, base + ((j + 1) % sides), dir);
+    });
+    const n = pos.length / 3, uv = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) [uv[i * 2], uv[i * 2 + 1]] = part.uv || [0, 0];
+    prims.push({ material: part.material, pos: Float32Array.from(pos), nrm: Float32Array.from(nrm), uv, idx: Uint32Array.from(idx), generated: true });
+  }
+}
 
 // ------------------------------------------------------------------ islands (connected pieces, welded by position)
 for (const [pi, p] of prims.entries()) {
@@ -463,12 +616,12 @@ function legW(side, y, z, out, w) {
   }
 }
 
-/** The weights of a point (world, scaled). skirt: the island is a long coat/skirt. */
-function weigh(x, y, z, skirt) {
+/** The weights of a point (world, scaled). skirt: the island is a long coat/skirt; noArm: never on the arm bones. */
+function weigh(x, y, z, skirt, noArm) {
   const out = new Map(), ax = Math.abs(x);
   const side = x >= 0 ? 'left' : 'right';
   // arm mask: outside the shoulders and above the armpit (further out, lower: a wide sleeve hangs below the arm)
-  const mA = smooth(mx(M.armX[0]), mx(M.armX[1]), ax) * Math.max(smooth(my(M.armpitY[0]), my(M.armpitY[1]), y), smooth(mx(M.sleeveX[0]), mx(M.sleeveX[1]), ax) * smooth(my(M.sleeveY[0]), my(M.sleeveY[1]), y));
+  const mA = noArm ? 0 : smooth(mx(M.armX[0]), mx(M.armX[1]), ax) * Math.max(smooth(my(M.armpitY[0]), my(M.armpitY[1]), y), smooth(mx(M.sleeveX[0]), mx(M.sleeveX[1]), ax) * smooth(my(M.sleeveY[0]), my(M.sleeveY[1]), y));
   // leg mask: below the crotch
   let mL = Math.min(smooth(my(M.crotchY[0]), my(M.crotchY[1]), y), 1 - mA);
   if (skirt) {
@@ -502,6 +655,7 @@ for (const is of islands) {
   if (!is.rule && (rules.plates || []).some((s) => matches(is, s))) is.rule = { plate: true };
   for (const ch of chains) if (!is.rule && matches(is, ch.select)) is.rule = { chain: ch };
   if (!is.rule && (rules.skirt || []).some((s) => matches(is, s))) is.skirt = true;
+  if ((rules.noArm || []).some((s) => matches(is, s))) is.noArm = true;
   if (!is.rule && !is.skirt && is.tris <= (rules.smallTris ?? 0) && Math.max(is.max[0] - is.min[0], is.max[1] - is.min[1], is.max[2] - is.min[2]) < L(rules.smallSize ?? 0.3)) is.rule = { small: true };
 }
 
@@ -526,7 +680,7 @@ function chainW(ch, x, y, z) {
 const weightsOf = (p, i, is) => {
   const x = p.pos[i * 3], y = p.pos[i * 3 + 1], z = p.pos[i * 3 + 2];
   if (is.rule?.bone) return new Map([[is.rule.bone, 1]]);
-  if (is.rule?.plate) return (is.cw ||= weigh(is.c[0], is.c[1], is.c[2], true));
+  if (is.rule?.plate) return (is.cw ||= weigh(is.c[0], is.c[1], is.c[2], true, is.noArm));
   if (is.rule?.chain) {
     // `front`: [z, z] (source units): the chain fades into its parent toward the front (bangs stay on the head)
     const ch = is.rule.chain, w = chainW(ch, x, y, z);
@@ -536,8 +690,8 @@ const weightsOf = (p, i, is) => {
     w.set(ch.parent, (w.get(ch.parent) || 0) + 1 - f);
     return w;
   }
-  if (is.rule?.small) return (is.cw ||= weigh(is.c[0], is.c[1], is.c[2], false));
-  return weigh(x, y, z, is.skirt);
+  if (is.rule?.small) return (is.cw ||= weigh(is.c[0], is.c[1], is.c[2], false, is.noArm));
+  return weigh(x, y, z, is.skirt, is.noArm);
 };
 
 let maxInf = 0, pruned = 0;
@@ -585,21 +739,17 @@ bones.forEach((b, i) => {
   if (b.parent >= 0) (json.nodes[nodeOf(b.parent)].children ||= []).push(nodeOf(i));
   else json.nodes[0].children.push(nodeOf(i));
 });
-// images + textures (as in the source)
-for (const im of src.json.images) json.images.push({ bufferView: bb.view(viewBytes(src, im.bufferView)), mimeType: im.mimeType, name: im.name });
-for (const t of src.json.textures) json.textures.push({ sampler: t.sampler ?? 0, source: t.source });
 // materials: MToon with the look of the game's other fighters
 const MT = C.mtoon || {};
-for (const [mi, m] of src.json.materials.entries()) {
-  const tex = m.pbrMetallicRoughness?.baseColorTexture?.index;
-  const o = MT[m.name] || {};
+function mtoon(name, m, tex, baseColor) {
+  const o = MT[name] || {};
   const shade = o.shade || MT.shade || [0.78, 0.62, 0.66];
-  json.materials.push({
-    name: m.name || `mat${mi}`,
+  return {
+    name,
     alphaMode: m.alphaMode || 'OPAQUE',
     ...(m.alphaCutoff !== undefined ? { alphaCutoff: m.alphaCutoff } : {}),
     doubleSided: !!m.doubleSided,
-    pbrMetallicRoughness: { baseColorFactor: m.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1], ...(tex !== undefined ? { baseColorTexture: { index: tex, texCoord: 0 } } : {}), metallicFactor: 0, roughnessFactor: 1 },
+    pbrMetallicRoughness: { baseColorFactor: baseColor, ...(tex !== undefined ? { baseColorTexture: { index: tex, texCoord: 0 } } : {}), metallicFactor: 0, roughnessFactor: 1 },
     extensions: {
       KHR_materials_unlit: {},
       VRMC_materials_mtoon: {
@@ -624,11 +774,10 @@ for (const [mi, m] of src.json.materials.entries()) {
         uvAnimationRotationSpeedFactor: 0,
       },
     },
-  });
+  };
 }
-// one skinned mesh, a primitive per source primitive
 const ARRAY = 34962, ELEMENT = 34963;
-const primitives = prims.map((p) => {
+const primitive = (p, material) => {
   const nrm = p.nrm || computeNormals(p);
   const n = p.pos.length / 3;
   const idx = n < 65536 ? Uint16Array.from(p.idx) : Uint32Array.from(p.idx);
@@ -641,9 +790,82 @@ const primitives = prims.map((p) => {
       WEIGHTS_0: bb.accessor(p.weights, 'VEC4', { target: ARRAY }),
     },
     indices: bb.accessor(idx, 'SCALAR', { target: ELEMENT }),
-    material: p.material,
+    material,
   };
-});
+};
+let primitives;
+if (C.atlas) primitives = [primitive(atlas(C.atlas), 0)];
+else {
+  // images + textures (as in the source)
+  for (const im of src.json.images) json.images.push({ bufferView: bb.view(viewBytes(src, im.bufferView)), mimeType: im.mimeType, name: im.name });
+  for (const t of src.json.textures) json.textures.push({ sampler: t.sampler ?? 0, source: t.source });
+  for (const [mi, m] of src.json.materials.entries()) {
+    const tex = m.pbrMetallicRoughness?.baseColorTexture?.index;
+    json.materials.push(mtoon(m.name || `mat${mi}`, m, tex, m.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1]));
+  }
+  // one skinned mesh, a primitive per source primitive
+  primitives = prims.map((p) => primitive(p, p.material));
+}
+
+/**
+ * `atlas`: { image, cells: [x, y, columns], size, flat?: { material: asMaterial }, name }: one material, one
+ * primitive. Primitives textured with `image` keep their UVs; every other material's colour (baseColorFactor, or
+ * that of `flat[material]`: a textured piece drawn in another material's plain colour) is painted into a size x size
+ * cell of that image's free space (checked empty) and its vertices sample the cell's centre. Returns the merged
+ * primitive (json gets the image, texture and material).
+ */
+function atlas(A) {
+  const mats = src.json.materials, size = A.size ?? 32, [x0, y0, cols] = A.cells;
+  const texImage = (m) => {
+    const t = m.pbrMetallicRoughness?.baseColorTexture?.index;
+    return t === undefined ? undefined : src.json.textures[t].source;
+  };
+  const img = decodePng(viewBytes(src, src.json.images[A.image].bufferView));
+  const toSrgb = (c) => Math.round(255 * (c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055));
+  const cells = new Map();
+  for (const p of prims) {
+    const m = mats[p.material] || {};
+    if (!p.generated && texImage(m) === A.image) continue;
+    const cm = mats[A.flat?.[p.material] ?? p.material];
+    if (texImage(cm) !== undefined && texImage(cm) !== A.image && A.flat?.[p.material] === undefined) throw new Error(`atlas: material ${p.material} has another texture: map it in atlas.flat`);
+    const rgb = (cm.pbrMetallicRoughness?.baseColorFactor || [1, 1, 1, 1]).slice(0, 3).map(toSrgb), key = rgb.join(',');
+    if (!cells.has(key)) {
+      const k = cells.size, cx = x0 + (k % cols) * size, cy = y0 + Math.floor(k / cols) * size;
+      if (cy + size > img.height) throw new Error('atlas: no room for the palette');
+      for (let y = cy; y < cy + size; y++) for (let x = cx; x < cx + size; x++) {
+        const o = (y * img.width + x) * 4;
+        if (img.data[o] + img.data[o + 1] + img.data[o + 2] > 24) throw new Error(`atlas: cell ${k} at ${cx},${cy} is not empty`);
+        img.data.set([...rgb, 255], o);
+      }
+      cells.set(key, [(cx + size / 2) / img.width, (cy + size / 2) / img.height]);
+    }
+    const [u, v] = cells.get(key);
+    p.uv = new Float32Array(p.pos.length / 3 * 2).map((_, i) => (i % 2 ? v : u));
+  }
+  json.images.push({ bufferView: bb.view(encodePng(img)), mimeType: 'image/png', name: A.name || 'atlas' });
+  json.textures.push({ sampler: 0, source: 0 });
+  json.materials.push(mtoon(A.name || 'Body', { doubleSided: true }, 0, [1, 1, 1, 1]));
+  console.log(`atlas: ${prims.length} primitives, ${cells.size} palette colours -> one material`);
+  // one primitive: every attribute concatenated, indices offset
+  const cat = (T, get, w) => {
+    const out = new T(prims.reduce((s, p) => s + (p.pos.length / 3) * w, 0));
+    let o = 0;
+    for (const p of prims) {
+      const a = get(p);
+      out.set(a, o);
+      o += a.length;
+    }
+    return out;
+  };
+  let base = 0;
+  const idx = new Uint32Array(prims.reduce((s, p) => s + p.idx.length, 0));
+  let o = 0;
+  for (const p of prims) {
+    for (const i of p.idx) idx[o++] = i + base;
+    base += p.pos.length / 3;
+  }
+  return { pos: cat(Float32Array, (p) => p.pos, 3), nrm: cat(Float32Array, (p) => p.nrm || computeNormals(p), 3), uv: cat(Float32Array, (p) => p.uv, 2), joints: cat(Uint16Array, (p) => p.joints, 4), weights: cat(Float32Array, (p) => p.weights, 4), idx };
+}
 json.meshes.push({ name: 'Body', primitives });
 const meshNode = json.nodes.length;
 json.nodes.push({ name: 'Body', mesh: 0, skin: 0 });
@@ -705,7 +927,7 @@ writeGlb(outFile, json, bin);
 // ------------------------------------------------------------------ report
 const tris = prims.reduce((s, p) => s + p.idx.length / 3, 0);
 const r3 = (v) => v.map((x) => x.toFixed(3)).join(', ');
-console.log(`${path.relative(process.cwd(), outFile)}: ${bones.length} bones, ${tris} triangles, ${prims.length} materials, ${(fs.statSync(outFile).size / 1024).toFixed(0)} KB`);
+console.log(`${path.relative(process.cwd(), outFile)}: ${bones.length} bones, ${tris} triangles, ${C.atlas ? `1 material (${prims.length} pieces)` : `${prims.length} materials`}, ${(fs.statSync(outFile).size / 1024).toFixed(0)} KB`);
 console.log(`scale ${S}, height ${(Math.max(...prims.flatMap((p) => [...p.pos].filter((_, i) => i % 3 === 1)))).toFixed(3)} m, hips ${Y.hips.toFixed(3)} m, influences max ${maxInf}${pruned ? ` (${pruned} vertices pruned to 4)` : ''}`);
 for (const side of ['left']) {
   const h = H[side];

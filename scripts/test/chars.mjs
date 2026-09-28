@@ -36,7 +36,28 @@ await A.keyboard.type('Nova');
 await sleep(200);
 check(await A.evaluate(() => __game.state === 'title'), 'typing a name does not join');
 await A.evaluate(() => document.getElementById('ti-name').blur());
-const key = (await A.evaluate((ch) => [...__game.cardEls.keys()].indexOf(ch), CH)) + 1;
+// ---- the password lock (Itachi): no password or a wrong one stays on the title screen
+const cardKey = async (ch) => (await A.evaluate((c) => [...__game.cardEls.keys()].indexOf(c), ch)) + 1;
+const lockKey = await cardKey('itachi');
+if (lockKey > 0) {
+  await A.keyboard.press(`Digit${lockKey}`);
+  await sleep(100);
+  check(await A.evaluate(() => !document.getElementById('ti-pw').classList.contains('hidden') && document.activeElement.id === 'ti-pw-in'), 'a locked character shows (and focuses) the password field');
+  await A.keyboard.press('Enter');
+  await sleep(300);
+  check(await A.evaluate(() => __game.state === 'title' && document.getElementById('ti-pw').classList.contains('bad')), 'no password: not joined');
+  await A.keyboard.type('HONEY');
+  await A.keyboard.press('Enter');
+  const refused = await A.waitForFunction("__game.state === 'title' && document.getElementById('ti-pw').classList.contains('bad')", { timeout: 15000 }).then(() => true).catch(() => false);
+  check(refused && (await A.evaluate(() => !__game.net.joined && !localStorage.getItem('shinobi.pw'))), 'wrong password: refused by the server', await A.evaluate(() => document.getElementById('ti-status').textContent));
+  await A.evaluate(() => { const e = document.getElementById('ti-pw-in'); e.value = ''; e.blur(); });
+  if (CH === 'itachi') {
+    await A.click('#ti-pw-in');
+    await A.keyboard.type('HUNNY');
+    await A.evaluate(() => document.getElementById('ti-pw-in').blur());
+  }
+}
+const key =(await A.evaluate((ch) => [...__game.cardEls.keys()].indexOf(ch), CH)) + 1;
 if (key < 1) throw new Error(`no card for ${CH}`);
 await A.keyboard.press(`Digit${key}`);
 await sleep(100);
@@ -62,17 +83,20 @@ const bSeesA = await B.evaluate((id, ch) => { const r = __game.remotes.get(id); 
 check(aSeesB.ch === 'naruto' && aSeesB.model && aSeesB.lib, 'A draws B as Naruto', JSON.stringify(aSeesB));
 check(bSeesA.ch === CH && bSeesA.model && bSeesA.lib && bSeesA.name === 'Nova', `B draws A as ${CH} named Nova`, JSON.stringify(bSeesA));
 
-// ---- A casts Shadow Clone Rush next to B: B must see clones in A's body
-await A.evaluate(() => __game.teleport(-30, 44, 0));
-await B.evaluate(() => __game.teleport(-30, 40, Math.PI));
-await sleep(1200);
-await A.evaluate(() => { __game.ctrl.chakra = 100; __game.input.press('jutsu2'); });
-let clones = null;
-for (let i = 0; i < 40 && !clones?.n; i++) {
-  await sleep(100);
-  clones = await B.evaluate((ch) => { const cs = __game.jutsu.clones.filter((c) => !c.gone); const pool = __game.jutsu.clonePools.get(ch); return { n: cs.length, own: cs.every((c) => pool.includes(c.f.vrm)) }; }, CH);
-}
-check(clones.n > 0 && clones.own, `B sees A's clones in the ${CH} body`, JSON.stringify(clones));
+// ---- A casts Shadow Clone Rush next to B: B must see clones in A's body (kits without it, Madara's and Itachi's, skip)
+const hasClones = await A.evaluate(() => __game.ctrl.C.kit.jutsu2 === 'clones');
+if (hasClones) {
+  await A.evaluate(() => __game.teleport(-30, 44, 0));
+  await B.evaluate(() => __game.teleport(-30, 40, Math.PI));
+  await sleep(1200);
+  await A.evaluate(() => { __game.ctrl.chakra = 100; __game.input.press('jutsu2'); });
+  let clones = null;
+  for (let i = 0; i < 40 && !clones?.n; i++) {
+    await sleep(100);
+    clones = await B.evaluate((ch) => { const cs = __game.jutsu.clones.filter((c) => !c.gone); const pool = __game.jutsu.clonePools.get(ch); return { n: cs.length, own: cs.every((c) => pool.includes(c.f.vrm)) }; }, CH);
+  }
+  check(clones.n > 0 && clones.own, `B sees A's clones in the ${CH} body`, JSON.stringify(clones));
+} else console.log(`(skip) ${CH}'s kit has no Shadow Clone Rush`);
 if (SHOTS) {
   await B.evaluate(() => { __game.studio = { yaw: 0, pitch: 0.1, dist: 7, h: 1, fov: 45 }; });
   await sleep(300);

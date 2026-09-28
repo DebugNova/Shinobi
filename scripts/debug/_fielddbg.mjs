@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer-core';
 const URL = 'http://localhost:3104/';
 const launch = () => puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-async function client(name, ch) { const b = await launch(); const p = await b.newPage(); p.on('pageerror', (e) => console.log(name, 'ERR', e.message)); await p.goto(`${URL}?autojoin=1&name=${name}&ch=${ch}`); await p.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 }); return { b, p }; }
+async function client(name, ch) { const b = await launch(); const p = await b.newPage(); p.on('pageerror', (e) => console.log(name, 'ERR', e.message)); await p.goto(`${URL}?autojoin=1&pw=HUNNY&name=${name}&ch=${ch}`); await p.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 }); return { b, p }; }
 const [A, B] = await Promise.all([client('M', 'madara'), client('T', 'naruto')]);
 await sleep(2500);
 const idB = await B.p.evaluate(() => __game.net.id);

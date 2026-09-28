@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { ST, FLAG, SIM } from '../shared/config.js';
 import { charOf } from '../shared/characters.js';
-import { hitSpec, resolveHit, comboAfter, reactionFlight, reactionTimes, koHit, KO_HOLD, REACT, AIRBORNE } from '../shared/combat.js';
+import { hitSpec, resolveHit, comboAfter, reactionFlight, reactionTimes, koHit, keepDaze, KO_HOLD, REACT, AIRBORNE } from '../shared/combat.js';
 import { COMBO } from '../shared/naruto.js';
 import { Hurtbox, PostHurtbox, sweptHit, gripSegment } from './hurtbox.js';
 import { BI } from '../char/rig.js';
@@ -21,6 +21,8 @@ const wrap = (a) => {
   return a - Math.PI;
 };
 const F = 1 / 60;
+// hits the server applies itself (no client detects them, so the attacker's screen never predicted them)
+const SERVER_HIT = /^(uchihaReturn|tengaiShinsei|tsukuyomi|amaterasu):/;
 const TURN = 40; // rad/s an attack turns toward its target (180 degrees in under 5 ticks)
 let instSeq = Math.floor(Math.random() * 1000) * 1000;
 
@@ -301,6 +303,8 @@ export class ReactAction {
     const clip = h.r === REACT.stagger || h.r === REACT.guardBreak ? 'stagger' : this.pick;
     // hitstop shows the impact frame; the reaction stretches to the stun time
     const dur = Math.max(0.2, h.st * F);
+    // a genjutsu (Tsukuyomi): the dazed loop, after a hit's own flinch when one lands inside it
+    if (h.dz && (h.r === REACT.daze || s > dur + 3 * F)) return { clip: 'dazed', t: (n / 1000) % 600, key: 'dazed' };
     return { clip, t: s + 3 * F, dur, key: `react${h.n || 0}` };
   }
 
@@ -318,7 +322,9 @@ export class ReactAction {
       ctrl.physics(dt);
       return this.tech.t < 0.4;
     }
-    const inStun = n <= Math.max((h.land || h.end) + 280, this.minEnd) && h.r !== REACT.guard && !h.ko;
+    // (inside a genjutsu only a hit's own stun can be substituted out of, never the daze itself)
+    const stunEnd = h.r === REACT.daze ? -1e9 : h.land || (h.dz ? h.t0 + h.st * (1000 / 60) : h.end);
+    const inStun = n <= Math.max(stunEnd + 280, h.r === REACT.daze ? -1e9 : this.minEnd) && h.r !== REACT.guard && !h.ko;
     // substitution: dash while stunned (and a pip left)
     if (inStun && !this.subbed && g.gauge.sp > 0 && input.take('dash', 0.15)) {
       this.subbed = true;
@@ -609,6 +615,9 @@ export class Combat {
     if (!t.dummy) {
       const h = { a: g.net.id, v: t.id, r: res.react, t0: at + res.hitstop * (1000 / 60), p: [t.x, t.y, t.z], kb: res.kb, st: res.stun, hs: res.hitstop, n: res.n, ko: !!res.ko, predicted: true, key: `${act.inst}:${t.id}:${act.k || 0}` };
       Object.assign(h, reactionTimes(g.world, e.info.ch, h.r, h.p, h.kb, h.t0, h.st, h.ko));
+      // (inside a Tsukuyomi a hit that doesn't throw the victim leaves it dazed to the end: the server's rule)
+      const pr = e.react;
+      keepDaze(h, h.r, pr && !pr.ko && at <= pr.end ? pr.dz : 0, at, h.ko);
       this.remoteCombos.set(t.id, comboAfter(combo, at / 1000, res, (h.land || h.end) / 1000));
       this.startRemoteReaction(e, h);
     } else g.dummy.hit(res, at);
@@ -618,8 +627,8 @@ export class Combat {
   feedback(point, res, spec, mine) {
     const g = this.game;
     if (res.react === REACT.none) {
-      // a burn tick: a few embers, no burst, no shake
-      g.fx.impact(point, 0.3, [3.2, 1.2, 0.25]);
+      // a burn tick: a few embers (Amaterasu's: crimson), no burst, no shake
+      g.fx.impact(point, 0.3, spec.black ? [0.9, 0.04, 0.3] : [3.2, 1.2, 0.25]);
       return;
     }
     const w = Math.min(4, 1 + (spec.hitstop || 4) / 3 - 1 + (AIRBORNE.has(res.react) ? 1 : 0));
@@ -733,7 +742,9 @@ export class Combat {
         v.st = ST.getup;
       }
     } else {
-      v.act = { clip: r.r === REACT.stagger || r.r === REACT.guardBreak ? 'stagger' : r.pick, t: s + 3 * F, dur: Math.max(0.2, r.st * F), key: `react${r.n || 0}` };
+      const dur = Math.max(0.2, r.st * F);
+      if (r.dz && (r.r === REACT.daze || s > dur + 3 * F)) v.act = { clip: 'dazed', t: (n / 1000) % 600, key: 'dazed' };
+      else v.act = { clip: r.r === REACT.stagger || r.r === REACT.guardBreak ? 'stagger' : r.pick, t: s + 3 * F, dur, key: `react${r.n || 0}` };
       v.st = ST.hit;
     }
     return true;
@@ -743,9 +754,17 @@ export class Combat {
 
   onHitr(m) {
     const g = this.game;
-    const h = { a: m.a, v: m.v, r: m.r, t0: m.t0, p: m.p, kb: m.kb, st: m.st, hs: m.hs, land: m.l, end: m.e, n: m.n, ko: !!m.ko, key: `${m.i}:${m.v}:${m.k || 0}`, blocked: m.b };
+    const h = { a: m.a, v: m.v, r: m.r, t0: m.t0, p: m.p, kb: m.kb, st: m.st, hs: m.hs, land: m.l, end: m.e, n: m.n, ko: !!m.ko, dz: m.dz || 0, key: `${m.i}:${m.v}:${m.k || 0}`, blocked: m.b };
+    // Itachi's kit: the Tsukuyomi mark, the black flames (every victim, the dummy included)
+    g.jutsu?.itachi.onHitr(m);
+    const black = /^amaterasu:/.test(m.m);
     if (m.v === 0) {
       g.dummy?.confirm(m);
+      // our own server-applied hits on the dummy (never predicted): the number and the burst now
+      if (m.a === g.net.id && SERVER_HIT.test(m.m) && g.dummy) {
+        g.dummy.hit({ dmg: m.d }, m.at);
+        this.feedback(g.dummy.hurt.center, { blocked: !!m.b, react: m.r }, { hitstop: m.hs, black }, true);
+      }
       return;
     }
     if (m.v === g.net.id) {
@@ -753,10 +772,10 @@ export class Combat {
       g.net.seq = m.sq;
       g.hp = m.hp;
       if (m.r === REACT.none) {
-        // a burn tick: HP only, we keep control
-        g.player.flash();
+        // a burn tick: HP only, we keep control (Amaterasu's ticks don't flash: its flames are the feedback)
+        if (!black) g.player.flash();
         g.hud.hurt?.(m.d, m.hp);
-        g.fx.impact(g.player.hurt.center, 0.3, [3.2, 1.2, 0.25]);
+        g.fx.impact(g.player.hurt.center, 0.3, black ? [0.9, 0.04, 0.3] : [3.2, 1.2, 0.25]);
         return;
       }
       // a hit from before our substitution (it crossed our dash on the wire) only costs HP: the log took it
@@ -809,8 +828,9 @@ export class Combat {
     e.info.hp = m.hp;
     if (m.r === REACT.none) {
       // a burn tick: HP and a flash; the fighter keeps moving on its own stream
-      e.fighter?.flash();
-      if (m.a !== g.net.id && e.fighter) this.feedback(e.fighter.hurt.center, { react: REACT.none }, {}, false);
+      if (!black) e.fighter?.flash();
+      if (m.a !== g.net.id && e.fighter) this.feedback(e.fighter.hurt.center, { react: REACT.none }, { black }, false);
+      else if (m.a === g.net.id && SERVER_HIT.test(m.m) && e.fighter) this.feedback(e.fighter.hurt.center, { react: REACT.none }, { black }, true);
       g.hud.hp?.(e);
       return;
     }
@@ -823,12 +843,14 @@ export class Combat {
       if (att) att.hitstopUntil = performance.now() + m.hs * (1000 / 60);
     } else {
       if (!m.b && m.n) this.combo.n = Math.max(this.combo.n, m.n);
-      // our counter's blow / reflection, our meteor: applied by the server, never predicted here
-      const p = /^(uchihaReturn|tengaiShinsei):/.test(m.m) && e.fighter?.hurt?.center;
+      // our counter's blow / reflection, our meteor, our gazes: applied by the server, never predicted here
+      const p = SERVER_HIT.test(m.m) && e.fighter?.hurt?.center;
       if (p) this.feedback(p, { blocked: !!m.b, react: m.r }, { hitstop: m.hs }, true);
     }
     this.startRemoteReaction(e, h);
-    this.remoteCombos.set(m.v, { n: m.n, start: this.remoteCombos.get(m.v)?.start ?? m.at / 1000, until: (m.l || m.e) / 1000 });
+    // (a genjutsu opens no combo: the next hit starts one, as on the server)
+    if (m.r === REACT.daze) this.remoteCombos.delete(m.v);
+    else this.remoteCombos.set(m.v, { n: m.n, start: this.remoteCombos.get(m.v)?.start ?? m.at / 1000, until: (m.l || m.e) / 1000 });
     g.hud.hp?.(e);
   }
 

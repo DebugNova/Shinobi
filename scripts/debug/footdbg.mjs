@@ -8,7 +8,7 @@ const [URL = 'http://localhost:3101/', from = '3600', to = '4000', side = 'left'
 const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage();
 await page.setViewport({ width: 960, height: 540 });
-await page.goto(`${URL}?autojoin=1&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+await page.goto(`${URL}?autojoin=1&pw=HUNNY&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
 await page.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 });
 await new Promise((r) => setTimeout(r, 800));
 const rows = await page.evaluate(async (from, to, side, scen) => {

@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect, ToneMappingMode, SMAAEffect, SMAAPreset, BrightnessContrastEffect, HueSaturationEffect } from 'postprocessing';
 import { OutlineEffect } from './outline.js';
 import { HazeEffect } from './haze.js';
+import { GenjutsuEffect } from './itachifx.js';
 
 export class Post {
   constructor(renderer, scene, camera) {
@@ -20,8 +21,9 @@ export class Post {
     this.outline = new OutlineEffect();
     this.haze = new HazeEffect(); // heat shimmer over fire (High+; bends UVs, so it goes first)
     this.hazeOn = true;
+    this.genjutsu = new GenjutsuEffect(); // Tsukuyomi's red-and-black world on its victim's screen (0 = off)
     this.camera = camera;
-    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc));
+    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc, this.genjutsu));
     this.composer.addPass(new EffectPass(camera, this.smaa));
     this.grade = { bright: 0, sat: 0 };
     this.setSize(innerWidth, innerHeight);
@@ -39,6 +41,7 @@ export class Post {
     G.bright = 0;
     G.sat = 0;
     this.haze.apply(this.camera, dt, this.hazeOn);
+    this.genjutsu.apply(dt);
     this.composer.render(dt);
   }
 }

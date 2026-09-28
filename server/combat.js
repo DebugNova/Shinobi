@@ -1,7 +1,7 @@
 // Server side of combat: every fighter's recent history (for lag-compensated rewinds), action windows, reactions
 // (deterministic flights), invulnerability, and the validation of a client's hit report. Results come from the
 // shared rules (src/shared/combat.js) and move data, never from the client's numbers.
-import { hitSpec, resolveHit, comboAfter, activeAt, reactionFlight, reactionTimes, koHit, REACT, AIRBORNE } from '../src/shared/combat.js';
+import { hitSpec, resolveHit, comboAfter, activeAt, reactionFlight, reactionTimes, koHit, keepDaze, REACT, AIRBORNE } from '../src/shared/combat.js';
 import { charOf } from '../src/shared/characters.js';
 import { NET, ST } from '../src/shared/config.js';
 import { castEffect, checkArea, COUNTER_KIND } from '../src/shared/madarakit.js';
@@ -28,6 +28,8 @@ export class Combat {
     p.hitsAt = [];
     p.guard = false;
     p.counter = null; // Madara's wind barrier (Uchiha Return): { m, i, at, w: [start, end] ms, nr, last } (index.js)
+    p.escape = null; // Itachi's Crow Clone Escape: [start, end] ms, invulnerable (index.js)
+    p.burn = null; // Amaterasu burning on this fighter: { att, i, left, next, k, every } (index.js)
   }
 
   /** Records a state (feet position etc.) at server time `at`. */
@@ -90,6 +92,7 @@ export class Combat {
     if (t < p.protectUntil) return 'spawn';
     if (t >= p.dashAt && t <= p.dashAt + C.move.dash.invuln * 1000) return 'dash';
     if (t >= p.subAt && t <= p.subAt + C.react.sub.invuln * 1000) return 'sub';
+    if (p.escape && t >= p.escape[0] && t <= p.escape[1]) return 'crow';
     const r = p.react;
     if (r && r.land && t >= r.land && t <= r.end) return 'down';
     return null;
@@ -142,6 +145,13 @@ export class Combat {
     if (!inst) return { ok: false, why: 'instance' };
     if (inst.m !== msg.m && !(inst.k === 'jutsu' && inst.m === base) && !(base === 'clone' && inst.m === 'clones') && !(base === 'rsh' && inst.m === 'rasenshuriken')) return { ok: false, why: 'mismatch' };
     if (spec.win && !activeAt(spec, (at - inst.at) / 1000, 0.08)) return { ok: false, why: 'window' };
+    // a homing shot (Itachi's fireballs, spec.dodge) is shaken off by a dash or a substitution while it flies: the
+    // victim's own timing on the server clock decides (at 200 ms the attacker's screen sees the dash too late to drop
+    // the lock itself, and would hit where the victim was)
+    if (spec.dodge) {
+      const ph = inst.phases?.[(msg.k | 0) + 1], dt = charOf(v.ch).move.dash.time * 1000;
+      if (ph && ((v.dashAt + dt > ph.at && v.dashAt <= at) || (v.subAt > ph.at && v.subAt <= at))) return { ok: false, why: 'dodged' };
+    }
     const key = `${att.id}:${msg.i}:${msg.k | 0}:${v.id}`;
     if (v.hitDone.has(key)) return { ok: false, why: 'dup' };
     // invulnerability at the hit time: a dodge that started before the hit wins
@@ -182,7 +192,7 @@ export class Combat {
   apply(att, val, msg) {
     const { v, spec, at, p, ax, az, ayaw } = val;
     const t = this.now();
-    att.hitsAt.push(t);
+    if (!val.srv) att.hitsAt.push(t); // (the server's own hits, burns included, don't count against the client's rate)
     v.hitDone.set(val.key, t);
     const air = !!(v.react && v.react.flight && AIRBORNE.has(v.react.react) && at < (v.react.land || v.react.end));
     const res = resolveHit(spec, {
@@ -208,9 +218,13 @@ export class Combat {
     const p0 = [r3(p[0]), r3(p[1]), r3(p[2])];
     const kb = res.kb.map(r3);
     const { land, end } = reactionTimes(this.world, v.ch, res.react, p0, kb, t0, res.stun, !!res.ko);
-    const r = { react: res.react, ch: v.ch, t0, hs, p: p0, kb, yaw: v.s[6], land, end, att: att.id, flight: null, ko: !!res.ko };
+    // (Tsukuyomi: a hit that doesn't throw a dazed victim leaves it dazed to the genjutsu's end: keepDaze)
+    const prev = v.react;
+    const dz = keepDaze({ end }, res.react, prev && !prev.ko && at <= prev.end ? prev.dz : 0, at, !!res.ko);
+    const r = { react: res.react, ch: v.ch, t0, hs, p: p0, kb, yaw: v.s[6], land, end: dz.end, att: att.id, flight: null, ko: !!res.ko, dz: dz.dz || 0 };
     if (res.react !== REACT.wobble) r.flight = reactionFlight(this.world, v.ch, res.react, p0, kb);
-    if (!res.blocked) {
+    if (res.react === REACT.daze) v.combo = null; // (the genjutsu opens no combo: the hits in it start one)
+    else if (!res.blocked) {
       v.combo = comboAfter(v.combo, at / 1000, res, (r.land || r.end) / 1000);
       res.n = v.combo.n;
     }
@@ -219,8 +233,9 @@ export class Combat {
     // (a hit that lands came before the barrier rose: his screen's reaction ends the cast, so the barrier goes too;
     // inside the window nothing lands)
     if (v.counter) v.counter = null;
-    if (res.react !== REACT.guard && res.react !== REACT.wobble) {
-      (v.stuns ||= []).push([t0 - hs * (1000 / 60), r.land || r.end]);
+    // (substitution: out of a hit's own stun, never out of the genjutsu itself)
+    if (res.react !== REACT.guard && res.react !== REACT.wobble && res.react !== REACT.daze) {
+      (v.stuns ||= []).push([t0 - hs * (1000 / 60), r.land || end]);
       if (v.stuns.length > 6) v.stuns.shift();
     }
     v.seq++;
@@ -244,6 +259,7 @@ export class Combat {
       n: res.n,
       b: res.blocked ? 1 : 0,
       ...(res.ko ? { ko: 1 } : {}),
+      ...(r.dz ? { dz: Math.round(r.dz) } : {}),
       sq: v.seq,
       rw: val.rw, // where the server's rewound history had the victim (F4 draws it in yellow)
       res,

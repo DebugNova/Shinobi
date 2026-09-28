@@ -3,6 +3,7 @@
 // victim's data.
 import { NARUTO } from './naruto.js';
 import { MADARA } from './madara.js';
+import { ITACHI } from './itachi.js';
 
 // Sage Mode Naruto: the same fighter (stats, moves, frame data, hitboxes, jutsu) in another body:
 // models/naruto_sage.glb, rigged by `npm run rig -- models/naruto_sage.rig.json` and scaled to the default body's
@@ -28,13 +29,19 @@ export const OBITO = {
   card: { tag: 'OBITO', credit: 'Model: “Obito Uchiha (Free Fire)” by AJ Studio · CC BY 4.0' },
 };
 
+// Itachi Uchiha (itachi.js): Naruto's movement and M1 with his own jutsu kit (fireballs, Tsukuyomi, crow escape,
+// Amaterasu). models/itachi.glb is a display figure (head, closed cloak, shins): the rig config generates the arms,
+// hands and trousers under the cloak, turns the cloak into a coat on the hips + thighs, and merges everything into
+// one material; scaled to the same body size (hips 0.908 m) so the hurtboxes match.
+export { ITACHI };
+
 // Madara Uchiha (madara.js): Naruto's movement and M1 with his own jutsu kit, in Madara's body. models/madara.glb is
 // an A-pose: the rig config lifts its arms into a T-pose, puts the long hair on spring bones and makes the robe +
 // armour tassets follow the thighs. Scaled 1.12 so shoulders, hips and head sit close to the other bodies' (his legs
 // are short for his torso, so no single scale matches them all; keyed hand targets follow the shoulders).
 export { MADARA };
 
-export const CHARACTERS = { naruto: NARUTO, sage: SAGE, madara: MADARA, obito: OBITO };
+export const CHARACTERS = { naruto: NARUTO, sage: SAGE, madara: MADARA, obito: OBITO, itachi: ITACHI };
 export const DEFAULT_CHARACTER = 'naruto';
 
 export const charOf = (id) => CHARACTERS[id] || CHARACTERS[DEFAULT_CHARACTER];

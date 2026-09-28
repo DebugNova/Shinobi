@@ -1,16 +1,19 @@
 # SHINOBI ARENA
 
 A multiplayer anime ninja arena fighter in the browser: a free-for-all for up to 6 players. Pick your ninja (Naruto,
-Sage Naruto, Madara or Obito) and type your name on the title screen.
+Sage Naruto, Madara, Obito or Itachi) and type your name on the title screen.
 
 ## Play
 
 1. Install once: `npm install`
 2. Start: `npm start` (builds the game and starts the server on port **3100**)
 3. Open **http://localhost:3100** in Chrome. On the right: type **your name** (e.g. "Nova") and pick a **character card**
-   (click it, or press its number **1**-**4** / the arrow keys). Then click **JOIN**, press **Enter** in the name box, or press any
+   (click it, or press its number **1**-**5** / the arrow keys). Then click **JOIN**, press **Enter** in the name box, or press any
    other key. Your name and character are remembered next time. Leave the name empty and you are named after your
    character ("Naruto", "Sage Naruto 2"...).
+   **Itachi is locked** (🔒 on his card): picking him shows a password box, and you can only join as Itachi with the
+   right password (ask the owner). A wrong or missing password keeps you on the title screen; pick another ninja to
+   play. The password is remembered once it works.
 4. Friends on the same Wi-Fi open the "Friends (LAN)" address the server prints.
 
 ### Play over the internet
@@ -36,8 +39,8 @@ Without the VPS: run `npm run share` in a second terminal. It prints a `https://
 | Guard | right click, or C | LB |
 | Chakra charge | hold F | RT |
 | Shuriken | 1 | LT + X |
-| Jutsu (Naruto: Rasengan / Shadow Clone Rush; Madara: fire / wood / gunbai, see below) | Q / E / G | LT + Y / LT + B / LT + A |
-| Ultimate (Naruto: Rasenshuriken; Madara: Tengai Shinsei) | R | LT + RT |
+| Jutsu (Naruto: Rasengan / Shadow Clone Rush; Madara: fire / wood / gunbai; Itachi: fireballs / Tsukuyomi / crows, see below) | Q / E / G | LT + Y / LT + B / LT + A |
+| Ultimate (Naruto: Rasenshuriken; Madara: Tengai Shinsei; Itachi: Amaterasu) | R | LT + RT |
 | Lock on (wheel switches target) | T or middle mouse | RB |
 | Zoom in / out | mouse wheel (when not locked on) | |
 | Scoreboard / menu | Tab / Esc | View / Menu |
@@ -111,6 +114,32 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
   (420, can't be guarded); up to 13 m out it still does 200 down to 80 (guardable, with chip). Only an instant sprint
   gets you out of the rings from the centre: get behind cover, or dash through the impact. It leaves a smoking crater.
 
+### Itachi's jutsu
+
+Itachi moves and fights like Naruto (same M1 strings, heavy, shuriken) but has his own jutsu. His Sharingan glows
+all the time; through Tsukuyomi and Amaterasu it turns into the spinning Mangekyō.
+
+- **Q: Fire Style: Phoenix Sage Fire** (30 chakra, 9 s). A seal, two fingers to his lips, and he blows three
+  fireballs one after another. They leave spread out and curve in on the target (lock-on target or whoever you look
+  at): they **track you, even running flat out**. The only way out is a **dash (Shift)**: dashing shakes off every
+  fireball in flight, and they fly on straight past you. Two flinch, the third knocks you back (~150 damage in all);
+  a guard blocks them with a little chip. They burst on walls, trees and posts: cover works too.
+- **E: Mangekyō Sharingan: Tsukuyomi** (35 chakra, 15 s). He lowers his head, then raises it and his eyes meet
+  yours: **everyone in front of him** (up to 18 m, a ~76° cone, in his line of sight) is caught. A Mangekyō eye opens
+  over each victim's head, and they stand dazed on the spot **for 5 seconds**: no moving, no guard, no substitution.
+  Hits while they are dazed don't free them (only being launched or knocked down does), but after a few seconds of
+  combo the game's knockdown rule throws them out of it. The victim's own screen turns into Tsukuyomi's red-and-black
+  world while it lasts. A dash at the moment of the gaze dodges it; so does being behind him or behind cover.
+- **G: Crow Clone Escape** (20 chakra, 10 s). His body bursts into a flock of crows that scatter in every direction,
+  and he re-forms 7-12 m away at the **safest spot nearby** (the one farthest from enemies and out of their sight),
+  where the crows gather, crouched and facing the nearest enemy. Nothing can touch him from the press until he has
+  re-formed (0.6 s).
+- **R: Amaterasu** (ultimate). He raises two fingers to his right eye, the world dims, and the eye opens on
+  **everyone in front of him** (up to 30 m, in his line of sight): they burst into black flames. The flames can't be
+  put out (not by dashing, substitution or a barrier) and keep burning until they have burnt **half of the victim's
+  maximum health** (the ignition included), a tick every 0.3 s (~5.5 s). Your only answer is not to be in front of
+  him when his eye opens: get behind cover or dash at that moment.
+
 ### The map
 
 "Training Grounds": the village (shops, the ramen stand, stone stairs up to the upper street), the forest of giant
@@ -131,7 +160,7 @@ Sound starts when you join. F3 shows fps, frame times, draw calls, ping, interpo
 ## Characters
 
 All characters move and fight the same (moves, damage, speed, hitboxes); Naruto, Sage Naruto and Obito also share
-Naruto's jutsu, while Madara has his own (see "Madara's jutsu" above).
+Naruto's jutsu, while Madara and Itachi have their own (see "Madara's jutsu" and "Itachi's jutsu" above).
 
 - **Naruto**: your VRoid model once you add it (below); until then the stand-in avatar.
 - **Sage Naruto**: "Naruto Sage" by **ninjatorent13** on Sketchfab
@@ -154,6 +183,14 @@ Naruto's jutsu, while Madara has his own (see "Madara's jutsu" above).
   into a T-pose, skeleton, skin weights, finger bones, the cloak following the thighs, the Truth-Seeking orbs floating
   with the body, toon materials) and scaled to the same body size; the credit is also on its character card and in the
   VRM's meta.
+- **Itachi** (Akatsuki cloak, Sharingan, Amaterasu blood): "Itachi Uchiha Sharingan Akatsuki Amaterasu" by
+  **angelolamonaca** on Sketchfab
+  (https://sketchfab.com/3d-models/itachi-uchiha-sharingan-akatsuki-amaterasu-867dfc95e96a49878837f80428918ca9),
+  licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). The download is a display figure (head, closed
+  cloak and shins only): for this game it got generated arms (Akatsuki sleeves with the red lining, hands with his
+  purple nails) and dark trousers under the cloak, a skeleton, skin weights with the cloak opening at its front slit
+  over the legs, toon shading in one material, and the stand-in's body size; the credit is also on his character card
+  and in the VRM's meta. For now he fights with Naruto's moves and jutsu.
 
 ### Adding a character from an unrigged model (.glb)
 
@@ -161,7 +198,9 @@ Naruto's jutsu, while Madara has his own (see "Madara's jutsu" above).
 `models/naruto_sage.rig.json` for the config: joint positions, finger bands, coat/ribbon rules). An A-pose model
 (arms hanging) gets an `apose` block that lifts the arms first (see `models/madara.rig.json` and
 `models/obito.rig.json`; `TPOSE=out.glb npm run rig -- ...` writes the lifted mesh to measure the rest of the config
-on). Long hair or ribbons become spring chains (`chains`), armour plates over a coat `plates`. Then register it in
+on). Long hair or ribbons become spring chains (`chains`), armour plates over a coat `plates`. A model with no limbs
+under its clothes (a display figure) gets generated arms, hands and legs (`parts`, see `models/itachi.rig.json`),
+and `atlas` merges many materials into one (one draw per fighter). Then register it in
 `src/shared/characters.js`. Check the result with `node scripts/debug/modelview.mjs <file.vrm> out.png front,left
 "bones,pose=run"`.
 

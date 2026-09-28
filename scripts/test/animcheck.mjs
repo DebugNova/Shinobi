@@ -34,7 +34,7 @@ const browser = await puppeteer.launch({ executablePath: 'C:/Program Files/Googl
 const page = await browser.newPage();
 await page.setViewport({ width: 960, height: 540 });
 page.on('pageerror', (e) => { if (!/Pointer Lock/.test(e.message)) console.log('[pageerror]', e.message); });
-await page.goto(`${URL}?autojoin=1&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
+await page.goto(`${URL}?autojoin=1&pw=HUNNY&grass=0${process.env.CH ? `&ch=${process.env.CH}` : ''}`, { waitUntil: 'load' });
 await page.waitForFunction("window.__game && window.__game.state === 'playing'", { timeout: 120000 });
 await sleep(800);
 

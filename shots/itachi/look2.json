@@ -1,0 +1,24 @@
+{
+  "url": "http://localhost:3104/?autojoin=1&name=Ita&ch=itachi",
+  "w": 800, "h": 560, "cols": 4,
+  "out": "shots/itachi/look2.png",
+  "setup": "(() => { const d = __game.dummy.pos; window.__d = d; __game.teleport(d.x, d.z + 11, 0); __game.ctrl.chakra = 100; return [d.x, d.y, d.z]; })()",
+  "views": [
+    ["Q side", "__game.studio = { yaw: 1.5708, pitch: 0.12, dist: 8, h: 1.3, fov: 60 }; __game.input.press('jutsu1')", 420],
+    ["Q side2", "0", 120],
+    ["Q side3", "0", 150],
+    ["Q impact", "0", 150],
+    ["E mark", "__game.studio = null; __game.input.press('jutsu2')", 700],
+    ["E near", "__game.teleport(__d.x, __d.z + 3.2, 0); __game.studio = { yaw: 3.14159, pitch: 0.08, dist: 1.6, h: 1.7, fov: 50 }", 500],
+    ["E near2", "0", 900],
+    ["R cast", "__game.teleport(__d.x, __d.z + 10, 0); __game.studio = { yaw: 0.35, pitch: 0.05, dist: 2.2, h: 1.45, fov: 40 }; setTimeout(() => __game.input.press('ult'), 100)", 520],
+    ["R ignite", "__game.teleport(__d.x, __d.z + 3.2, 0); __game.studio = { yaw: 3.14159, pitch: 0.05, dist: 1.4, h: 1.3, fov: 55 }", 250],
+    ["R burn", "0", 700],
+    ["R burn2", "__game.studio = { yaw: 2.5, pitch: 0.05, dist: 2.2, h: 1.1, fov: 55 }", 700],
+    ["R burn3", "0", 900],
+    ["G burst", "__game.teleport(__d.x + 8, __d.z + 8, 0); __game.studio = { yaw: 0.9, pitch: 0.18, dist: 4.5, h: 1.2, fov: 55, abs: true }; setTimeout(() => __game.input.press('jutsu3'), 200)", 330],
+    ["G burst2", "0", 110],
+    ["G gather", "0", 130],
+    ["G form", "0", 250]
+  ]
+}

@@ -16,6 +16,7 @@ import { charOf, DEFAULT_CHARACTER, CHARACTERS } from '../src/shared/characters.
 import { buildMap, BOUNDS, mapHash } from '../src/shared/map.js';
 import { REACT, hitSpec } from '../src/shared/combat.js';
 import { counterWindow, COUNTER_KIND } from '../src/shared/madarakit.js';
+import { inGaze } from '../src/shared/itachikit.js';
 import { Combat } from './combat.js';
 import { parseLag, LagLine } from './lag.js';
 
@@ -31,6 +32,9 @@ const HP_OVERRIDE = Number(process.env.SHINOBI_HP) || 0;
 const maxHp = (C) => HP_OVERRIDE || C.stats.hp;
 // SHINOBI_ULT=1: every fighter's ultimate gauge stays full (tests)
 const ULT_FULL = process.env.SHINOBI_ULT === '1';
+// Password-locked characters (the owner's rule): joining as one needs `join.pw`. Kept here only, never in the
+// client bundle; the title screen asks for it (characters with `locked: true`).
+const LOCKED = { itachi: 'HUNNY' };
 if (process.env.SHINOBI_MATCH) {
   const [d, r, rs] = process.env.SHINOBI_MATCH.split(',').map(Number);
   if (d > 0) T.duration = d;
@@ -117,11 +121,16 @@ function handleJoin(ws, msg) {
     ws.close();
     return;
   }
+  const ch = CHARACTERS[msg.ch] ? msg.ch : DEFAULT_CHARACTER;
+  if (LOCKED[ch] && String(msg.pw ?? '').trim() !== LOCKED[ch]) {
+    ws.send(JSON.stringify({ t: 'locked', ch, pw: msg.pw ? 1 : 0 }));
+    log(`  refused ${ch} (${msg.pw ? 'wrong' : 'no'} password)`);
+    return;
+  }
   const id = nextId++;
   const token = typeof msg.token === 'string' ? msg.token.slice(0, 40) : '';
   const ghost = token && ghosts.get(token);
   if (ghost) ghosts.delete(token);
-  const ch = CHARACTERS[msg.ch] ? msg.ch : DEFAULT_CHARACTER;
   const C = charOf(ch);
   const p = {
     id, ws, token, ch,
@@ -175,6 +184,8 @@ function spawnPlayer(p, sp, announce = true) {
   p.hp = maxHp(C);
   p.alive = true;
   p.respawnAt = 0;
+  p.burn = null;
+  p.escape = null;
   if (ULT_FULL) p.ult = 100;
   p.react = null;
   p.combo = null;
@@ -255,7 +266,10 @@ function handleAct(p, msg) {
       // paid first phase of the same instance, so an effect is never free
       const prev = p.acts.get(msg.i | 0);
       if (J.counter && msg.n) return; // (the counter's later phase comes from the server)
-      if (J.hits && msg.n && !(prev && prev.m === m)) return;
+      if ((J.hits || J.escape) && msg.n && !(prev && prev.m === m)) return;
+      // Itachi's kit: each later phase once (a fireball per shot, one gaze, one teleport)
+      const maxN = J.shots ? J.shots.length : J.gaze !== undefined || J.focus !== undefined || J.escape ? 1 : 0;
+      if (maxN && msg.n && (msg.n > maxN || prev.phases?.[msg.n])) return;
       // n > 0: a later phase of the same cast (the Rasenshuriken's throw, its impact): no new cooldown
       if (J.cd && !msg.n) {
         const last = p.casts.get(m) || -1e9;
@@ -280,12 +294,20 @@ function handleAct(p, msg) {
         const c = combat.posAt(p, at, {});
         if (Math.hypot(out.o[0] - c.x, out.o[2] - c.z) > J.range + 8) return;
       }
-      if (J.hits) {
+      if (J.escape) {
+        // Crow Clone Escape: invulnerable from the press; the teleport (n:1) goes to everyone, the sender included
+        if (!msg.n) {
+          p.escape = [at, at + J.invuln * 1000];
+          p.acts.set(out.i, { m, at, k: msg.k, life: 3000 });
+        } else return crowTeleport(p, J, prev, out);
+      } else if (J.hits) {
         // Madara's kit: the act keeps its first phase's time and gathers each later phase's payload (the area
         // hits are validated against it: madarakit.js)
         const act = msg.n ? prev : { m, at: out.at, k: msg.k, life: (J.life || 4) * 1000 };
         if (msg.n) combat.castPhase(p, act, out);
         p.acts.set(out.i, act);
+        // Itachi's gazes (Tsukuyomi, Amaterasu): who they take is decided here, at the gaze's time
+        if (msg.n === 1 && (J.gaze !== undefined || J.focus !== undefined) && out.o && out.d) gazeHits(p, J, m, out);
         // the meteor lands on the server's clock whatever happens to its caster's client
         if (act.fx?.kind === 'meteor' && !act.fx.due) {
           act.fx.due = act.fx.at1 + J.delay * 1000;
@@ -481,16 +503,93 @@ function gustBurst(p, ctr) {
  * Madara's barrier deflects it like any other hit. src: where it comes from (the knockback pushes away from it).
  */
 function serverHit(att, v, spec, m, i, k, at, p, src, key) {
-  if (v.hitDone.has(key)) return;
+  if (v.hitDone.has(key)) return false;
   const ctr = !v.dummy && combat.counterFor(v, spec, at);
   if (ctr) {
     const tk = `${att.id}:3:0`, t = now();
-    if (t - (ctr.last.get(tk) ?? -1e9) < 150) return;
+    if (t - (ctr.last.get(tk) ?? -1e9) < 150) return false;
     ctr.last.set(tk, t);
     broadcast({ t: 'a', id: v.id, k: 'jutsu', m: ctr.m, i: ctr.i, n: 1, at: Math.round(at), r: Math.round(t), tg: att.id, f: 3, o: src.map(r3) });
+    return false;
+  }
+  applyHit(att, { v, spec, at, p, rw: p.map(r3), ax: src[0], ay: src[1], az: src[2], ayaw: 0, key, srv: true }, { m, i, k });
+  return true;
+}
+
+/**
+ * Itachi's gaze (Tsukuyomi, Amaterasu) at the caster's gaze time T (his n:1: o = his eyes, d = his facing): everyone
+ * inside the cone (itachikit.js inGaze) with a clear line from his eyes to their chest, not invulnerable then, is
+ * taken. Each victim is judged where its own screen had it (its states arrive ~half its ping later, like the meteor).
+ * Tsukuyomi dazes; Amaterasu ignites, then burns (burnStep) until the flames have taken their share of max HP.
+ */
+function gazeHits(p, J, m, out) {
+  if (match.phase === 'results') return;
+  const T = out.at, o = out.o, d = out.d;
+  const c = combat.posAt(p, T, {});
+  if (Math.hypot(o[0] - c.x, o[2] - c.z) > 2.5 || o[1] - c.y < 0.3 || o[1] - c.y > 2.6) {
+    if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s ${m}: eyes too far from the body`);
     return;
   }
-  applyHit(att, { v, spec, at, p, rw: p.map(r3), ax: src[0], ay: src[1], az: src[2], ayaw: 0, key }, { m, i, k });
+  const hid = m === 'tsukuyomi' ? `${m}:main` : `${m}:ignite`, spec = hitSpec(p.ch, hid);
+  for (const v of [...players.values(), dummy]) {
+    if (v === p || !v.alive) continue;
+    const vp = combat.posAt(v, T + (v.dummy ? 0 : Math.min(METEOR_LEAD, (v.ping || 0) / 2)), {});
+    if (!inGaze(J, o, d, [vp.x, vp.y, vp.z])) continue;
+    const why = combat.invulnAt(v, T) || (world.clear(o[0], o[1], o[2], vp.x, vp.y + 1.1, vp.z) ? null : 'cover');
+    if (why) {
+      if (process.env.SHINOBI_DEBUG) log(`  ${m} spared ${v.name}: ${why}`);
+      continue;
+    }
+    if (serverHit(p, v, spec, hid, out.i, 0, T, [vp.x, vp.y, vp.z], o, `${p.id}:${out.i}:0:${v.id}`) && J.burn && v.alive) {
+      // the flames' share: frac of max HP, the ignition included (a new ignition starts the count again)
+      const max = v.dummy ? 1000 : maxHp(charOf(v.ch));
+      v.burn = { att: p.id, m, i: out.i, left: Math.round(max * J.burn.frac) - spec.dmg, next: T + J.burn.every * (1000 / 60), every: J.burn.every * (1000 / 60), k: 0 };
+    }
+  }
+}
+
+/** Amaterasu burning on v: every tick due by t (server-applied, unblockable, through any invulnerability or barrier). */
+function burnStep(v, t) {
+  const b = v.burn;
+  while (v.burn === b && t >= b.next) {
+    const att = players.get(b.att);
+    if (!att || !v.alive || match.phase === 'results' || b.left <= 0) {
+      v.burn = null;
+      return;
+    }
+    const base = hitSpec(att.ch, `${b.m}:burn`), dmg = Math.min(base.dmg, b.left);
+    const spec = dmg === base.dmg ? base : { ...base, dmg };
+    const at = b.next, vp = combat.posAt(v, at, {}), pp = [vp.x, vp.y, vp.z];
+    b.left -= dmg;
+    const k = 10 + b.k++;
+    b.next += b.every;
+    if (b.left <= 0) v.burn = null;
+    applyHit(att, { v, spec, at, p: pp, rw: pp.map(r3), ax: vp.x, ay: vp.y, az: vp.z, ayaw: v.s[6], key: `${att.id}:${b.i}:${k}:${v.id}`, srv: true }, { m: `${b.m}:burn`, i: b.i, k });
+  }
+}
+
+/**
+ * Crow Clone Escape's teleport (phase n:1, o = the spot his client picked): within reach of where he pressed, room to
+ * stand there. He is invulnerable through it (p.escape). Everyone, the sender included, hears it; his states from
+ * then on come from the spot (the socket keeps order: no stale state can drag him back).
+ */
+function crowTeleport(p, J, prev, out) {
+  const o = out.o;
+  if (!o || o.length !== 3) return;
+  const c = combat.posAt(p, prev.at, {});
+  if (Math.hypot(o[0] - c.x, o[2] - c.z) > J.maxDist || Math.abs(o[1] - c.y) > 7 || world.solidAt(o[0], o[2], o[1] + 0.15, o[1] + 1.6, 0.05)) {
+    if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s crow escape refused (${Math.hypot(o[0] - c.x, o[2] - c.z).toFixed(1)} m)`);
+    return send(p, { t: 'deny', k: 'jutsu', m: out.m, i: out.i, n: 1 });
+  }
+  prev.phases = { 1: out.at };
+  p.s[0] = o[0];
+  p.s[1] = o[1];
+  p.s[2] = o[2];
+  p.s[3] = p.s[4] = p.s[5] = 0;
+  p.at = now();
+  p.lastState = p.at;
+  combat.record(p, p.at);
+  broadcast(out);
 }
 
 /**
@@ -521,6 +620,7 @@ function kill(v, killer, hit) {
   const t = now();
   v.alive = false;
   v.respawnAt = t + T.respawn * 1000;
+  v.burn = null;
   const counts = match.phase === 'live';
   const assists = [];
   for (const [id, rec] of v.dmgFrom) {
@@ -614,6 +714,9 @@ setInterval(() => {
       }
     }
   }
+  // Amaterasu's flames
+  for (const p of players.values()) if (p.burn) burnStep(p, t);
+  if (dummy.burn) burnStep(dummy, t);
   // the dummy heals once it has been left alone
   combat.prune(dummy, t);
   if (dummy.hp < 1000 && t - dummy.lastHit > 3000) dummy.hp = 1000;
