@@ -68,6 +68,73 @@ const woodDive = {
   loop: true,
 };
 
+// Uchiha Return (90 f, timings in madara.js): the right hand goes back for the gunbai's handle at his right hip (grab
+// at 5), tears it off his back up over the right shoulder (5-12) and sweeps it round in one full turn to his left, the
+// arm out in front so the fan's face pushes the air (rot 0 -> 360 over 12-31, a small hop so the feet don't slide; the
+// gust bursts at 20), then plants it upright in front of him: the Uchiha Return guard, the left palm at the chest
+// behind it (31-72, the barrier). He swings it back up over the shoulder and onto his back (let go at 84). The fan
+// itself follows the hand from the grab to the release (madarafx.js Gunbai); the fist's thumb side up with wrist -40
+// stands it upright.
+const FAN = { fist: 1, wrist: [-40, 0, 0] };
+// the hand on the handle behind the right hip (elbow back and out: gotcha 41), the torso turned to reach it
+const BACK = {
+  h: [0, -0.06, 0], hips: [2, -18, 0], spine: [4, -14, 0], chest: [2, -10, 0], neck: [0, 18, 0], head: [-2, 16, 0],
+  lf: { p: [0.2, 0, 0.26], pole: [0.3, 0, 1], yaw: -12 }, rf: { p: [-0.2, 0, -0.26], yaw: 25 },
+  rh: P(-0.24, 0.86, -0.25, { pole: [-1, 0.2, -1], fist: 1, wrist: [-20, 0, 0] }), lh: P(0.16, 1.12, 0.3, { pole: [1, -1, 0], open: 0.6 }),
+};
+const GUARD = {
+  h: [0, -0.1, 0], hips: [4, -20, 0], spine: [4, -10, 0], chest: [2, -6, 0], neck: [-2, 8, 0], head: [-2, 10, 0],
+  lf: { p: [0.24, 0, 0.32], pole: [0.3, 0, 1], yaw: -12 }, rf: { p: [-0.22, 0, -0.3], yaw: 25 },
+  rh: P(-0.12, 0.84, 0.5, { pole: [-1, -1, 0], ...FAN }), lh: P(0.12, 1.04, 0.3, { pole: [1, -1, 0], open: 0.6 }),
+};
+// the spin: the arm out in front and to the right, the fan standing up at the end of it; knees bent, feet just off
+// the ground, the body leaning into the turn
+const SPIN = {
+  h: [0, -0.04, 0], hips: [6, -10, 0], spine: [6, -6, -4], chest: [3, -4, -3], neck: [-4, 6, 0], head: [-4, 6, 0],
+  lf: { p: [0.2, 0.06, 0.12], pole: [0.3, 0, 1], pitch: 10 }, rf: { p: [-0.2, 0.08, -0.12], pole: [0, 0, 1], pitch: 14 },
+  rh: P(-0.36, 1.2, 0.5, { pole: [-1, -1, 0], ...FAN }), lh: P(0.3, 1.1, 0.12, { pole: [1, -1, -0.3], open: 0.7 }),
+};
+const counter = {
+  keys: [
+    [0, {}],
+    [5, BACK, 'out'],
+    // torn off the back: out to the side and up over the shoulder, the torso unwinding
+    [9, { ...BACK, hips: [0, -6, 0], spine: [-2, -2, 0], chest: [-2, 0, 0], neck: [-4, 6, 0], head: [-4, 6, 0], rh: P(-0.52, 1.42, -0.12, { pole: [-1, -0.2, -0.6], ...FAN }) }, 'in'],
+    [12, { ...SPIN, rot: 0, hips: [-2, -4, 0], spine: [-4, 0, 0], chest: [-4, 0, 0], rh: P(-0.3, 1.72, 0.18, { pole: [-1, 0, -0.3], ...FAN }) }, 'io'],
+    // one full turn to his left (keys <= 90 degrees apart: nlerp takes the short way, gotcha 41)
+    [16, { ...SPIN, rot: 70 }, 'lin'],
+    [20, { ...SPIN, rot: 160, h: [0, -0.02, 0] }, 'lin'],
+    [24, { ...SPIN, rot: 250 }, 'lin'],
+    [28, { ...SPIN, rot: 330, h: [0, -0.06, 0] }, 'lin'],
+    // planted: a stamp down into the guard, then it settles
+    [31, { ...GUARD, rot: 360, h: [0, -0.16, 0.02], rh: P(-0.12, 0.82, 0.54, { pole: [-1, -1, 0], ...FAN }) }, 'out'],
+    [38, { ...GUARD, rot: 360 }, 'io'],
+    [55, { ...GUARD, rot: 360, h: [0, -0.11, 0], rh: P(-0.12, 0.85, 0.51, { pole: [-1, -1, 0], ...FAN }) }, 'io'],
+    [72, { ...GUARD, rot: 360 }, 'io'],
+    // back on his back: up over the right shoulder, down behind to the hip
+    [77, { ...BACK, rot: 360, hips: [0, -8, 0], spine: [-2, -4, 0], chest: [-2, -2, 0], neck: [-2, 8, 0], head: [-2, 8, 0], rh: P(-0.36, 1.62, 0.02, { pole: [-1, 0, -0.4], ...FAN }) }, 'io'],
+    [81, { ...BACK, rot: 360, rh: P(-0.44, 1.2, -0.24, { pole: [-1, 0, -0.8], fist: 1, wrist: [-30, 0, 0] }) }, 'io'],
+    [84, { ...BACK, rot: 360 }, 'out'],
+    [90, { rot: 360 }, 'io'],
+  ],
+};
+
+// Tengai Shinsei (45 f): the right arm rises to the sky, palm open, eyes up, the left hand's seal at the chest
+// (0-12, held to 28); at 30 the arm sweeps down at the target (the release), then he lowers it
+const SKY = {
+  h: [0, -0.04, -0.03], hips: [-3, -12, 0], spine: [-7, -4, 0], chest: [-6, -2, 0], upperChest: [-3, 0, 0], neck: [-12, 0, 0], head: [-20, 0, 0],
+  ...ROOT, lh: sealL(1.18, 0.3), rh: P(-0.22, 2.1, 0.08, { pole: [-1, 0.2, -1], open: 1, spread: 8, wrist: [0, 0, -20] }),
+};
+const meteor = {
+  keys: [
+    [0, {}],
+    [12, SKY, 'out'],
+    [28, { ...SKY, h: [0, -0.03, -0.04], rh: P(-0.22, 2.14, 0.06, { pole: [-1, 0.2, -1], open: 1, spread: 10, wrist: [0, 0, -20] }) }, 'io'],
+    [33, { ...SKY, hips: [6, -8, 0], spine: [8, -2, 0], chest: [4, 0, 0], neck: [-8, 0, 0], head: [-6, 0, 0], rh: P(-0.2, 1.42, 0.6, { pole: [-1, -0.4, 0], open: 1, spread: 6 }) }, 'snap'],
+    [45, {}, 'io'],
+  ],
+};
+
 /** The same upper-body keys hanging in the air: legs tucked, the body pitched so the torrent angles down. */
 function airVariant(def, pitch) {
   const AIR = { h: [0, 0.05, 0], lf: { p: [0.12, 0.3, 0.2], pole: [0, 0.3, 1], pitch: 20 }, rf: { p: [-0.12, 0.18, -0.15], pole: [0, 0.3, 1], pitch: 30 } };
@@ -91,4 +158,8 @@ export const MADARA_CLIPS = {
   mad_fire_air: airVariant(fire, 26),
   mad_wood: wood,
   mad_wood_dive: woodDive,
+  mad_counter: counter,
+  mad_counter_air: airVariant(counter, 0),
+  mad_meteor: meteor,
+  mad_meteor_air: airVariant(meteor, 0),
 };

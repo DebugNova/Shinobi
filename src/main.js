@@ -31,6 +31,7 @@ import { Dummy, Logs } from './game/dummy.js';
 import { FX } from './gfx/fx.js';
 import { Jutsu } from './game/jutsu.js';
 import { MoveFX } from './gfx/movefx.js';
+import { GUNBAI, loadGunbai } from './gfx/madarafx.js';
 import { Audio } from './game/audio.js';
 import { DebugDraw } from './gfx/debugdraw.js';
 import { SMAAPreset } from 'postprocessing';
@@ -107,7 +108,15 @@ class Game {
       }
       this.chars.set(C.id, { C, model, lib: null, standin });
     };
-    const [clipsBuf] = await Promise.all([fetchBuf(CLIPS_URL), ...Object.values(CHARACTERS).map(loadChar)]);
+    // Madara's gunbai (a prop on his back; undefined when it failed to load: his fighters draw without it)
+    const loadFan = async () => {
+      try {
+        this.gunbaiTex = (await loadGunbai(await fetchBuf(GUNBAI.url))).map;
+      } catch (e) {
+        console.warn(`[shinobi] ${GUNBAI.url} unavailable (${e.message}); Madara draws without his gunbai`);
+      }
+    };
+    const [clipsBuf] = await Promise.all([fetchBuf(CLIPS_URL), ...Object.values(CHARACTERS).map(loadChar), loadFan()]);
     const clipsJSON = new TextDecoder().decode(clipsBuf);
     for (const e of this.chars.values()) {
       e.lib = new ClipLibrary().loadJSON(clipsJSON);
@@ -804,9 +813,11 @@ class Game {
 
   /** Relayed actions of other fighters. */
   remoteAction(m) {
-    if (m.k === 'sub' && m.id === this.net.id) {
+    if (m.id === this.net.id) {
       // our own substitution, confirmed: adopt the new state sequence
-      this.net.seq = m.sq;
+      if (m.k === 'sub') this.net.seq = m.sq;
+      // a phase of our own cast that comes from the server (Madara's counter firing)
+      else if (m.k === 'jutsu') this.jutsu.madara.onOwn(m);
       return;
     }
     const r = this.remotes.get(m.id);

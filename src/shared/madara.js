@@ -1,10 +1,10 @@
 // Madara Uchiha: Naruto's body mechanics and M1 (stats, movement, light/air/heavy moves, reactions) with his own
 // jutsu kit. The one data file for his abilities; shared by the client (gameplay, effects, hit detection) and the
 // server (validation, damage). Frames are 60 Hz ticks; distances in metres. Tune here.
-//   Q  Great Fire Annihilation  a torrent of fire that rolls ~22 m and leaves a burning field
+//   Q  Great Fire Annihilation  a torrent of fire that rolls ~22 m, fanning out to 16 m wide, and leaves a burning field
 //   E  Wood Release: Cutting    a line of stakes erupting from the ground toward the target
-//   G  Uchiha Return            the gunbai counter: melee is countered, projectiles reflected
-//   R  Tengai Shinsei           a meteor falls on the target's area 3 s after the cast
+//   G  Uchiha Return            the gunbai off his back, a spin, a wind barrier: untouchable, everything answered
+//   R  Tengai Shinsei           a meteor falls on the target's area 1.8 s after the cast
 // Geometry that must match on every screen and the server lives in madarakit.js (built from these numbers).
 import { NARUTO } from './naruto.js';
 
@@ -14,7 +14,7 @@ export const MADARA = {
   name: 'Madara',
   model: '/assets/characters/madara.vrm',
   standin: null,
-  card: { tag: 'UCHIHA LEGEND', credit: 'Model: “Madara Uchiha” by AJ Studio · CC BY 4.0' },
+  card: { tag: 'UCHIHA LEGEND', credit: 'Model: “Madara Uchiha” by AJ Studio · Gunbai by Madara.Uchiha.supreme · CC BY 4.0' },
   kit: { jutsu1: 'fireAnnihilation', jutsu2: 'woodCutting', jutsu3: 'uchihaReturn', ult: 'tengaiShinsei' },
 
   jutsu: {
@@ -28,15 +28,15 @@ export const MADARA = {
       wave: {
         length: 22, // metres the front rolls along the ground
         time: 0.9, // s for the front to get there (ease-out: fast at the mouth)
-        w0: 2, w1: 10, // width at the mouth and at the end
+        w0: 3, w1: 16, // width at the mouth and at the end
         height: 2.1, // hit height above the ground under the victim (a double jump clears it)
-        lanes: 7, // rays across the width that find walls (each lane stops at its own obstacle)
+        lanes: 9, // rays across the width that find walls (each lane stops at its own obstacle; ~2 m apart)
         mouth: 1.45, // the stream's height above the feet
         airPitch: 0.45, // rad the stream angles down when cast in the air
       },
       tickEvery: 6, // frames between the wave's ticks on one victim
       ticks: 4, // flinch ticks before the last one
-      field: { w: 8, d: 6, time: 2.5, every: 30 }, // the burning field at the wave's end: size, seconds, tick frames
+      field: { w: 12, d: 6, time: 2.5, every: 30 }, // the burning field at the wave's end: size, seconds, tick frames
       hits: {
         // 4 x 25 + 60 = 160 raw, ~129 after combo scaling: under the Rasengan (~193) for 5 more chakra, but ranged
         tick: { dmg: 25, react: 'flinch', stun: 18, kb: [0.8, 0], hitstop: 2, reach: 26, chip: 0.25, guardChakra: 6, cls: 'area', area: 'fire', kMax: 3 },
@@ -67,33 +67,41 @@ export const MADARA = {
     },
 
     uchihaReturn: {
-      name: 'Uchiha Return', key: 'G', cost: 20, cd: 7, icon: 'gunbai',
-      startup: 4, active: 30, recovery: 26, // a whiff costs 60 frames (punishable)
-      swing: 24, blowAt: 6, // the counter blast: blow frame inside the swing
+      name: 'Uchiha Return', key: 'G', cost: 20, cd: 8, icon: 'gunbai',
+      // The gunbai comes off his back (the hand on the handle at `grab`, torn free over the shoulder), one full spin
+      // sweeps it round him (spinFrom-spinTo; the wind bursts out at `gustAt`), then the guard with the wind swirling
+      // round him until `barrier`, and the fan goes back on his back (let go at `release`). From the press to
+      // `barrier` nothing touches him: the server answers every hit instead (its phase n:1 comes from the server,
+      // never from the client): melee is blown back, projectiles reflected, ultimates and area jutsu deflected.
+      counter: true,
+      grab: 5, spinFrom: 12, spinTo: 31, gustAt: 20, barrier: 72, release: 84, total: 90,
       slack: 50, // ms of network slack on both edges of the window (server and attacker use the same numbers)
-      invuln: 36, // frames of invulnerability after a counter triggers
+      answer: 4, // frames from a hit on the barrier to its answer leaving the wind shell (the blow, a reflection)
+      radius: 1.6, // the wind shell (visual: deflections burst on it)
+      gust: { radius: 4.2, height: 2.6 }, // the burst at gustAt throws everyone this close (m round his feet, m up)
       reflectSpeed: 1.3,
       life: 4,
       hits: {
-        // a counter should hurt more than the hit it answers (Axe Kick 120, the best melee)
-        blow: { dmg: 120, react: 'knockback', stun: 0, kb: [18, 6.5], hitstop: 12, reach: 4, unblockable: true, cls: 'melee' },
+        // server-applied only (a client never reports them). Thrown back "a little": a short knockback, not a launch
+        blow: { dmg: 60, react: 'knockback', stun: 0, kb: [9, 5], hitstop: 8, reach: 5, unblockable: true, cls: 'melee', server: true },
+        gust: { dmg: 30, react: 'knockback', stun: 0, kb: [8, 4.5], hitstop: 4, reach: 6, unblockable: true, cls: 'area', server: true },
         // a reflected shuriken hits a little harder than a thrown one (40)
-        reflect: { dmg: 50, react: 'flinch', stun: 14, kb: [1.5, 0], hitstop: 4, reach: 45, cls: 'proj' },
+        reflect: { dmg: 50, react: 'flinch', stun: 14, kb: [1.5, 0], hitstop: 4, reach: 45, cls: 'proj', server: true },
       },
     },
 
     tengaiShinsei: {
       name: 'Tengai Shinsei', key: 'R', ult: true, icon: 'meteor',
       release: 30, total: 45, // arm raised, released at 30: he moves freely after
-      delay: 3.0, // s from the release to the impact (the telegraph)
+      delay: 1.8, // s from the release to the impact (the telegraph: from the centre, only an instant sprint clears the ring)
       range: 60, // max cast distance
       life: 6,
-      meteor: { radius: 5, back: 70, up: 110 }, // rock size; the fall starts this far behind the caster and up
-      core: 4, outer: 10, // metres
+      meteor: { radius: 7, back: 70, up: 110 }, // rock size; the fall starts this far behind the caster and up
+      core: 5.5, outer: 13, // metres
       hits: {
-        // an ultimate you can walk out of: 3 s of warning, so the core is the heaviest hit in the game
+        // an ultimate you can barely run out of (1.8 s of warning): the core is the heaviest hit in the game
         core: { dmg: 420, react: 'knockback', stun: 0, kb: [5, 9], hitstop: 12, reach: 70, unblockable: true, los: true, cls: 'area', area: 'meteor' },
-        outer: { dmg: 200, react: 'knockback', stun: 0, kb: [10, 6], hitstop: 8, reach: 70, chip: 0.25, falloff: [4, 10, 200, 80], los: true, cls: 'area', area: 'meteor' },
+        outer: { dmg: 200, react: 'knockback', stun: 0, kb: [10, 6], hitstop: 8, reach: 70, chip: 0.25, falloff: [5.5, 13, 200, 80], los: true, cls: 'area', area: 'meteor' },
       },
     },
   },

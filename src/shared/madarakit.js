@@ -221,6 +221,44 @@ export function woodContains(line, J, t, x, y, z, r, slack = 0) {
   return { s, u };
 }
 
+// ---------------------------------------------------------------- Uchiha Return
+
+/** The barrier's window in server ms from its press time `at`: [start, end], network slack on both edges. */
+export function counterWindow(J, at) {
+  return [at - J.slack, at + (J.barrier / 60) * 1000 + J.slack];
+}
+
+/**
+ * What the barrier does with a hit of class `cls`: 1 melee is blown back, 2 projectiles reflected, 3 ultimates and
+ * area jutsu (fire, stakes, meteor, another gust) deflected. Every class is answered: nothing gets through.
+ */
+export const COUNTER_KIND = { melee: 1, proj: 2, ult: 3, area: 3 };
+
+// ---------------------------------------------------------------- Tengai Shinsei
+
+/**
+ * The meteor: o = the impact point (put on the ground under it here), d = the cast's direction (caster -> target,
+ * horizontal). It falls in a straight line from `meteor.back` metres behind the impact (along -d) and `meteor.up`
+ * above it, touching down `delay` seconds after the release, its centre stopping a little above the ground (it
+ * buries itself). Returns { o, start, end, dir (unit, the fall) }.
+ */
+export function meteorShape(world, J, o, d) {
+  const l = Math.hypot(d[0], d[2]) || 1, dx = d[0] / l, dz = d[2] / l, M = J.meteor;
+  const y = world.ground(o[0], o[2], o[1] + 3, _g).y;
+  const start = [o[0] - dx * M.back, y + M.up, o[2] - dz * M.back], end = [o[0], y + M.radius * 0.35, o[2]];
+  const ex = end[0] - start[0], ey = end[1] - start[1], ez = end[2] - start[2], len = Math.hypot(ex, ey, ez);
+  return { o: [o[0], y, o[2]], start, end, dir: [ex / len, ey / len, ez / len] };
+}
+
+/** The meteor's centre t seconds after the release: a slow, heavy start high up, speeding into the ground. */
+export function meteorAt(sh, J, t, out) {
+  const k = clamp(t / J.delay, 0, 1), e = k * (0.45 + 0.55 * k);
+  out.x = lerp(sh.start[0], sh.end[0], e);
+  out.y = lerp(sh.start[1], sh.end[1], e);
+  out.z = lerp(sh.start[2], sh.end[2], e);
+  return out;
+}
+
 // ---------------------------------------------------------------- dispatch (server validation, remote placement)
 
 /**
@@ -232,6 +270,7 @@ export function castEffect(world, m, out, caster) {
   if (!J || out.n !== 1 || !out.o || !out.d) return null;
   if (m === 'fireAnnihilation') return { kind: 'fire', at1: out.at, shape: fireShape(world, J, out.o, out.d), J };
   if (m === 'woodCutting') return { kind: 'wood', at1: out.at, line: stakeLine(world, J, out.o, out.d, out.i), J };
+  if (m === 'tengaiShinsei') return { kind: 'meteor', at1: out.at, shape: meteorShape(world, J, out.o, out.d), J };
   return null;
 }
 

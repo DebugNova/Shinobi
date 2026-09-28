@@ -43,8 +43,8 @@ export function hitSpec(charId, id) {
     else if (base === 'rsh') s = { ...J.hit, win: null };
     if (s) {
       s.react = REACT[s.react];
-      // what the gunbai counter does with it: melee is countered, projectiles reflected, ultimates blocked,
-      // areas (fire, stakes, meteor) go through
+      // what Madara's wind barrier does with it (madarakit.js COUNTER_KIND): melee blown back, projectiles
+      // reflected, ultimates and areas (fire, stakes, meteor: their cls comes with the data) deflected
       s.cls ||= base === 'shuriken' ? 'proj' : base === 'rsh' ? 'ult' : 'melee';
     }
   }

@@ -176,6 +176,153 @@ if (ONLY.includes('wood')) {
   check('wood: a guard blocks it', hg.length === 1 && hg[0].b === 1 && hg1.bSelf === hg0.bSelf, `${hg.map((h) => `${h.d}${h.b ? 'b' : ''}`).join(' ')}, HP ${hg0.bSelf} -> ${hg1.bSelf}`);
 }
 
+// ---------------------------------------------------------------- 3. Uchiha Return
+if (ONLY.includes('counter')) {
+  // phase n:1 of A's barrier as each screen hears it (A hears its own from the server too)
+  const EV = `window.__ctr = []; __game.net.on('a', (m) => { if (m.m === 'uchihaReturn' && m.n === 1) window.__ctr.push({ id: m.id, f: m.f, at: m.at, tg: m.tg, e: m.e, ai: m.ai }); }); 0`;
+  await A.p.evaluate(EV);
+  await B.p.evaluate(EV);
+  const clearCtr = () => Promise.all([A.p, B.p].map((p) => p.evaluate('window.__ctr.length = 0; 0')));
+  const onB = (m) => B.p.evaluate(({ id, m }) => window.__hl.filter((h) => h.v === id && h.m === m), { id: idB, m });
+  const onA = (m) => A.p.evaluate(({ id, m }) => window.__hl.filter((h) => h.v === id && h.m === m), { id: idB, m });
+  const G = 'uchihaReturn';
+
+  // the gust: B stands 2.5 m away doing nothing: thrown back a little (30, knockback) at the spin, on both screens
+  await sleep(1500);
+  await place(2.5);
+  await clearLogs();
+  await clearCtr();
+  const g0 = await hpOf();
+  await cast('jutsu3', 'counter', 8);
+  // (the clip the whole way through, on both screens: no other clip replaces it)
+  const clips = await Promise.all([A.p.evaluate(() => new Promise((res) => setTimeout(() => res(__game.ctrl.action?.anim?.().clip ?? null), 700))), B.p.evaluate((id) => new Promise((res) => setTimeout(() => res(__game.remotes.get(id)?.view?.act?.clip ?? null), 700)), idA)]);
+  await sleep(1200);
+  const gb = await onB(`${G}:gust`), ga = await onA(`${G}:gust`);
+  const g1 = await hpOf();
+  check('barrier: the gust throws a fighter standing close (30, knockback) on both screens', gb.length === 1 && ga.length === 1 && gb[0].d === 30 && gb[0].r === 4, gb.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ') || 'no hit');
+  check('barrier: HP agrees after the gust, Madara unhurt', g1.bSelf === g0.bSelf - 30 && g1.aSeesB === g1.bSelf && g1.aSelf === g0.aSelf && g1.bSeesA === g0.aSelf, `B ${g0.bSelf} -> ${g1.bSelf} (A sees ${g1.aSeesB}), A ${g0.aSelf} -> ${g1.aSelf}`);
+  check('barrier: the cast plays on both screens (mad_counter)', clips[0] === 'mad_counter' && clips[1] === 'mad_counter', `A ${clips[0]}, B sees ${clips[1]}`);
+
+  // melee: B jabs A right at the press: refused, B is blown back (60, knockback) once (the gust doesn't catch it again)
+  await sleep(2500);
+  await place(1.6);
+  await clearLogs();
+  await clearCtr();
+  const h0 = await hpOf();
+  const pred0 = await B.p.evaluate(() => __game.combat.stats.predicted);
+  await cast('jutsu3', 'counter', 8);
+  await sleep(80);
+  await B.p.evaluate(() => __game.input.press('attack'));
+  await sleep(1600);
+  const bx = await B.p.evaluate(() => window.__hx.map((x) => x.why));
+  const hb = await B.p.evaluate((id) => window.__hl.filter((h) => h.v === id), idB);
+  const ha = await A.p.evaluate((id) => window.__hl.filter((h) => h.v === id), idB);
+  const h1 = await hpOf();
+  const evA = await A.p.evaluate(() => window.__ctr), evB = await B.p.evaluate(() => window.__ctr);
+  const pred1 = await B.p.evaluate(() => __game.combat.stats.predicted);
+  console.log(`  B refused: ${JSON.stringify(bx)}, B took ${hb.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ')}, B predicted ${pred1 - pred0}`);
+  check('barrier: the jab is refused (counter)', bx.includes('counter'));
+  check('barrier: both screens hear the answer (a blow)', evA.length >= 1 && evB.length === evA.length && evA[0].f === 1 && evA[0].at === evB[0].at && evA[0].tg === idB, JSON.stringify(evA));
+  check('barrier: the attacker is blown back once (60, knockback) on both screens', hb.length === 1 && hb[0].m === `${G}:blow` && hb[0].d === 60 && hb[0].r === 4 && ha.length === 1, hb.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' '));
+  check('barrier: Madara takes nothing, HP agrees', h1.aSelf === h0.aSelf && h1.bSeesA === h0.aSelf && h1.bSelf === h0.bSelf - 60 && h1.aSeesB === h1.bSelf, `A ${h0.aSelf} -> ${h1.aSelf} (B sees ${h1.bSeesA}), B ${h0.bSelf} -> ${h1.bSelf} (A sees ${h1.aSeesB})`);
+
+  // projectiles, any number: B (out of the gust's reach) throws two shuriken into one barrier: both fly back (50 each)
+  await sleep(2500);
+  await place(7);
+  await clearLogs();
+  await clearCtr();
+  const r0 = await hpOf();
+  await B.p.evaluate(() => { __game.ctrl.tools = 3; });
+  await cast('jutsu3', 'counter', 8);
+  await sleep(60);
+  await B.p.evaluate(() => { __game.ctrl.lockTarget = __game.pickLock(0); __game.input.press('tool'); });
+  // (the second after the first one's reflection has hit B and its flinch is over: ~0.85 s; it lands at ~1.2 s)
+  await sleep(820);
+  await B.p.evaluate(() => { __game.input.press('tool'); });
+  await sleep(1600);
+  const rb = await onB(`${G}:reflect`);
+  const rev = await B.p.evaluate(() => window.__ctr);
+  const r1 = await hpOf();
+  check('barrier: two shuriken into one barrier are both reflected (both screens hear it)', rev.length === 2 && rev.every((e) => e.f === 2 && e.e > e.at), JSON.stringify(rev));
+  // (the second is the second hit of a combo: damage scaling takes a little off it)
+  check('barrier: the reflections hit the thrower (50, then combo-scaled), Madara unhurt', rb.length === 2 && rb[0].d === 50 && rb[1].d > 30 && rb[1].d <= 50 && r1.aSelf === r0.aSelf && r1.bSelf === r0.bSelf - rb[0].d - rb[1].d && r1.aSeesB === r1.bSelf, `${rb.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ')}; A ${r0.aSelf} -> ${r1.aSelf}, B ${r0.bSelf} -> ${r1.bSelf}`);
+
+  // the window ends: a shuriken thrown as the barrier drops (1.2 s) lands in the recovery (the fan going back)
+  await sleep(8200);
+  await place(5);
+  await clearLogs();
+  await clearCtr();
+  await B.p.evaluate(() => { __game.ctrl.tools = 3; });
+  await cast('jutsu3', 'counter', 8);
+  await sleep(1180);
+  await B.p.evaluate(() => { __game.ctrl.lockTarget = __game.pickLock(0); __game.input.press('tool'); });
+  await sleep(1200);
+  const wa = await B.p.evaluate((id) => window.__hl.filter((h) => h.v === id), idA);
+  const wev = await B.p.evaluate(() => window.__ctr.filter((e) => e.f !== undefined));
+  check('barrier: after the window, a hit lands (the recovery is punishable)', wa.length >= 1 && !wev.length, `${wa.map((h) => `${h.m}:${h.d}`).join(' ')}; answered ${wev.length}`);
+}
+
+// ---------------------------------------------------------------- 4. Tengai Shinsei
+if (ONLY.includes('meteor')) {
+  // (locked on B itself: pickLock may prefer the training dummy next to A)
+  const ult = async () => {
+    await A.p.evaluate((id) => { const t = __game.combat.targets().find((x) => x.id === id); if (t) __game.ctrl.lockTarget = { id, x: t.x, y: t.y, z: t.z, dead: false }; __game.gauge = { ...(__game.gauge || {}), u: 100 }; __game.input.press('ult'); }, idB);
+  };
+  const meteorHits = (p) => p.evaluate((id) => window.__hl.filter((h) => h.v === id && h.m.startsWith('tengaiShinsei')), idB);
+  // B stands still on the spot: the core (420, knocked away), the same meteor on both screens
+  await sleep(2000);
+  await place(20);
+  await clearLogs();
+  const h0 = await hpOf();
+  await ult();
+  await sleep(1000);
+  const mi = await lastInst('meteors');
+  // (mid-fall: released 0.5 s after the press, lands 1.8 s after that)
+  const T = await A.p.evaluate(() => Math.round(__game.net.serverNow()) + 600);
+  const ma = await A.p.evaluate(({ i, T }) => __game.jutsu.madara.debugMeteor(i, T), { i: mi, T });
+  const mb = await B.p.evaluate(({ i, T }) => __game.jutsu.madara.debugMeteor(i, T), { i: mi, T });
+  check('meteor: the meteor exists on both screens', !!ma && !!mb, `inst ${mi}`);
+  if (ma && mb) {
+    const d = Math.max(dist(ma.o, mb.o), dist(ma.rock, mb.rock));
+    check('meteor: same impact point and fall on both screens (<= 10 cm)', d <= 0.1 && ma.at1 === mb.at1, `${(d * 100).toFixed(1)} cm, at1 ${ma.at1}/${mb.at1}, impact ${ma.o.map((v) => v.toFixed(1))}`);
+    const bp = await B.p.evaluate(() => [__game.player.pos.x, __game.player.pos.z]);
+    check('meteor: it lands on the target\'s spot', Math.hypot(ma.o[0] - bp[0], ma.o[2] - bp[1]) < 1.5, `${Math.hypot(ma.o[0] - bp[0], ma.o[2] - bp[1]).toFixed(2)} m off`);
+  }
+  await sleep(3000);
+  const ca = await meteorHits(A.p), cb = await meteorHits(B.p);
+  const h1 = await hpOf();
+  check('meteor: the core hits the target (420, knockback) on both screens, HP agrees', ca.length === 1 && cb.length === 1 && ca[0].m === 'tengaiShinsei:core' && ca[0].d === 420 && ca[0].r === 4 && h1.bSelf === Math.max(0, h0.bSelf - 420) && h1.aSeesB === h1.bSelf, `${ca.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ')}; B ${h0.bSelf} -> ${h1.bSelf} (A sees ${h1.aSeesB})`);
+
+  // B runs out (sprints sideways right after the release: 13.3 m in 1.6 s): nothing (after a KO above: the respawn comes first)
+  await sleep(4000);
+  await place(20);
+  await clearLogs();
+  await ult();
+  await sleep(700);
+  await B.p.evaluate(() => __game.hold(['left', 'sprint']));
+  await sleep(2400);
+  await B.p.evaluate(() => __game.hold([]));
+  await sleep(1500);
+  const wo = await meteorHits(A.p);
+  const wd = await A.p.evaluate(({ i }) => { const m = __game.jutsu.madara.meteors.at(-1); const b = __game.remotes.get(i)?.fighter.pos; return m && b ? Math.hypot(m.sh.o[0] - b.x, m.sh.o[2] - b.z) : null; }, { i: idB });
+  check('meteor: walking out of it in time: no hit', wo.length === 0, `${wo.length} hits, B ${wd?.toFixed(1)} m from the crater`);
+
+  // B in the outer ring (9.25 m from the centre when it lands, halfway from the core to the edge): the outer hit, scaled
+  await sleep(3000);
+  await place(20);
+  await clearLogs();
+  const o0 = await hpOf();
+  await ult();
+  await sleep(1000);
+  const edge = await A.p.evaluate(() => __game.jutsu.madara.meteors.at(-1)?.sh.o);
+  await B.p.evaluate((o) => __game.teleport(o[0] + 9.25, o[2], 0), edge);
+  await sleep(3500);
+  const oh = await meteorHits(A.p);
+  const o1 = await hpOf();
+  // (falloff 200 at 5.5 m -> 80 at 13 m: 140 at 9.25 m, a little either way for where the server had B)
+  check('meteor: the outer ring hits with falloff (knockback, ~140)', oh.length === 1 && oh[0].m === 'tengaiShinsei:outer' && oh[0].d >= 120 && oh[0].d <= 160 && o1.bSelf === o0.bSelf - oh[0].d && o1.aSeesB === o1.bSelf, `${oh.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ')}; B ${o0.bSelf} -> ${o1.bSelf}`);
+}
+
 await A.b.close();
 await B.b.close();
 const failed = results.filter((r) => !r[1]).length;

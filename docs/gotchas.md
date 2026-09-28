@@ -123,3 +123,25 @@ index and other notes refer to it).
 44. **The chain buffer counts presses:** with one queued flag, presses faster than the moves' cancel frames were
     swallowed (5 presses 270 ms apart gave 4 hits of the Scroll Rush, whose moves take 300-370 ms to their cancel).
     `AttackAction.more` carries up to 2 extra presses into the next hit of the string.
+45. **Server-applied hits are never predicted:** Madara's counter blow, its reflected shuriken and the meteor's impact
+    are applied by the server (no client detects them), so the attacker's screen has no predicted burst: onHitr shows
+    the feedback for our own `uchihaReturn:*` / `tengaiShinsei:*` hits. The other way round, a hit that the barrier
+    will answer must not be predicted either: the attacker reads the remote's barrier window (`countering`, from the
+    relayed n:0, or an attack of ours it already deflected: `ai`) and sends the hit without a flinch that the
+    `hitx{why:counter}` would undo. The counter's n:1 is
+    the server's own message, broadcast to everyone including the owner (main.js remoteAction routes our own id to
+    `madara.onOwn`); a client-sent n:1 for it is dropped.
+46. **pickLock may pick the training dummy:** it scores every target in view, and the dummy stands near the field's
+    test spots (the meteor landed 5.6 m from Madara, on the dummy, instead of on B 20 m away). Tests that need one
+    victim lock onto it by id (`lockTarget = { id, x, y, z, dead: false }`).
+47. **One long frame in a headless vsync-off run is not a hitch to chase:** during a meteor, one 50-145 ms frame
+    showed up in both the old and new builds; a trace put it outside the game's JS (the main thread waiting on the
+    GPU process, once rasterizing DOM), and with the HUD hidden there were more, 91 ms with nothing on screen.
+    Compare averages and 1% lows back to back (gotcha 20). Chrome traces: the `v8` category makes them > 512 MB
+    (too big for one string: stream-parse them); `toplevel` + `gpu` + `disabled-by-default-v8.gc` is enough.
+48. **A barrier must not raise the invuln flag:** Madara's wind barrier is total cover, but `FLAG.invuln` in his
+    states makes attackers' screens skip him entirely (hit detection and projectiles ignore invulnerable targets), so
+    nothing would reach the server to be blown back or reflected. The server answers inside the window instead
+    (counterFor) and every client-side check stays off. Its answers are not one-shot: every hit inside the window, and
+    every later hit of an attack it answered (`deflected`, 3 s: a Rasenshuriken's burst ticks, a torrent's last
+    tick and its burning field) is refused, or the barrier would "run out" on a multi-hit attack.

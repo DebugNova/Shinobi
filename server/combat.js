@@ -4,7 +4,7 @@
 import { hitSpec, resolveHit, comboAfter, activeAt, reactionFlight, reactionTimes, koHit, REACT, AIRBORNE } from '../src/shared/combat.js';
 import { charOf } from '../src/shared/characters.js';
 import { NET, ST } from '../src/shared/config.js';
-import { castEffect, checkArea } from '../src/shared/madarakit.js';
+import { castEffect, checkArea, COUNTER_KIND } from '../src/shared/madarakit.js';
 
 const HIST = 48; // ~1.6 s of 30 Hz states
 const r3 = (v) => Math.round(v * 1000) / 1000;
@@ -27,6 +27,7 @@ export class Combat {
     p.hitDone = new Map(); // `${attacker}:${instance}:${tick}` -> ms
     p.hitsAt = [];
     p.guard = false;
+    p.counter = null; // Madara's wind barrier (Uchiha Return): { m, i, at, w: [start, end] ms, nr, last } (index.js)
   }
 
   /** Records a state (feet position etc.) at server time `at`. */
@@ -105,6 +106,16 @@ export class Combat {
   }
 
   /**
+   * The victim's wind barrier that answers a hit of this spec at time `at` (ms), or null. It answers every class
+   * (COUNTER_KIND), any number of times, for its whole window: nothing lands on him inside it.
+   */
+  counterFor(v, spec, at) {
+    const c = v.counter;
+    if (!c || !COUNTER_KIND[spec.cls]) return null;
+    return at >= c.w[0] && at <= c.w[1] ? c : null;
+  }
+
+  /**
    * A client's hit report. msg: { v: victim id, m: hit id, i: instance, k: tick, at: hit time (ms, server clock),
    * vt: the time the attacker's screen showed the victim at, p: [x, y, z] victim position seen, a: [x, y, z, yaw]
    * attacker }. Returns { ok, why }. ctx: { players, dummy, phase, allowed }.
@@ -115,7 +126,8 @@ export class Combat {
     if (!v || v === att) return { ok: false, why: 'victim' };
     if (!att.alive || !v.alive || !ctx.allowed) return { ok: false, why: 'alive' };
     const spec = hitSpec(att.ch, String(msg.m));
-    if (!spec) return { ok: false, why: 'move' };
+    // (the barrier's blow, gust and reflection are the server's own hits: a client never reports them)
+    if (!spec || spec.server) return { ok: false, why: 'move' };
     const at = Number(msg.at), vt = Number(msg.vt);
     if (!Number.isFinite(at) || !Number.isFinite(vt)) return { ok: false, why: 'time' };
     // the report can't be from the future, or older than the rewind cap plus the interpolation delay
@@ -204,6 +216,9 @@ export class Combat {
     }
     // a flinch replaces the victim's movement too: the victim's own states from before it are stale
     v.react = r;
+    // (a hit that lands came before the barrier rose: his screen's reaction ends the cast, so the barrier goes too;
+    // inside the window nothing lands)
+    if (v.counter) v.counter = null;
     if (res.react !== REACT.guard && res.react !== REACT.wobble) {
       (v.stuns ||= []).push([t0 - hs * (1000 / 60), r.land || r.end]);
       if (v.stuns.length > 6) v.stuns.shift();
@@ -252,6 +267,7 @@ export class Combat {
     for (const [k, at] of p.hitDone) if (t - at > 4000) p.hitDone.delete(k);
     if (p.react && t > p.react.end + 2000) p.react = null;
     if (p.combo && t / 1000 > p.combo.until + 1.5) p.combo = null;
+    if (p.counter && t > p.counter.w[1] + 1000) p.counter = null;
   }
 }
 

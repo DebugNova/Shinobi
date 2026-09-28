@@ -276,6 +276,11 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
   from OVH **Mumbai** (148.113.16.59, ~53 ms from the owner) and tunnelled to the VM in **Dadri / Delhi NCR** (~27 ms
   more). The datacentre directly (its NAT IP 45.122.121.132) is ~40 ms from the owner. Asked the owner to request
   port forwarding / a native IP on the Dadri side from Shulker (would save ~35-40 ms).
+- Packet loss on that detour (measured 2026-09-28, second deploy): 10-16% from the owner's laptop to OVH Mumbai
+  (148.113.16.59) and to 185.2.49.69, 0% to 1.1.1.1 / 8.8.8.8 from the same laptop; downloads from the game crawl at
+  ~40 KB/s (TCP backs off on loss: the 10.7 MB stand-in takes minutes, mp.mjs times out at 120 s waiting to join).
+  Not the VPS (it fetches its own public link at full speed) nor the tunnel MTU (DF pings pass up to 1420 bytes).
+  The fix is the same Dadri-side IP from Shulker (skips the Mumbai hop); report the loss to Shulker support.
 - `scripts/debug/vnc.mjs` drives the VPS's VNC console (type + screenshot) for when SSH is lost (how the routing bug
   above was found and fixed).
 - Docs: CLAUDE.md is kept under 250 lines (owner's rule); the 40 hard-won gotchas live in `docs/gotchas.md`, which
@@ -313,7 +318,80 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
 - The owner's real Naruto VRM and Mixamo clips are not in yet (ASSETS.md); everything runs on the stand-in avatar and
   procedural/keyed animation.
 
+## Madara's kit (2026-09-27/28)
+
+Madara keeps Naruto's body mechanics and M1 but has his own jutsu (data: src/shared/madara.js; shared geometry:
+src/shared/madarakit.js; game: src/game/madara.js; visuals: src/gfx/madarafx.js + haze.js; clips:
+src/char/madaramoves.js; test: scripts/test/madara.mjs). Every cast runs in phases (n:0 at the press: cooldown / gauge;
+n:1 when the effect becomes real, with its placement), and every world effect runs on the server clock from n:1, so
+it is identical on every screen (the tests measure 0.0 cm differences) and a late screen fast-forwards.
+
+- **Q Great Fire Annihilation:** Tiger seal, inhale, a 40-frame torrent of toon fire (instanced fbm "billows",
+  opaque with ink outlines, HDR into the bloom) rolling 22 m over the ground, 3 m wide at the mouth fanning out to
+  16 m (was 2 -> 10 m until 2026-09-28), in 9 lanes that each stop at their own
+  obstacle (thin posts flowed round, low walls rolled over, walls/trunks splash), a glowing then scorched footprint, a
+  burning field (flame tongues, 12 dmg ticks, no reaction), heat haze (High/Ultra), a heat flash. 4 flinch ticks + a
+  knockback. Air cast: a jet from the mouth down to where the wall starts.
+- **E Wood Release:** palm slam (kneeling key pose), an 18 m line of seeded stakes (instanced, toon, shadowed) erupting
+  at 30 m/s with a racing crack decal, dust and flying debris, holding 1.2 s then splitting and sinking. One launch (90).
+  From the air: a fast dive, the slam on landing.
+- **G Uchiha Return: the wind barrier** (redesigned 2026-09-28 at the owner's request; the first version was a
+  half-second counter stance with a procedural fan that poofed into his hand). The gunbai is the owner's model
+  (models/gunbai.glb -> public/assets/props/gunbai.glb, "Madara-Uchiha gunbai" by Madara.Uchiha.supreme, CC BY 4.0:
+  credited in README + his card; 1,190 triangles, loaded behind the loading screen, baked to a prop frame, toon
+  material, casts shadows). It rides on EVERY Madara's back at all times (upper chest's frame, behind the hair: the
+  paddle over the left shoulder, the handle down to the right hip, tomoe face out; GUNBAI.back in madarafx.js,
+  `__game.jutsu.madara.debugGunbai({p, up}, grip)` to try mounts live). The 90-frame clip `mad_counter`: the hand
+  reaches back and grabs the handle (5), tears it free over the right shoulder (5-12: the fan blends from the back
+  into the fist over 4 frames), one full spin to his left with the arm out so the face pushes the air (12-31, rot keys
+  <= 90 degrees apart, feet just off the ground; he turns toward the target inside the spin), the gust at 20, the
+  planted guard (the fan upright in front of face and chest), the fan back over the shoulder onto his back (72-84).
+  Server: from the press to frame 72 (+50 ms slack each side) EVERY hit on him is answered, any number of times:
+  melee -> refused (`hitx why:counter`), the attacker blown back once (`uchihaReturn:blow` 60, knockback [9, 5]:
+  a few metres; a clone is dispelled); projectiles -> reflected (50 each, every shuriken of the cast); ultimates and
+  areas (fire, stakes, meteor, another Madara's gust/blow/reflection) -> deflected (`f:3`). An attack the barrier
+  answered is spent: its later hits are refused for 3 s (`deflected`: a Rasenshuriken's burst, a torrent's ticks and
+  its field don't catch him when the wind drops; `n:1` carries `ai`, the attack's instance, so the attacker's screen
+  stops predicting it too). The gust (server-applied at the press + 20 f, judged like the meteor): everyone within
+  4.2 m of his feet (2.6 m up), in the open, is thrown back (`uchihaReturn:gust` 30, knockback [8, 4.5]); someone the
+  blow already threw isn't caught again. The blow/gust/reflect specs are `server: true`: a client reporting one is
+  rejected (`move`). Frames 72-90 (the fan going back) are vulnerable. No invulnerability FLAG in his states (it would
+  stop attackers' screens sending the hits the barrier answers). Visuals (madarafx.js WindBarrier, pooled x4): 26
+  wind ribbons built in the vertex shader (70% thin broken brush lines, 30% soft bands; faint on the camera's side), a
+  faint shell whose hit rings run from where it was struck, the gust's wave (tapered wind strokes on an expanding
+  band, faded edge-on and near the camera) then a small pulse every 0.5 s, dust and grass bits whirled at his feet, a
+  wind trail off the fan through the draw/spin/return, heat-haze distortion (High/Ultra). Sounds: the draw, the spin
+  whoosh, the gust's thump, a swirling wind loop while it holds, a clang per answer. A cast cut short with the fan out
+  (a hit before the barrier rose) puts it back in a puff.
+- **R Tengai Shinsei**: the arm raised to the sky, released at frame 30; a 7 m rock (lumpy, cratered,
+  faceted toon basalt with molten cracks glowing on its leading face, flames licking round it, a black smoke trail)
+  falls from 70 m behind and 110 m above the impact point, landing 1.8 s later. The ground shows red danger rings (core
+  5.5 m, outer 13 m, pulsing faster) and the rock's shadow growing dark and sharp; the light dims and the ground
+  trembles as it comes. Impact: a fireball rolling out along the ground, a smoke column, 30 flying rocks, dust,
+  shockwave, flash, camera shake by distance, a crater whose cracks glow and cool, fading after ~9 s. The server
+  applies the impact itself (it lands even if the caster dies or lags): everyone inside the outer ring, in the open,
+  not invulnerable, judged where their own screen had them (+ half their ping, max 150 ms): core 420 knockback
+  (unblockable), outer 200 -> 80 by distance (chip through guard).
+- **Tuning pass (2026-09-28, owner's request after playing):** the torrent fatter (w0 2 -> 3, w1 10 -> 16 m, lanes
+  7 -> 9, field 8 -> 12 m wide with 76 tongues, blobs ~10% bigger, fanning out from the mouth over 3.5 m instead of
+  5, 330 blobs/s instead of 220; smoke puffs and embers per blob cut so the totals stay the same); the meteor faster
+  and bigger (delay 3 -> 1.8 s, rock 5 -> 7 m, core 4 -> 5.5 m, outer 10 -> 13 m, falloff [5.5, 13, 200, 80];
+  impact effects scaled by the ring and the rock; the fall's roar follows `delay`). From the centre, the ring's edge
+  is 13.3 m: a sprint started right at the release reaches it just in time. Frame times (1080p High, vsync off):
+  the same as the old build within the laptop's noise (fire ~170-260 fps, meteor ~190-200 fps, back to back).
+- Tests: `scripts/test/madara.mjs` (33 checks: fire, wood, the barrier's 10 (gust, blow once, two reflections in one
+  cast, the window's end), meteor) ALL PASS at 0 ms (:3104); the barrier's ALL PASS at 200,40,1 (:3102) (2026-09-28,
+  after the barrier). Also ALL PASS: mpcombat (Naruto and CH=madara), kovis CH=madara, mp, chars; clipflips-live
+  `^mad_`: no flips. perf 6 Madaras 161-181 fps, 1% low 102-143, 66 programs (the barrier adds 4 programs, the old fan's
+  3 are gone: +1; the count was already over the 60 budget before). Shots in shots/mkit/ (freeze.mjs sheets: meteor
+  fall, impact, crater) and shots/gunbai/ (the mount, slow-motion strips of the cast, the two screens side by side).
+- At 200 ms a jab thrown in the first ~0.1 s of the barrier is predicted on the attacker's screen (it hasn't heard of
+  the cast yet) and undone by the `hitx`: inherent to the latency; the server's answer is right.
+- Not yet: the owner's review (looks, feel, balance: 1.2 s of total cover every 8 s for 20 chakra, sound by ear);
+  perf with several meteors at once (2 pooled); the Rasenshuriken/torrent still draw their own explosion on the
+  attacker's screen when the barrier deflects them (the damage is refused; only the wind's deflect burst is new).
+
 ## Ideas
 
-- Characters with their own movesets (Sasuke; Madara and Obito have their bodies already, next their own data files +
-  keyed clips), team modes, bots, more maps.
+- Characters with their own movesets (Sasuke; Obito has his body already, next his own data file + keyed clips, like
+  Madara's kit), team modes, bots, more maps.

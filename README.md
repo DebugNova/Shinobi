@@ -36,8 +36,8 @@ Without the VPS: run `npm run share` in a second terminal. It prints a `https://
 | Guard | right click, or C | LB |
 | Chakra charge | hold F | RT |
 | Shuriken | 1 | LT + X |
-| Rasengan / Shadow Clone Rush | Q / E | LT + Y / LT + B |
-| Rasenshuriken (ultimate) | R | LT + RT |
+| Jutsu (Naruto: Rasengan / Shadow Clone Rush; Madara: fire / wood / gunbai, see below) | Q / E / G | LT + Y / LT + B / LT + A |
+| Ultimate (Naruto: Rasenshuriken; Madara: Tengai Shinsei) | R | LT + RT |
 | Lock on (wheel switches target) | T or middle mouse | RB |
 | Zoom in / out | mouse wheel (when not locked on) | |
 | Scoreboard / menu | Tab / Esc | View / Menu |
@@ -83,6 +83,34 @@ edges after them, and run after a target that dashes away between hits.
 you picked in the settings. Walls and trees behind you still push the camera in. When you are locked on, the wheel
 switches targets instead.
 
+### Madara's jutsu
+
+Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has his own jutsu:
+
+- **Q: Great Fire Annihilation** (35 chakra, 10 s). A seal, a deep breath, then a torrent of fire that rolls ~22 m
+  along the ground, fanning out to 16 m wide. It flows round thin posts, rolls over fences and low walls, stops at buildings
+  and trees (and splashes up them), and leaves a burning field where it comes to rest. Caught in it: 4 burning ticks
+  and a knockback (~130 damage); standing in the embers burns a little every half second. A guard blocks it but still
+  takes chip damage and extra chakra. Cast in the air, the stream pours down at an angle and the wall rolls on from
+  where it lands. Double jump over it, or get out of its way.
+- **E: Wood Release: Cutting Technique** (30 chakra, 9 s). He slams his palm on the ground and a line of wooden
+  stakes erupts toward the target, 18 m long, racing along the ground at 30 m/s (it follows slopes and stops at
+  walls). Whoever it reaches is launched into the air (90 damage): follow up with an air combo. Side-dash out of the
+  line or guard it. From the air he dives down first and slams on landing.
+- **G: Uchiha Return** (20 chakra, 8 s). Madara carries his war fan (the gunbai) on his back all the time. On G he
+  tears it off his back over his shoulder, spins once on the spot sweeping it all the way round him, and plants it
+  upright in front of him while a whirlwind swirls round him in waves. From the moment you press G until the fan
+  starts going back (1.2 s), **nothing can touch him**, from any side: a punch, a kick, the Rasengan or a shadow clone
+  is blown back (the attacker takes 60 and is thrown back a few metres; a clone just vanishes), a shuriken flies back
+  at its thrower (50), and an ultimate, fire, stakes or a meteor are deflected. Whatever hit the wind is spent: a
+  Rasenshuriken's burst or the rest of a torrent won't catch him once the wind drops. The spin's gust also throws back
+  anyone within ~4 m (30). Once the wind drops he puts the fan back on his back (0.3 s), and there he can be hit.
+- **R: Tengai Shinsei** (ultimate). He raises his arm to the sky: a huge flaming meteor appears high behind him and
+  falls onto the target's spot (lock-on target or whoever you look at, up to 60 m). It lands 1.8 seconds later; red
+  rings on the ground and the rock's growing shadow show where. The centre (5.5 m) is the heaviest hit in the game
+  (420, can't be guarded); up to 13 m out it still does 200 down to 80 (guardable, with chip). Only an instant sprint
+  gets you out of the rings from the centre: get behind cover, or dash through the impact. It leaves a smoking crater.
+
 ### The map
 
 "Training Grounds": the village (shops, the ramen stand, stone stairs up to the upper street), the forest of giant
@@ -102,7 +130,8 @@ Sound starts when you join. F3 shows fps, frame times, draw calls, ping, interpo
 
 ## Characters
 
-All characters play exactly the same (moves, damage, speed, jutsu, hitboxes); only the look differs.
+All characters move and fight the same (moves, damage, speed, hitboxes); Naruto, Sage Naruto and Obito also share
+Naruto's jutsu, while Madara has his own (see "Madara's jutsu" above).
 
 - **Naruto**: your VRoid model once you add it (below); until then the stand-in avatar.
 - **Sage Naruto**: "Naruto Sage" by **ninjatorent13** on Sketchfab
@@ -115,6 +144,10 @@ All characters play exactly the same (moves, damage, speed, jutsu, hitboxes); on
   into a T-pose, skeleton, skin weights, finger bones, the long hair on spring physics, the robe and armour plates
   following the thighs, toon materials) and scaled close to the other characters' body size (he has shorter legs for
   his height, so his hips sit ~5 cm lower); the credit is also on his character card and in the VRM's meta.
+  His gunbai: "Madara-Uchiha gunbai" by **Madara.Uchiha.supreme** on Sketchfab
+  (https://sketchfab.com/3d-models/madara-uchiha-gunbai-8d45e3bc6f7f4d53ae91f668e0021375), licensed CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/), scaled to 1.12 m and toon-shaded for this game (also credited on his
+  card).
 - **Obito** (Ten-Tails Jinchūriki): "Free Fire New 3D Character Obito Uchiha" by **AJ Studio** on Sketchfab
   (https://sketchfab.com/3d-models/free-fire-new-3d-character-obito-uchiha-d032e721b7514a269b8ac83a0e472675), licensed
   CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Rigged for this game (arms lifted from the model's A-pose

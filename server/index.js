@@ -14,7 +14,8 @@ import { WebSocketServer } from 'ws';
 import { PORT as DEFAULT_PORT, NET, MATCH, PALETTE, ST, FLAG } from '../src/shared/config.js';
 import { charOf, DEFAULT_CHARACTER, CHARACTERS } from '../src/shared/characters.js';
 import { buildMap, BOUNDS, mapHash } from '../src/shared/map.js';
-import { REACT } from '../src/shared/combat.js';
+import { REACT, hitSpec } from '../src/shared/combat.js';
+import { counterWindow, COUNTER_KIND } from '../src/shared/madarakit.js';
 import { Combat } from './combat.js';
 import { parseLag, LagLine } from './lag.js';
 
@@ -253,6 +254,7 @@ function handleAct(p, msg) {
       // Madara's kit casts in phases: a later phase (the effect: torrent, slam, release, a reflection) needs the
       // paid first phase of the same instance, so an effect is never free
       const prev = p.acts.get(msg.i | 0);
+      if (J.counter && msg.n) return; // (the counter's later phase comes from the server)
       if (J.hits && msg.n && !(prev && prev.m === m)) return;
       // n > 0: a later phase of the same cast (the Rasenshuriken's throw, its impact): no new cooldown
       if (J.cd && !msg.n) {
@@ -273,12 +275,32 @@ function handleAct(p, msg) {
       if (Number.isFinite(msg.tg)) out.tg = msg.tg | 0;
       if (Number.isFinite(msg.n)) out.n = msg.n | 0;
       if (Number.isFinite(msg.f)) out.f = msg.f & 255; // cast flags (Madara's kit: 1 = cast in the air)
+      // an aimed area (the meteor) can't land farther than its range from where the caster stood
+      if (J.hits && J.range && msg.n && out.o) {
+        const c = combat.posAt(p, at, {});
+        if (Math.hypot(out.o[0] - c.x, out.o[2] - c.z) > J.range + 8) return;
+      }
       if (J.hits) {
         // Madara's kit: the act keeps its first phase's time and gathers each later phase's payload (the area
         // hits are validated against it: madarakit.js)
         const act = msg.n ? prev : { m, at: out.at, k: msg.k, life: (J.life || 4) * 1000 };
         if (msg.n) combat.castPhase(p, act, out);
         p.acts.set(out.i, act);
+        // the meteor lands on the server's clock whatever happens to its caster's client
+        if (act.fx?.kind === 'meteor' && !act.fx.due) {
+          act.fx.due = act.fx.at1 + J.delay * 1000;
+          setTimeout(() => meteorImpact(p, act, out.i), Math.max(0, act.fx.due + METEOR_LEAD + 10 - now()));
+        }
+        // the wind barrier: up from the press, unless a hit's reaction already had him then (it reached the server
+        // first; his client's cast ends when that hitr arrives). The gust bursts out at gustAt (server clock).
+        if (J.counter) {
+          const r = p.react;
+          p.counter = r && at <= r.end && r.react !== REACT.guard ? null : { m, i: out.i, at, w: counterWindow(J, at), nr: 0, last: new Map() };
+          if (p.counter) {
+            const ctr = p.counter;
+            setTimeout(() => gustBurst(p, ctr), Math.max(0, at + J.gustAt * (1000 / 60) + METEOR_LEAD - now()));
+          }
+        }
         if (process.env.SHINOBI_DEBUG) log(`  ${p.name} cast ${m} #${out.i} phase ${out.n || 0}${act.fx ? ` (${act.fx.kind} placed)` : ''}`);
       } else p.acts.set(out.i, { m, at, k: msg.k });
       p.protectUntil = 0;
@@ -343,6 +365,17 @@ function handleHit(p, msg) {
     send(p, { t: 'hitx', v: msg.v, i: msg.i, k: msg.k | 0, why: val.why });
     return;
   }
+  // Madara's wind barrier: a hit inside its window is answered instead of taken, and so is every later hit of an
+  // attack it already deflected (a Rasenshuriken's burst, a torrent's ticks: they don't resume when it drops)
+  const dk = val.v.deflected?.get(`${p.id}:${msg.i | 0}`);
+  if (dk && now() < dk) return send(p, { t: 'hitx', v: val.v.id, i: msg.i, k: msg.k | 0, why: 'counter' });
+  const ctr = !val.v.dummy && combat.counterFor(val.v, val.spec, val.at);
+  if (ctr) return counterHit(val.v, p, val, msg, ctr);
+  applyHit(p, val, msg);
+}
+
+/** A validated hit: the result, HP, gauges, the broadcast, a KO. */
+function applyHit(p, val, msg) {
   const v = val.v;
   const out = combat.apply(p, val, msg);
   const res = out.res;
@@ -364,6 +397,124 @@ function handleHit(p, msg) {
   out.hp = v.hp;
   broadcast(out);
   if (!v.dummy && v.hp <= 0 && v.alive) kill(v, p, out);
+}
+
+/**
+ * Madara's wind barrier answers a hit (v: the barrier's owner, att: whoever hit it). The hit is refused (the attacker's
+ * client undoes its prediction, though it never makes one against a barrier it knows of) and every screen, the
+ * owner's included, gets the cast's phase n:1: `f` = 1 a blow (a melee hit: the attacker is thrown back; `cl`: it
+ * answered a shadow clone, which is dispelled), 2 a reflection (a projectile flies back to the thrower, arriving at
+ * `e`), 3 a deflection (an ultimate, an area jutsu). `o`: where the threat was. Any number of answers per cast; the
+ * effects of one attacker's kind are sent at most every 150 ms (a torrent's ticks, a string's follow-ups).
+ */
+const DEFLECTED_MS = 3000; // how long a deflected attack's later hits are refused (its longest: a Rasenshuriken's burst)
+function counterHit(v, att, val, msg, ctr) {
+  const t = now(), J = charOf(v.ch).jutsu[ctr.m], F = 1000 / 60;
+  const kind = COUNTER_KIND[val.spec.cls] || 3;
+  send(att, { t: 'hitx', v: v.id, i: msg.i, k: msg.k | 0, why: 'counter' });
+  // the owner where the attacker saw him; the threat at its own position (a clone, a projectile, a flame), else the attacker
+  const vp = val.p, o = [val.ax, val.ay, val.az].map(r3);
+  const tb = val.at + J.answer * F; // the answer leaves the wind shell
+  const clone = kind === 1 && String(msg.m).split(':')[0] === 'clone';
+  // the rest of this attack is spent on the barrier too (the attacker's screen hears it from `ai`)
+  (v.deflected ||= new Map()).set(`${att.id}:${msg.i | 0}`, t + DEFLECTED_MS);
+  for (const [k, until] of v.deflected) if (until < t) v.deflected.delete(k);
+  const tk = `${att.id}:${kind}:${clone ? 1 : 0}`;
+  if (kind !== 2 && t - (ctr.last.get(tk) ?? -1e9) < 150) return;
+  ctr.last.set(tk, t);
+  const out = { t: 'a', id: v.id, k: 'jutsu', m: ctr.m, i: ctr.i, n: 1, at: Math.round(val.at), r: Math.round(t), tg: att.id, ai: msg.i | 0, f: kind, o };
+  if (clone) out.cl = 1;
+  if (kind === 2) {
+    const ap = combat.posAt(att, t, {}), speed = charOf(att.ch).jutsu.shuriken.proj.speed * J.reflectSpeed;
+    out.e = Math.round(tb + (Math.hypot(ap.x - o[0], ap.y + 1.1 - o[1], ap.z - o[2]) / speed) * 1000);
+  }
+  if (process.env.SHINOBI_DEBUG) log(`  ${v.name}'s barrier answered ${att.name}'s ${msg.m} (kind ${kind}${out.cl ? ', a clone' : ''})`);
+  broadcast(out);
+  if (kind === 1 && !clone) {
+    // the blow: the attacker is in reach (a melee hit just connected) unless it dodged away in time; once per cast
+    const spec = hitSpec(v.ch, `${ctr.m}:blow`);
+    if (combat.invulnAt(att, tb) || Math.hypot(o[0] - vp[0], o[2] - vp[2]) > spec.reach + 1.5) return;
+    serverHit(v, att, spec, `${ctr.m}:blow`, ctr.i, 0, tb, [val.ax, val.ay, val.az], vp, `${v.id}:${ctr.i}:0:${att.id}`);
+  } else if (kind === 2) {
+    const n = ctr.nr++;
+    setTimeout(() => reflectHit(v, att, ctr, o, out.e, n), Math.max(0, out.e - now()));
+  }
+}
+
+/** A reflected projectile reaches its thrower: it hits unless the thrower is invulnerable then or behind cover. */
+function reflectHit(v, att, ctr, o, at, n) {
+  if (!players.has(att.id) || !players.has(v.id) || !att.alive || match.phase === 'results') return;
+  const why = combat.invulnAt(att, at);
+  const ap = combat.posAt(att, at, {});
+  if (why || !world.clear(o[0], o[1], o[2], ap.x, ap.y + 1.1, ap.z)) {
+    if (process.env.SHINOBI_DEBUG) log(`  reflection missed ${att.name}: ${why || 'cover'}`);
+    return;
+  }
+  serverHit(v, att, hitSpec(v.ch, `${ctr.m}:reflect`), `${ctr.m}:reflect`, ctr.i, 1, at, [ap.x, ap.y, ap.z], o, `${v.id}:${ctr.i}:1:${att.id}:${n}`);
+}
+
+/**
+ * The barrier's burst (server clock T = the press + gustAt, the middle of the spin): everyone within the gust's
+ * radius of his feet, in the open, not invulnerable, is thrown back a little. Judged where each victim's own screen
+ * had it (its states arrive ~half its ping later, up to METEOR_LEAD), like the meteor.
+ */
+function gustBurst(p, ctr) {
+  if (!players.has(p.id) || !p.alive || p.counter !== ctr || match.phase === 'results') return;
+  const J = charOf(p.ch).jutsu[ctr.m], T = ctr.at + J.gustAt * (1000 / 60), G = J.gust;
+  const c = combat.posAt(p, T, {}), spec = hitSpec(p.ch, `${ctr.m}:gust`);
+  for (const v of [...players.values(), dummy]) {
+    // (one throw per cast: an attacker the barrier already blew back isn't caught again)
+    if (v === p || !v.alive || v.hitDone.has(`${p.id}:${ctr.i}:0:${v.id}`)) continue;
+    const vp = combat.posAt(v, T + (v.dummy ? 0 : Math.min(METEOR_LEAD, (v.ping || 0) / 2)), {});
+    if (Math.hypot(vp.x - c.x, vp.z - c.z) > G.radius + 0.34 || Math.abs(vp.y - c.y) > G.height) continue;
+    const why = combat.invulnAt(v, T) || (world.clear(c.x, c.y + 1.0, c.z, vp.x, vp.y + 1.0, vp.z) ? null : 'cover');
+    if (why) {
+      if (process.env.SHINOBI_DEBUG) log(`  gust spared ${v.name}: ${why}`);
+      continue;
+    }
+    serverHit(p, v, spec, `${ctr.m}:gust`, ctr.i, 2, T, [vp.x, vp.y, vp.z], [c.x, c.y, c.z], `${p.id}:${ctr.i}:2:${v.id}`);
+  }
+}
+
+/**
+ * A hit the server applies itself (the barrier's blow / reflection / gust, the meteor): once per key, and another
+ * Madara's barrier deflects it like any other hit. src: where it comes from (the knockback pushes away from it).
+ */
+function serverHit(att, v, spec, m, i, k, at, p, src, key) {
+  if (v.hitDone.has(key)) return;
+  const ctr = !v.dummy && combat.counterFor(v, spec, at);
+  if (ctr) {
+    const tk = `${att.id}:3:0`, t = now();
+    if (t - (ctr.last.get(tk) ?? -1e9) < 150) return;
+    ctr.last.set(tk, t);
+    broadcast({ t: 'a', id: v.id, k: 'jutsu', m: ctr.m, i: ctr.i, n: 1, at: Math.round(at), r: Math.round(t), tg: att.id, f: 3, o: src.map(r3) });
+    return;
+  }
+  applyHit(att, { v, spec, at, p, rw: p.map(r3), ax: src[0], ay: src[1], az: src[2], ayaw: 0, key }, { m, i, k });
+}
+
+/**
+ * Tengai Shinsei lands (server clock `fx.due`): every fighter inside the outer ring, in the open (no cover between
+ * the crater and them), not invulnerable, takes the core or the outer hit (knocked away from the centre). Each is
+ * judged where its own screen had it at the impact: its states arrive ~half its ping later, up to METEOR_LEAD.
+ */
+const METEOR_LEAD = 150;
+function meteorImpact(p, act, i) {
+  if (!players.has(p.id) || match.phase === 'results') return;
+  const fx = act.fx, J = fx.J, o = fx.shape.o, T = fx.due;
+  for (const v of [...players.values(), dummy]) {
+    if (v === p || !v.alive) continue;
+    const vp = combat.posAt(v, T + (v.dummy ? 0 : Math.min(METEOR_LEAD, (v.ping || 0) / 2)), {});
+    const dist = Math.hypot(vp.x - o[0], vp.z - o[2]);
+    if (dist > J.outer + 0.34 || vp.y - o[1] > 9 || vp.y < o[1] - 4) continue;
+    const why = combat.invulnAt(v, T) || (world.clear(o[0], o[1] + 1.5, o[2], vp.x, vp.y + 1.0, vp.z) ? null : 'cover');
+    if (why) {
+      if (process.env.SHINOBI_DEBUG) log(`  meteor spared ${v.name}: ${why}`);
+      continue;
+    }
+    const part = dist <= J.core + 0.34 ? 'core' : 'outer', spec = hitSpec(p.ch, `tengaiShinsei:${part}`), pp = [vp.x, vp.y, vp.z];
+    serverHit(p, v, spec, `tengaiShinsei:${part}`, i, 0, T, pp, o, `${p.id}:${i}:0:${v.id}`);
+  }
 }
 
 function kill(v, killer, hit) {

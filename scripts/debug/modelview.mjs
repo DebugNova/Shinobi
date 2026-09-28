@@ -88,7 +88,7 @@ if (O.bones && vrm) {
   if (O.xray) root.traverse((o) => { if (o.isMesh) for (const m of [o.material].flat()) { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; } });
 }
 const c = box.getCenter(new THREE.Vector3()), h = box.max.y - box.min.y;
-const cam = new THREE.PerspectiveCamera(28, 1, 0.05, 50);
+const cam = new THREE.PerspectiveCamera(28, 1, h / 400, Math.max(50, h * 6)); // (the planes follow the model: some come in cm)
 const ANG = { front: 0, left: Math.PI / 2, back: Math.PI, right: -Math.PI / 2, q: Math.PI / 4, q2: -Math.PI / 4, top: 0, bottom: 0 };
 r.setScissorTest(true);
 VIEWS.forEach((v, i) => {

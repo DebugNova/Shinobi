@@ -574,6 +574,13 @@ export class Combat {
     n.send({ t: 'hit', v: t.id, m: act.id, i: act.inst, k: act.k || 0, at: Math.round(at), vt: Math.round(vt), p: [t.x, t.y, t.z].map((v) => Math.round(v * 1000) / 1000), a: [b.x, b.y, b.z, ctrl.yaw].map((v) => Math.round(v * 1000) / 1000), ...(src ? { c: src } : {}) });
     // prediction with the same rules the server uses
     const spec = hitSpec(ctrl.C.id, act.id);
+    // Madara's wind barrier will answer it (the server decides; its n:1 brings the answer's effects): no predicted
+    // flinch to undo, just sparks where it struck
+    if (!t.dummy && g.jutsu?.madara.countering(e, at, spec, act.inst)) {
+      g.fx.block(point);
+      g.audio?.impact?.(point, 1, true);
+      return;
+    }
     const guard = !t.dummy && e.view?.st === ST.guard;
     const combo = t.dummy ? g.dummy.combo : this.remoteCombos.get(t.id);
     const sx = src ? src[0] : b.x, sz = src ? src[2] : b.z, syaw = src ? src[3] : ctrl.yaw;
@@ -626,6 +633,7 @@ export class Combat {
 
   startRemoteReaction(e, h) {
     const g = this.game;
+    e.counter = null; // (a hit that lands ends Madara's barrier cast, as on the server: it came before the barrier)
     const prev = e.react;
     // the server confirming our own prediction: same start point and push, so the flight is unchanged
     // a confirmed KO is final (nothing replaces the fall)
@@ -815,6 +823,9 @@ export class Combat {
       if (att) att.hitstopUntil = performance.now() + m.hs * (1000 / 60);
     } else {
       if (!m.b && m.n) this.combo.n = Math.max(this.combo.n, m.n);
+      // our counter's blow / reflection, our meteor: applied by the server, never predicted here
+      const p = /^(uchihaReturn|tengaiShinsei):/.test(m.m) && e.fighter?.hurt?.center;
+      if (p) this.feedback(p, { blocked: !!m.b, react: m.r }, { hitstop: m.hs }, true);
     }
     this.startRemoteReaction(e, h);
     this.remoteCombos.set(m.v, { n: m.n, start: this.remoteCombos.get(m.v)?.start ?? m.at / 1000, until: (m.l || m.e) / 1000 });

@@ -48,8 +48,10 @@ const trailFrag = /* glsl */ `
     gl_FragColor = vec4(uColor * a, a);
   }`;
 
-class Trail {
-  constructor(scene) {
+/** A ribbon swept between two moving points (a limb, a prop), fading over `life` s (also Madara's gunbai: madarafx.js). */
+export class Trail {
+  constructor(scene, life = TRAIL_LIFE) {
+    this.life = life;
     const n = TRAIL_MAX * SUB * 2;
     this.pos = new Float32Array(n * 3);
     this.alpha = new Float32Array(n);
@@ -92,7 +94,7 @@ class Trail {
   /** Drops old samples and rebuilds the ribbon. Returns false once it has faded out. */
   update(now) {
     const s = this.s;
-    while (s.length && now - s[0].t > TRAIL_LIFE) s.shift();
+    while (s.length && now - s[0].t > this.life) s.shift();
     if (s.length < 2) {
       this.mesh.visible = false;
       this.geo.setDrawRange(0, 0);
@@ -112,7 +114,7 @@ class Trail {
         const u = j / SUB;
         cr(s0.a, s1.a, s2.a, s3.a, u, _a);
         cr(s0.b, s1.b, s2.b, s3.b, u, _b);
-        const age = (now - (s1.t + (s2.t - s1.t) * u)) / TRAIL_LIFE;
+        const age = (now - (s1.t + (s2.t - s1.t) * u)) / this.life;
         const al = Math.max(0, 1 - age) ** 1.6;
         P[k * 6] = _a.x; P[k * 6 + 1] = _a.y; P[k * 6 + 2] = _a.z;
         P[k * 6 + 3] = _b.x; P[k * 6 + 4] = _b.y; P[k * 6 + 5] = _b.z;

@@ -53,8 +53,8 @@
       #boot.out { opacity: 0; pointer-events: none; }
       @media (prefers-reduced-motion: reduce) { .bt-art.on, .bt-sun, .bt-leaves i, .bt-spin { animation: none; } }
     </style>
-    <script type="module" crossorigin src="/assets/index-vKJpOiXA.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DKccRncu.css">
+    <script type="module" crossorigin src="/assets/index-ycw4HStU.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BtlnrOLJ.css">
   </head>
   <body>
     <!-- ============ BOOT (loading) SCREEN: inline so it shows before the game code has downloaded ============ -->
@@ -223,6 +223,18 @@
         <button id="join" class="ti-join"><span>JOIN</span><i>press any key</i></button>
         <div class="ti-status" id="ti-status"></div>
       </div>
+      <!-- right side: your name + character select (cards built by main.js) -->
+      <aside class="ti-side" id="ti-side">
+        <label class="ti-name">
+          <span>YOUR NAME</span>
+          <input id="ti-name" type="text" maxlength="16" spellcheck="false" autocomplete="off" placeholder="Type your ninja name" />
+        </label>
+        <div class="ti-pick">
+          <span>CHOOSE YOUR NINJA</span>
+          <div class="ti-cards" id="ti-cards"></div>
+          <small id="ti-note">Same moves, same stats · only the look changes</small>
+        </div>
+      </aside>
       <div class="ti-foot"><span>WASD move · Space jump / wall run · Shift dash · LMB attack · RMB guard · Q E R jutsu · Esc menu</span></div>
     </section>
 

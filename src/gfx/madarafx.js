@@ -8,7 +8,7 @@
 //   FieldFlames   camera-facing flame tongues for the burning field (cylindrical billboards, toon bands).
 // No lights are added (programs are keyed by lights: gotcha 17); every glow is emissive + bloom.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 const NOISE = /* glsl */ `
   float mh3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -228,7 +228,7 @@ export class Billows {
 
 // ---------------------------------------------------------------- the wave's footprint
 
-const DECAL_COLS = 9, DECAL_ROWS = 45;
+const DECAL_COLS = 11, DECAL_ROWS = 45; // (columns ~1.6 m apart across the 16 m end)
 
 export class WaveDecal {
   constructor(scene) {
@@ -339,7 +339,7 @@ export class WaveDecal {
 
 // ---------------------------------------------------------------- the burning field
 
-const TONGUE_MAX = 192;
+const TONGUE_MAX = 256;
 
 export class FieldFlames {
   constructor(scene) {
@@ -671,253 +671,583 @@ export class Debris {
   }
 }
 
-// ---------------------------------------------------------------- Uchiha Return: the gunbai
+// ---------------------------------------------------------------- Uchiha Return: the gunbai, the wind barrier
 
-// The war fan's face outline (metres, the handle's top at the origin, +y up the face): a wide rounded paddle,
-// slightly taller than wide, narrowing into the neck.
-function gunbaiShape() {
-  const s = new THREE.Shape();
-  s.moveTo(-0.055, 0);
-  s.bezierCurveTo(-0.2, 0.07, -0.33, 0.24, -0.32, 0.42);
-  s.bezierCurveTo(-0.31, 0.63, -0.17, 0.77, 0, 0.775);
-  s.bezierCurveTo(0.17, 0.77, 0.31, 0.63, 0.32, 0.42);
-  s.bezierCurveTo(0.33, 0.24, 0.2, 0.07, 0.055, 0);
-  s.lineTo(-0.055, 0);
-  return s;
-}
-
-/** The face: cream paper with faint ribs fanning from the neck and three red tomoe (the Sharingan's crest). */
-function gunbaiFaceTexture() {
-  const n = 512, c = document.createElement('canvas');
-  c.width = c.height = n;
-  const x = c.getContext('2d');
-  // (u = (px + 0.33) / 0.66, v = py / 0.78: the texture spans the face's bounds)
-  const U = (px) => ((px + 0.33) / 0.66) * n, V = (py) => n - (py / 0.78) * n;
-  const grd = x.createRadialGradient(U(0), V(0.44), 10, U(0), V(0.44), n * 0.6);
-  grd.addColorStop(0, '#f3e9d2');
-  grd.addColorStop(1, '#dccaa2');
-  x.fillStyle = grd;
-  x.fillRect(0, 0, n, n);
-  // ribs
-  x.strokeStyle = 'rgba(150,118,72,0.35)';
-  x.lineWidth = 2;
-  for (let k = -7; k <= 7; k++) {
-    const a = (k / 7) * 1.25;
-    x.beginPath();
-    x.moveTo(U(0), V(0.02));
-    x.lineTo(U(Math.sin(a) * 0.5), V(0.02 + Math.cos(a) * 0.8));
-    x.stroke();
-  }
-  // a thin dark ring round the crest
-  const cx = U(0), cy = V(0.44), R = (0.2 / 0.66) * n;
-  x.strokeStyle = '#3a2418';
-  x.lineWidth = 5;
-  x.beginPath();
-  x.arc(cx, cy, R, 0, Math.PI * 2);
-  x.stroke();
-  // three tomoe, heads on a circle, tails sweeping round
-  x.fillStyle = '#b01018';
-  const hr = R * 0.24;
-  for (let k = 0; k < 3; k++) {
-    const a = (k / 3) * Math.PI * 2 - Math.PI / 2;
-    const hx = cx + Math.cos(a) * R * 0.5, hy = cy + Math.sin(a) * R * 0.5;
-    x.beginPath();
-    x.arc(hx, hy, hr, 0, Math.PI * 2);
-    x.fill();
-    // the tail: a crescent from the head's outer side, curling round the centre
-    const t0 = a + Math.PI / 2;
-    x.beginPath();
-    x.moveTo(hx + Math.cos(t0) * hr, hy + Math.sin(t0) * hr);
-    x.quadraticCurveTo(cx + Math.cos(a + 0.9) * R * 0.95, cy + Math.sin(a + 0.9) * R * 0.95, cx + Math.cos(a + 1.5) * R * 0.78, cy + Math.sin(a + 1.5) * R * 0.78);
-    x.quadraticCurveTo(cx + Math.cos(a + 0.8) * R * 0.62, cy + Math.sin(a + 0.8) * R * 0.62, hx - Math.cos(t0) * hr * 0.2, hy - Math.sin(t0) * hr * 0.2);
-    x.closePath();
-    x.fill();
-  }
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 4;
-  tex.repeat.set(1 / 0.66, 1 / 0.78);
-  tex.offset.set(0.33 / 0.66, 0);
-  return tex;
-}
-
-function colored(g, rgb) {
-  const n = g.attributes.position.count, a = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) a.set(typeof rgb === 'function' ? rgb(g, i) : rgb, i * 3);
-  g.setAttribute('color', new THREE.BufferAttribute(a, 3));
-  return g;
-}
-
-let gunbaiParts = null;
-/** Shared geometry and materials of every gunbai (built once). */
-function gunbaiKit(toonFn) {
-  if (gunbaiParts) return gunbaiParts;
-  const shape = gunbaiShape();
-  const face = new THREE.ExtrudeGeometry(shape, { depth: 0.018, bevelEnabled: true, bevelThickness: 0.004, bevelSize: 0.004, bevelSegments: 1, curveSegments: 24 });
-  face.translate(0, 0, -0.009);
-  // the rim: a dark lacquered band round the face, in segments (thin metal bands between them)
-  const pts = shape.getSpacedPoints(96).map((p) => new THREE.Vector3(p.x, p.y, 0));
-  const rim = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts, true), 128, 0.02, 6, true);
-  colored(rim, (g, i) => {
-    const seg = Math.floor(i / 7) % 128; // (tube vertices: radialSegments + 1 per ring)
-    return seg % 11 === 0 ? [0.55, 0.42, 0.2] : [0.07, 0.035, 0.03];
-  });
-  // the handle: lacquered shaft, a gold collar at the neck, bandages round the lower grip, a knob at the end
-  const parts = [];
-  const shaft = new THREE.CylinderGeometry(0.021, 0.025, 0.52, 8);
-  shaft.translate(0, -0.26, 0);
-  parts.push(colored(shaft, [0.06, 0.028, 0.022]));
-  const collar = new THREE.CylinderGeometry(0.034, 0.03, 0.05, 8);
-  collar.translate(0, -0.005, 0);
-  parts.push(colored(collar, [0.5, 0.36, 0.14]));
-  const wrap = new THREE.CylinderGeometry(0.029, 0.03, 0.16, 8, 8);
-  wrap.translate(0, -0.4, 0);
-  parts.push(colored(wrap, (g, i) => (Math.floor((g.attributes.position.getY(i) + 0.48) / 0.02) % 2 ? [0.8, 0.75, 0.64] : [0.62, 0.57, 0.48])));
-  const knob = new THREE.SphereGeometry(0.034, 8, 6);
-  knob.translate(0, -0.52, 0);
-  parts.push(colored(knob, [0.07, 0.035, 0.03]));
-  const ring = new THREE.TorusGeometry(0.018, 0.006, 5, 10);
-  ring.translate(0, -0.56, 0);
-  parts.push(colored(ring, [0.55, 0.55, 0.6]));
-  const handle = mergeGeometries(parts.map((p) => p.toNonIndexed()));
-  handle.computeVertexNormals();
-  gunbaiParts = {
-    face, rim, handle, link: new THREE.TorusGeometry(0.02, 0.0055, 5, 10),
-    faceMat: toonFn({ map: gunbaiFaceTexture(), hatch: 0.3, key: 'gface', side: THREE.DoubleSide, fade: false }),
-    lacquer: toonFn({ vertexColors: true, hatch: 0.4, key: 'glacq', fade: false }),
-    metal: toonFn({ color: 0x8e8e9a, hatch: 0.3, key: 'gmetal', fade: false }),
-  };
-  return gunbaiParts;
-}
-
-const LINKS = 13, LINK_LEN = 0.042;
-const _gq = new THREE.Quaternion(), _gv = new THREE.Vector3(), _gw = new THREE.Vector3(), _gm = new THREE.Matrix4(), _gs = new THREE.Vector3(1.35, 1, 1), _gy = new THREE.Vector3(0, 1, 0), _gz = new THREE.Quaternion();
+// The gunbai: public/assets/props/gunbai.glb ("Madara-Uchiha gunbai" by Madara.Uchiha.supreme, CC BY 4.0; source
+// models/gunbai.glb). Prop frame, metres: +y along the handle toward the head, origin at the neck (where the paddle
+// meets the handle), +z the face's normal, +x across the face. `len`: overall length; `grip`: the fist's place below
+// the neck; `back`: where it rides on his back, in the upper chest's frame (VRM normalized: +z forward, +x his left):
+// the neck behind the shoulder blades, the paddle leaning up over his left shoulder, the handle down to his right
+// hip (where the right hand finds it), the tomoe face to the back.
+export const GUNBAI = {
+  url: '/assets/props/gunbai.glb', len: 1.12, grip: 0.27,
+  back: { p: [0.02, -0.12, -0.27], up: [0.26, 1, -0.02], face: [0, 0, -1] },
+};
+let gunbaiGeo = null;
 
 /**
- * One fighter's gunbai: attached to the right hand's bone so the handle passes through the closed fist (the grip is
- * measured from that body's own finger bones), the face turned the way the knuckles point, the chain hanging off the
- * handle's end on a small verlet rope. Appears / vanishes in a puff of smoke with a quick scale pop.
+ * Parses the gunbai's .glb (its bytes) into the shared prop geometry (in the prop frame) and its texture. Triangles
+ * are turned to face their vertex normals (a ripped mesh can wind half of them backwards: gotcha 33).
+ */
+export async function loadGunbai(buf) {
+  const gltf = await new GLTFLoader().parseAsync(buf, '');
+  gltf.scene.updateMatrixWorld(true);
+  let mesh = null;
+  gltf.scene.traverse((o) => {
+    if (o.isMesh && !mesh) mesh = o;
+  });
+  let g = mesh.geometry.clone().applyMatrix4(mesh.matrixWorld);
+  if (g.index) g = g.toNonIndexed();
+  if (!g.attributes.normal) g.computeVertexNormals();
+  const P = g.attributes.position, N = g.attributes.normal, n = P.count;
+  g.computeBoundingBox();
+  const b = g.boundingBox, s = GUNBAI.len / (b.max.y - b.min.y), cx = (b.min.x + b.max.x) / 2, hw = (b.max.x - b.min.x) / 2;
+  // the handle's axis: the middle of its end; the neck: the lowest point of the paddle (well off the axis)
+  let ex = 0, ez = 0, en = 0, neck = b.max.y;
+  for (let i = 0; i < n; i++) {
+    const x = P.getX(i), y = P.getY(i);
+    if (y < b.min.y + 0.03 * (b.max.y - b.min.y)) {
+      ex += x;
+      ez += P.getZ(i);
+      en++;
+    }
+    if (Math.abs(x - cx) > 0.4 * hw) neck = Math.min(neck, y);
+  }
+  ex /= en || 1;
+  ez /= en || 1;
+  g.translate(-ex, -neck, -ez);
+  g.scale(s, s, s);
+  const A = new THREE.Vector3(), B = new THREE.Vector3(), C = new THREE.Vector3(), nm = new THREE.Vector3();
+  for (let i = 0; i < n; i += 3) {
+    A.fromBufferAttribute(P, i);
+    B.fromBufferAttribute(P, i + 1).sub(A);
+    C.fromBufferAttribute(P, i + 2).sub(A);
+    nm.fromBufferAttribute(N, i).add(A.fromBufferAttribute(N, i + 1)).add(A.fromBufferAttribute(N, i + 2));
+    if (B.cross(C).dot(nm) >= 0) continue;
+    for (const at of Object.values(g.attributes)) {
+      const k = at.itemSize, arr = at.array, o1 = (i + 1) * k, o2 = (i + 2) * k;
+      for (let j = 0; j < k; j++) [arr[o1 + j], arr[o2 + j]] = [arr[o2 + j], arr[o1 + j]];
+    }
+  }
+  g.computeBoundingSphere();
+  gunbaiGeo = { geo: g, map: mesh.material.map || null };
+  return gunbaiGeo;
+}
+
+const _gp = new THREE.Vector3(), _gq = new THREE.Quaternion(), _gs = new THREE.Vector3(), _gp2 = new THREE.Vector3(), _gq2 = new THREE.Quaternion();
+const _gm = new THREE.Matrix4(), _gx = new THREE.Vector3(), _gy = new THREE.Vector3(), _gz = new THREE.Vector3(), _one = new THREE.Vector3(1, 1, 1);
+const BACK_Q = new THREE.Quaternion(), BACK_P = new THREE.Vector3();
+/** The back mount from GUNBAI.back (again after a change: MadaraKit.debugGunbai). */
+export function gunbaiBack(b = GUNBAI.back) {
+  GUNBAI.back = b;
+  BACK_P.fromArray(b.p);
+  const y = new THREE.Vector3().fromArray(b.up).normalize();
+  const z = new THREE.Vector3().fromArray(b.face);
+  z.addScaledVector(y, -z.dot(y)).normalize();
+  const x = new THREE.Vector3().crossVectors(y, z);
+  BACK_Q.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z));
+}
+gunbaiBack();
+
+/**
+ * One Madara's gunbai: a child of his fighter's root, placed every frame from his bones (after their world matrices
+ * are up to date): on his back (the upper chest's frame) at w = 0, in the right fist at w = 1 (the handle through
+ * the closed fingers, measured from that body's own finger bones), blended in between (the grab, the release).
  */
 export class Gunbai {
-  constructor(scene, toonFn) {
-    const K = gunbaiKit(toonFn);
-    this.group = new THREE.Group();
-    this.face = new THREE.Mesh(K.face, K.faceMat);
-    this.rim = new THREE.Mesh(K.rim, K.lacquer);
-    this.handle = new THREE.Mesh(K.handle, K.lacquer);
-    for (const m of [this.face, this.rim, this.handle]) {
-      m.castShadow = true;
-      this.group.add(m);
-    }
-    this.group.visible = false;
-    this.chain = new THREE.InstancedMesh(K.link, K.metal, LINKS);
-    this.chain.frustumCulled = false;
-    this.chain.visible = false;
-    scene.add(this.chain);
-    this.pts = Array.from({ length: LINKS + 1 }, () => new THREE.Vector3());
-    this.prev = Array.from({ length: LINKS + 1 }, () => new THREE.Vector3());
-    this.hand = null;
-    this.on = false;
-    this.pop = 0;
+  constructor(mat) {
+    this.mesh = new THREE.Mesh(gunbaiGeo.geo, mat);
+    this.mesh.castShadow = true;
+    this.mesh.matrixAutoUpdate = false;
+    this.fighter = null;
+    this.fist = new THREE.Vector3(); // the grip point in the hand bone's space
+    this.gripQ = new THREE.Quaternion(); // the prop's frame in the hand bone's space
+    this.w = 0;
   }
 
-  /**
-   * Holds it in `fighter`'s right hand. The grip frame comes from the hand's finger bones (their rest offsets in the
-   * hand's space): the handle runs pinky -> index through the middle of the fist, the face opens toward the index
-   * side, facing where the knuckles point.
-   */
   attach(fighter) {
+    if (this.fighter === fighter) return;
     const H = fighter.vrm.humanoid;
-    const hand = H.getRawBoneNode('rightHand');
-    if (!hand) return false;
-    if (this.hand !== hand) {
-      hand.add(this.group);
-      this.hand = hand;
-      const I = H.getRawBoneNode('rightIndexProximal').position, Lp = H.getRawBoneNode('rightLittleProximal').position, M = H.getRawBoneNode('rightMiddleProximal').position;
-      const fingers = _gv.copy(M).normalize(), grip = _gw.copy(I).sub(Lp).normalize();
-      const palm = new THREE.Vector3().crossVectors(fingers, grip).negate().normalize();
-      const x = new THREE.Vector3().crossVectors(grip, fingers).normalize(); // (the face's width axis)
-      // local frame of the fan: +y along the handle toward the head (grip), +z the face normal (fingers)
-      const zf = new THREE.Vector3().crossVectors(x, grip).normalize();
-      this.group.matrix.makeBasis(x, grip, zf);
-      // the grip point: inside the curled fingers, in front of the palm; the handle's top 0.1 m above the fist
-      const c = M.clone().multiplyScalar(0.55).addScaledVector(palm, 0.03).addScaledVector(grip, 0.1);
-      this.group.matrix.setPosition(c);
-      // (the body's scale: the bones may carry the model's)
-      const ws = hand.getWorldScale(new THREE.Vector3()).x || 1;
-      this.group.matrix.scale(new THREE.Vector3(1 / ws, 1 / ws, 1 / ws));
-      this.group.matrixAutoUpdate = false;
-      this.group.matrixWorldNeedsUpdate = true;
-    }
-    return true;
+    this.fighter = fighter;
+    this.hand = H.getRawBoneNode('rightHand');
+    this.chest = H.getNormalizedBoneNode('upperChest') || H.getNormalizedBoneNode('chest');
+    // the grip frame: the handle runs pinky -> index through the middle of the fist, the face opens toward where the
+    // knuckles point
+    const I = H.getRawBoneNode('rightIndexProximal').position, Lp = H.getRawBoneNode('rightLittleProximal').position, M = H.getRawBoneNode('rightMiddleProximal').position;
+    const fingers = _gz.copy(M).normalize(), grip = _gy.copy(I).sub(Lp).normalize();
+    const palm = new THREE.Vector3().crossVectors(fingers, grip).negate().normalize();
+    const x = _gx.crossVectors(grip, fingers).normalize();
+    const zf = new THREE.Vector3().crossVectors(x, grip).normalize();
+    this.gripQ.setFromRotationMatrix(_gm.makeBasis(x, grip, zf));
+    this.fist.copy(M).multiplyScalar(0.55).addScaledVector(palm, 0.03 / (this.hand.getWorldScale(_gs).x || 1));
+    fighter.root.add(this.mesh);
   }
 
   detach() {
-    this.group.removeFromParent();
-    this.hand = null;
-    this.on = false;
-    this.group.visible = false;
-    this.chain.visible = false;
+    this.mesh.removeFromParent();
+    this.fighter = null;
   }
 
-  /** Where the chain hangs from (the ring under the handle), in world space. */
-  anchor(out) {
-    this.group.updateWorldMatrix(true, false);
-    return out.set(0, -0.56, 0).applyMatrix4(this.group.matrixWorld);
-  }
-
-  show(on) {
-    if (on === this.on) return false;
-    this.on = on;
-    this.group.visible = on;
-    this.chain.visible = on;
-    if (on) {
-      this.pop = 0;
-      this.anchor(this.pts[0]);
-      for (let i = 1; i <= LINKS; i++) this.pts[i].copy(this.pts[0]).y -= i * LINK_LEN;
-      for (let i = 0; i <= LINKS; i++) this.prev[i].copy(this.pts[i]);
+  /** The prop's origin (the neck) and orientation at w, in world space. */
+  pose(w, outP, outQ) {
+    this.chest.matrixWorld.decompose(outP, outQ, _gs);
+    outP.add(_gp2.copy(BACK_P).applyQuaternion(outQ));
+    outQ.multiply(BACK_Q);
+    if (w <= 0) return;
+    this.hand.matrixWorld.decompose(_gp2, _gq2, _gs);
+    _gq2.multiply(this.gripQ);
+    _gp2.copy(this.fist).applyMatrix4(this.hand.matrixWorld).addScaledVector(_gy.set(0, 1, 0).applyQuaternion(_gq2), GUNBAI.grip);
+    if (w >= 1) {
+      outP.copy(_gp2);
+      outQ.copy(_gq2);
+    } else {
+      outP.lerp(_gp2, w);
+      outQ.slerp(_gq2, w);
     }
-    return true;
   }
 
-  update(dt) {
-    if (!this.on) return;
-    // appear: a quick pop from 60% to full size
-    this.pop = Math.min(1, this.pop + dt / 0.09);
-    const s = 0.6 + 0.4 * (1 - (1 - this.pop) ** 3);
-    this.face.scale.setScalar(s);
-    this.rim.scale.setScalar(s);
-    this.handle.scale.setScalar(s);
-    // the chain: verlet with gravity and damping, the first point pinned to the handle's ring
-    const P = this.pts, Q = this.prev, h = Math.min(dt, 1 / 30);
-    this.anchor(P[0]);
-    for (let i = 1; i <= LINKS; i++) {
-      const p = P[i], q = Q[i];
-      _gv.copy(p).sub(q).multiplyScalar(0.96);
-      q.copy(p);
-      p.add(_gv).y -= 9.8 * h * h;
+  /** Draws it at w (0 on the back, 1 in the hand). */
+  place(w) {
+    this.w = w;
+    this.pose(w, _gp, _gq);
+    const m = this.mesh;
+    m.matrixWorld.compose(_gp, _gq, _one);
+    m.matrix.copy(this.fighter.root.matrixWorld).invert().multiply(m.matrixWorld);
+  }
+
+  /** A point of the prop (prop frame, e.g. the top of the paddle) in world space, as last drawn. */
+  point(x, y, z, out) {
+    return out.set(x, y, z).applyMatrix4(this.mesh.matrixWorld);
+  }
+}
+
+// The wind barrier round Madara while the gunbai is up: (1) ribbons of wind whirling round him (one draw: every
+// ribbon is built in the vertex shader from its seed and the time; they turn the way he spun, to his left), (2) a
+// thin shell showing the cover's edge (fresnel + swirling bands; a hit sends a ring across it from where it struck),
+// (3) the wave: a band of wind lines rushing out from his body (the gust at the spin, then small pulses). White
+// cores with pale cyan edges, hard toon bands; the side between the camera and him is kept faint so he stays in view.
+const RIBBONS = 26, SEGS = 48;
+const WIND = /* glsl */ `
+  float wh(float n) { return fract(sin(n * 127.1) * 43758.5453); }`;
+// two kinds of ribbon (by seed): ~70% are thin crisp lines of wind (the anime stroke), the rest wide soft bands at a
+// low alpha that give the whirl its body
+const ribbonVert = /* glsl */ `
+  attribute vec4 aR; // u (0 = the head, 1 = the tail), v (-1..1 across), seed, -
+  uniform float uTime; uniform float uAmt; uniform float uR; uniform float uH; uniform float uGrow;
+  varying float vU; varying float vV; varying float vSeed; varying float vFade; varying float vBand;
+  ${WIND}
+  void main() {
+    float s = aR.z, u = aR.x;
+    float band = step(0.7, wh(s + 11.7));
+    float r0 = uR * mix(0.7, 1.05, wh(s)) * uGrow * mix(1.0, 0.92, band);
+    float y0 = mix(0.1, uH, wh(s + 1.3));
+    float arc = mix(2.2, 4.4, wh(s + 2.7));
+    float spd = mix(5.0, 9.0, wh(s + 4.1));
+    float slope = mix(-0.05, 0.1, wh(s + 5.9));
+    float w = (band > 0.5 ? mix(0.16, 0.3, wh(s + 7.3)) : mix(0.018, 0.045, wh(s + 7.3))) * (1.0 - u * 0.5);
+    // a left turn is a falling atan2(z, x): the head leads at u = 0, the tail trails round behind it
+    float ang = wh(s + 9.1) * 6.2832 - uTime * spd + u * arc;
+    float rad = r0 * (1.0 + 0.06 * sin(u * 5.0 - uTime * 4.0 + s * 13.0));
+    vec3 radial = vec3(cos(ang), 0.0, sin(ang));
+    vec3 p = radial * rad + vec3(0.0, y0 + slope * u * arc * rad + 0.06 * sin(ang * 2.0 + s * 3.0 + uTime * 2.0), 0.0);
+    // the band stands up, tipped a little into the turn
+    p += (vec3(0.0, 0.92, 0.0) + radial * 0.38) * aR.y * w;
+    vec4 wp = modelMatrix * vec4(p, 1.0);
+    // faint on the near side (between the camera and him)
+    vec3 c = (modelMatrix * vec4(0.0, 1.0, 0.0, 1.0)).xyz, tc = cameraPosition - c;
+    vFade = 1.0 - 0.65 * smoothstep(0.1, 0.8, dot(radial, normalize(vec3(tc.x, 0.0, tc.z))));
+    vU = u; vV = aR.y; vSeed = s; vBand = band;
+    gl_Position = projectionMatrix * viewMatrix * wp;
+  }`;
+const ribbonFrag = /* glsl */ `
+  uniform float uTime; uniform float uAmt;
+  varying float vU; varying float vV; varying float vSeed; varying float vFade; varying float vBand;
+  ${WIND}
+  void main() {
+    float along = smoothstep(0.0, 0.05, vU) * pow(1.0 - vU, 1.6);
+    float alpha;
+    vec3 col;
+    if (vBand > 0.5) {
+      // a soft band: body, no edge
+      alpha = along * (1.0 - vV * vV) * 0.16;
+      col = vec3(0.78, 0.9, 1.0);
+    } else {
+      // a line: a hard core, broken here and there like a brush stroke
+      float gap = step(0.22, wh(floor(vU * 7.0 + vSeed * 3.0) + vSeed));
+      float core = 1.0 - smoothstep(0.35, 0.9, abs(vV));
+      alpha = step(0.12, along) * mix(0.55, 0.9, along) * core * gap;
+      col = mix(vec3(0.75, 0.9, 1.0), vec3(1.25, 1.3, 1.38), step(0.45, along));
     }
-    for (let it = 0; it < 4; it++) {
-      for (let i = 1; i <= LINKS; i++) {
-        const a = P[i - 1], b = P[i];
-        _gv.subVectors(b, a);
-        const d = _gv.length() || 1e-6, k = (d - LINK_LEN) / d;
-        if (i === 1) b.addScaledVector(_gv, -k);
-        else {
-          a.addScaledVector(_gv, k * 0.5);
-          b.addScaledVector(_gv, -k * 0.5);
-        }
+    alpha *= uAmt * vFade;
+    if (alpha < 0.01) discard;
+    gl_FragColor = vec4(col, alpha);
+  }`;
+const shellVert = /* glsl */ `
+  varying vec3 vN; varying vec3 vV; varying vec3 vL;
+  void main() {
+    vL = normalize(position);
+    vN = normalize(normalMatrix * normal);
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vV = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }`;
+const shellFrag = /* glsl */ `
+  uniform float uTime; uniform float uAmt; uniform vec4 uHits[4];
+  varying vec3 vN; varying vec3 vV; varying vec3 vL;
+  void main() {
+    float f = pow(1.0 - abs(dot(vN, vV)), 2.6);
+    // bands swirling round the vertical, sheared by height (the same turn as the ribbons)
+    float ang = atan(vL.z, vL.x);
+    float band = smoothstep(0.55, 0.95, sin(ang * 5.0 + vL.y * 5.0 + uTime * 9.0)) * 0.7 + smoothstep(0.7, 0.98, sin(ang * 9.0 - vL.y * 3.0 + uTime * 13.0)) * 0.4;
+    float a = f * (0.02 + band * 0.16);
+    // hits: a ring running across the shell from the point struck
+    float ring = 0.0;
+    for (int i = 0; i < 4; i++) {
+      vec4 h = uHits[i];
+      if (h.w < 0.0 || h.w > 1.0) continue;
+      float d = acos(clamp(dot(vL, h.xyz), -1.0, 1.0));
+      ring += smoothstep(0.22, 0.0, abs(d - h.w * 2.2)) * (1.0 - h.w) * 1.4 + smoothstep(0.5, 0.0, d) * (1.0 - h.w) * (1.0 - h.w);
+    }
+    a = a * uAmt + ring * min(1.0, uAmt * 2.0) * 0.8;
+    if (a < 0.01) discard;
+    vec3 col = mix(vec3(0.62, 0.84, 1.0), vec3(1.4, 1.45, 1.55), clamp(band * f + ring, 0.0, 1.0));
+    gl_FragColor = vec4(col, min(a, 0.9));
+  }`;
+const waveVert = /* glsl */ `
+  varying vec2 vUv; varying float vFace; varying float vDist;
+  void main() {
+    vUv = uv;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vDist = -mv.z;
+    // how squarely the band faces the camera (edge-on it would pile up into white bars at the silhouette)
+    vFace = abs(dot(normalize(normalMatrix * normal), normalize(-mv.xyz)));
+    gl_Position = projectionMatrix * mv;
+  }`;
+const waveFrag = /* glsl */ `
+  uniform float uK; uniform float uAmt; uniform float uSeed;
+  varying vec2 vUv; varying float vFace; varying float vDist;
+  ${WIND}
+  void main() {
+    // wind lines round the band: long strokes (6 rows of 20 per turn, each a random length at a random height and
+    // offset), thin however far it has spread
+    float y = vUv.y, row = floor(y * 6.0);
+    float x = vUv.x * 20.0 + wh(row + uSeed) * 7.0, cell = floor(x);
+    float h = wh(cell + row * 17.0 + uSeed * 31.0), yc = (row + mix(0.25, 0.75, wh(cell + row * 5.0 + 7.7 + uSeed))) / 6.0;
+    // a brush stroke: thickest in the middle, tapering to points at both ends
+    float len = mix(0.3, 0.9, h), e = abs(fract(x) - 0.5) / (len * 0.5);
+    float th = 0.02 * max(0.0, 1.0 - e * e);
+    float dash = step(e, 1.0) * smoothstep(th, th * 0.35, abs(y - yc));
+    float body = smoothstep(0.0, 0.25, y) * smoothstep(1.0, 0.6, y) * 0.1;
+    float a = (dash * step(0.25, h) * 0.85 + body) * pow(1.0 - uK, 1.4) * uAmt * smoothstep(0.08, 0.45, vFace) * smoothstep(0.6, 2.2, vDist); // (not across the camera as it spreads past it)
+    if (a < 0.01) discard;
+    gl_FragColor = vec4(mix(vec3(0.7, 0.88, 1.0), vec3(1.35, 1.4, 1.5), dash), min(a, 0.95));
+  }`;
+
+let barrierGeo = null;
+function barrierGeometry() {
+  if (barrierGeo) return barrierGeo;
+  const n = RIBBONS * (SEGS + 1) * 2, aR = new Float32Array(n * 4), idx = [];
+  for (let r = 0; r < RIBBONS; r++) {
+    for (let j = 0; j <= SEGS; j++) {
+      for (let k = 0; k < 2; k++) aR.set([j / SEGS, k ? 1 : -1, r * 1.618 + 0.37, 0], ((r * (SEGS + 1) + j) * 2 + k) * 4);
+      if (j < SEGS) {
+        const a = (r * (SEGS + 1) + j) * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
       }
     }
-    for (let i = 0; i < LINKS; i++) {
-      const a = P[i], b = P[i + 1];
-      _gv.subVectors(b, a).normalize();
-      _gq.setFromUnitVectors(_gy, _gv);
-      // alternate links turn 90 degrees about the chain
-      if (i % 2) _gq.multiply(_gz.setFromAxisAngle(_gy, Math.PI / 2));
-      _gm.compose(_gw.addVectors(a, b).multiplyScalar(0.5), _gq, _gs.set(1, 1.4, 1));
-      this.chain.setMatrixAt(i, _gm);
+  }
+  const ribbons = new THREE.BufferGeometry();
+  ribbons.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  ribbons.setAttribute('aR', new THREE.BufferAttribute(aR, 4));
+  ribbons.setIndex(idx);
+  ribbons.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1, 0), 3);
+  const shell = new THREE.IcosahedronGeometry(1, 4);
+  const wave = new THREE.CylinderGeometry(1, 1, 1, 64, 1, true);
+  wave.translate(0, 0.5, 0);
+  barrierGeo = { ribbons, shell, wave };
+  return barrierGeo;
+}
+
+/** One wind barrier (a pool of them: one per Madara whose gunbai is up). */
+export class WindBarrier {
+  constructor(scene) {
+    const G = barrierGeometry();
+    const blend = { transparent: true, depthWrite: false, blending: THREE.NormalBlending };
+    this.ribbonMat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uAmt: { value: 0 }, uR: { value: 1.6 }, uH: { value: 2.1 }, uGrow: { value: 1 } }, vertexShader: ribbonVert, fragmentShader: ribbonFrag, side: THREE.DoubleSide, ...blend });
+    this.shellMat = new THREE.ShaderMaterial({ uniforms: { uTime: { value: 0 }, uAmt: { value: 0 }, uHits: { value: Array.from({ length: 4 }, () => new THREE.Vector4(0, 1, 0, -1)) } }, vertexShader: shellVert, fragmentShader: shellFrag, ...blend });
+    this.waveMat = new THREE.ShaderMaterial({ uniforms: { uK: { value: 0 }, uAmt: { value: 0 }, uSeed: { value: 0 } }, vertexShader: waveVert, fragmentShader: waveFrag, side: THREE.DoubleSide, ...blend });
+    this.group = new THREE.Group();
+    this.ribbons = new THREE.Mesh(G.ribbons, this.ribbonMat);
+    this.shell = new THREE.Mesh(G.shell, this.shellMat);
+    this.wave = new THREE.Mesh(G.wave, this.waveMat);
+    this.ribbons.renderOrder = 7;
+    this.shell.renderOrder = 6;
+    this.wave.renderOrder = 7;
+    this.ribbons.frustumCulled = false;
+    this.group.add(this.ribbons, this.shell, this.wave);
+    this.group.visible = false;
+    scene.add(this.group);
+    this.owner = null;
+    this.hitN = 0;
+  }
+
+  /**
+   * Draws it at feet position p. o: { t (s since the press, drives the swirl), amt 0..1, grow (radius scale), R (m),
+   * wave: null | { k 0..1, amt, r (m), h (m), seed } }.
+   */
+  update(p, o, dt) {
+    this.group.visible = o.amt > 0.005 || !!o.wave;
+    if (!this.group.visible) return;
+    this.group.position.copy(p);
+    const U = this.ribbonMat.uniforms;
+    U.uTime.value = o.t;
+    U.uAmt.value = o.amt;
+    U.uR.value = o.R;
+    U.uGrow.value = o.grow;
+    this.ribbons.visible = o.amt > 0.005;
+    const S = this.shellMat.uniforms;
+    S.uTime.value = o.t;
+    S.uAmt.value = o.amt * o.shell;
+    for (const h of S.uHits.value) if (h.w >= 0) h.w = h.w + dt / 0.45 > 1 ? -1 : h.w + dt / 0.45;
+    this.shell.visible = o.amt > 0.005 || S.uHits.value.some((h) => h.w >= 0);
+    this.shell.position.set(0, 1.0, 0);
+    this.shell.scale.set(o.R * o.grow * 1.05, o.R * 0.82 * o.grow + 0.35, o.R * o.grow * 1.05);
+    const W = o.wave;
+    this.wave.visible = !!W;
+    if (W) {
+      this.waveMat.uniforms.uK.value = W.k;
+      this.waveMat.uniforms.uAmt.value = W.amt;
+      this.waveMat.uniforms.uSeed.value = W.seed;
+      this.wave.scale.set(W.r, W.h, W.r);
+      this.wave.position.set(0, 0.05, 0);
     }
-    this.chain.instanceMatrix.needsUpdate = true;
+  }
+
+  /** A hit struck the shell from world direction d (from his chest): a ring runs across it. */
+  hit(dx, dy, dz) {
+    const h = this.shellMat.uniforms.uHits.value[this.hitN++ % 4], l = Math.hypot(dx, dy, dz) || 1;
+    h.set(dx / l, dy / l, dz / l, 0);
+  }
+
+  release() {
+    this.owner = null;
+    this.group.visible = false;
+    for (const h of this.shellMat.uniforms.uHits.value) h.w = -1;
+  }
+}
+
+// ---------------------------------------------------------------- Tengai Shinsei: the meteor, its mark on the ground
+
+/** Deterministic 3D value noise for building the rock (CPU side; the shaders have their own). */
+function rockNoise(x, y, z) {
+  const h = (i, j, k) => {
+    let n = (i * 374761393 + j * 668265263 + k * 1274126177) | 0;
+    n = Math.imul(n ^ (n >>> 13), 1274126177);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+  };
+  const i = Math.floor(x), j = Math.floor(y), k = Math.floor(z);
+  const fx = x - i, fy = y - j, fz = z - k;
+  const u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy), w = fz * fz * (3 - 2 * fz);
+  const L = (a, b, t) => a + (b - a) * t;
+  return L(L(L(h(i, j, k), h(i + 1, j, k), u), L(h(i, j + 1, k), h(i + 1, j + 1, k), u), v), L(L(h(i, j, k + 1), h(i + 1, j, k + 1), u), L(h(i, j + 1, k + 1), h(i + 1, j + 1, k + 1), u), v), w);
+}
+const rockFbm = (x, y, z) => rockNoise(x, y, z) * 0.55 + rockNoise(x * 2.1, y * 2.1, z * 2.1) * 0.3 + rockNoise(x * 4.3, y * 4.3, z * 4.3) * 0.15;
+
+/**
+ * The meteor's rock: a lumpy, cratered boulder (unit radius; faceted: the toon look), basalt dark with paler ridges.
+ * Shared geometry of the rock and its heat shell.
+ */
+function meteorGeometry() {
+  const g = new THREE.IcosahedronGeometry(1, 3);
+  const p = g.attributes.position, n = new THREE.Vector3();
+  // a few craters: dents where the surface is near one of these directions
+  const craters = [[0.6, 0.5, 0.62], [-0.7, 0.2, 0.5], [0.1, -0.8, 0.5], [-0.3, 0.6, -0.7], [0.8, -0.3, -0.4]].map((c) => new THREE.Vector3(...c).normalize());
+  for (let i = 0; i < p.count; i++) {
+    n.fromBufferAttribute(p, i).normalize();
+    let r = 0.74 + 0.5 * rockFbm(n.x * 1.3 + 3, n.y * 1.3 + 7, n.z * 1.3 + 1) + 0.12 * rockFbm(n.x * 4 + 9, n.y * 4, n.z * 4);
+    for (const c of craters) {
+      const d = n.angleTo(c);
+      if (d < 0.38) r -= 0.16 * Math.cos((d / 0.38) * Math.PI * 0.5) ** 2;
+      else if (d < 0.46) r += 0.025;
+    }
+    // squashed a little: not a ball
+    p.setXYZ(i, n.x * r * 1.15, n.y * r * 0.82, n.z * r);
+  }
+  const flat = g.toNonIndexed();
+  flat.computeVertexNormals();
+  const q = flat.attributes.position, col = new Float32Array(q.count * 3);
+  for (let i = 0; i < q.count; i += 3) {
+    // one colour per facet: height on the rock (ridges pale, hollows dark) + noise
+    let r = 0;
+    for (let k = 0; k < 3; k++) r += n.fromBufferAttribute(q, i + k).length() / 3;
+    const t = Math.min(1, Math.max(0, (r - 0.8) / 0.35)) * 0.7 + rockNoise(q.getX(i) * 5, q.getY(i) * 5, q.getZ(i) * 5) * 0.3;
+    const c = [0.1 + 0.16 * t, 0.085 + 0.13 * t, 0.08 + 0.11 * t];
+    for (let k = 0; k < 3; k++) col.set(c, (i + k) * 3);
+  }
+  flat.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  return flat;
+}
+
+/**
+ * One meteor: the rock (toon, outlined, a moving shadow caster) and its heat shell: an additive skin glowing on the
+ * leading face (the fall's direction) with molten cracks, brighter as it comes down.
+ */
+export class MeteorRock {
+  constructor(scene, material) {
+    const g = meteorGeometry();
+    this.rock = new THREE.Mesh(g, material);
+    this.rock.castShadow = true;
+    this.rock.frustumCulled = false;
+    this.shellMat = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDir: { value: new THREE.Vector3(0, -1, 0) }, uHeat: { value: 0 }, uTime: { value: 0 } }]),
+      fog: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexShader: /* glsl */ `
+        varying vec3 vN; varying vec3 vObj; varying vec3 vView;
+        #include <fog_pars_vertex>
+        void main() {
+          vObj = position;
+          vN = normalize(mat3(modelMatrix) * normal);
+          vec4 wp = modelMatrix * vec4(position * 1.035, 1.0);
+          vec4 mvPosition = viewMatrix * wp;
+          vView = normalize(cameraPosition - wp.xyz);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform vec3 uDir; uniform float uHeat; uniform float uTime;
+        varying vec3 vN; varying vec3 vObj; varying vec3 vView;
+        #include <fog_pars_fragment>
+        ${NOISE}
+        void main() {
+          float front = clamp(dot(normalize(vN), uDir), 0.0, 1.0);
+          float rim = pow(1.0 - clamp(dot(normalize(vN), vView), 0.0, 1.0), 2.0);
+          // molten cracks: thin bands of the noise, over the front half
+          float n = mfbm(vObj * 3.2 + vec3(0.0, uTime * 0.4, 0.0));
+          float crack = 1.0 - smoothstep(0.02, 0.06, abs(n - 0.5));
+          float a = uHeat * (pow(front, 5.0) * 0.55 + crack * smoothstep(0.0, 0.6, dot(normalize(vN), uDir)) * 0.85 + rim * pow(front, 1.5) * 0.7);
+          if (a < 0.01) discard;
+          vec3 col = mix(vec3(1.4, 0.32, 0.04), vec3(2.4, 1.3, 0.4), pow(front, 3.0));
+          gl_FragColor = vec4(col * a, 1.0);
+          #include <fog_fragment>
+        }`,
+    });
+    this.shell = new THREE.Mesh(g, this.shellMat);
+    this.shell.frustumCulled = false;
+    this.shell.renderOrder = 2;
+    this.rock.add(this.shell);
+    this.rock.visible = false;
+    this.busy = false;
+    this.sphere = new THREE.Sphere();
+    scene.add(this.rock);
+  }
+}
+
+const MARK_N = 41; // (a 29 m square round a 13 m ring: ~0.7 m cells follow the ground)
+
+/**
+ * The meteor's mark on the ground, on a terrain-following grid round the impact point. Before the impact
+ * (uK: 0 -> 1 over the fall): the danger rings (outer and core, red, pulsing faster), the rock's shadow growing dark
+ * and sharp under it. After (uAge: seconds since): the crater's scorch with molten cracks cooling, fading out.
+ */
+export class MeteorMark {
+  constructor(scene) {
+    const n = MARK_N * MARK_N;
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(n * 3);
+    this.rel = new Float32Array(n * 2);
+    g.setAttribute('position', new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage));
+    g.setAttribute('aRel', new THREE.BufferAttribute(this.rel, 2).setUsage(THREE.DynamicDrawUsage));
+    const idx = [];
+    for (let j = 0; j < MARK_N - 1; j++) {
+      for (let i = 0; i < MARK_N - 1; i++) {
+        const a = j * MARK_N + i, b = a + 1, c = a + MARK_N, d = c + 1;
+        idx.push(a, c, b, b, c, d);
+      }
+    }
+    g.setIndex(idx);
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uK: { value: 0 }, uAge: { value: -1 }, uTime: { value: 0 }, uCore: { value: 4 }, uOuter: { value: 10 }, uShadow: { value: 5 }, uFade: { value: 1 } }]),
+      fog: true,
+      transparent: true,
+      depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -6,
+      vertexShader: /* glsl */ `
+        attribute vec2 aRel; varying vec2 vRel;
+        #include <fog_pars_vertex>
+        void main() { vRel = aRel; vec4 mvPosition = viewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */ `
+        uniform float uK; uniform float uAge; uniform float uTime; uniform float uCore; uniform float uOuter; uniform float uShadow; uniform float uFade;
+        varying vec2 vRel;
+        #include <fog_pars_fragment>
+        ${NOISE}
+        void main() {
+          float r = length(vRel), ang = atan(vRel.y, vRel.x);
+          vec3 col = vec3(0.0); float a = 0.0;
+          if (uAge < 0.0) {
+            // the warning: rings pulsing faster as it comes; dashes on the outer ring turning
+            float pulse = 0.55 + 0.45 * sin(uTime * (5.0 + uK * 16.0));
+            float outer = 1.0 - smoothstep(0.06, 0.16, abs(r - uOuter));
+            outer *= step(0.35, fract(ang * 6.0 / 3.14159 + uTime * 0.6));
+            float core = 1.0 - smoothstep(0.08, 0.2, abs(r - uCore));
+            float fill = (1.0 - smoothstep(uCore * 0.9, uOuter, r)) * 0.18 + (1.0 - smoothstep(0.0, uCore, r)) * 0.12;
+            // the rock's shadow: wide and faint high up, tight and dark as it lands
+            float sr = uShadow * (2.2 - 1.2 * uK);
+            float sh = (1.0 - smoothstep(sr * (0.55 + 0.35 * uK), sr, r)) * (0.15 + 0.6 * uK * uK);
+            vec3 red = vec3(1.9, 0.18, 0.06);
+            col = red * max(outer * (0.6 + 0.4 * pulse), core * pulse) + red * 0.35 * fill * pulse;
+            a = max(max(outer, core) * (0.55 + 0.45 * pulse), fill * pulse);
+            col = mix(col, vec3(0.02, 0.01, 0.01), sh * (1.0 - a));
+            a = max(a, sh);
+          } else {
+            // the crater: scorched, cracked earth; the cracks glow and cool
+            float n = mfbm(vec3(vRel * 0.45, 3.0));
+            float rim = uCore * 1.6 + (n - 0.5) * 2.5;
+            float burn = 1.0 - smoothstep(rim * 0.7, rim * 1.25, r);
+            float cr = mfbm(vec3(ang * 2.2, r * 0.35, 7.0));
+            float crack = (1.0 - smoothstep(0.015, 0.045, abs(cr - 0.5))) * (1.0 - smoothstep(rim, rim * 1.6, r)) * step(0.6, r);
+            float glow = exp(-uAge * 0.55);
+            col = mix(vec3(0.16, 0.11, 0.08), vec3(0.03, 0.022, 0.02), smoothstep(0.2, 0.9, burn));
+            col = mix(col, vec3(2.2, 0.55, 0.08) * glow + vec3(0.02) * (1.0 - glow), crack);
+            col += vec3(1.6, 0.35, 0.05) * glow * (1.0 - smoothstep(0.0, uCore * 0.8, r)) * 0.6;
+            a = max(burn * (0.55 + 0.35 * n), crack);
+            a *= uFade;
+          }
+          if (a < 0.02) discard;
+          gl_FragColor = vec4(col, a);
+          #include <fog_fragment>
+        }`,
+    });
+    this.mesh = new THREE.Mesh(g, this.mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 3;
+    this.mesh.visible = false;
+    this.busy = false;
+    scene.add(this.mesh);
+  }
+
+  /** Lays the grid on the ground round (x, z); ground(x, z) -> y. */
+  place(x, y, z, half, ground) {
+    for (let j = 0; j < MARK_N; j++) {
+      for (let i = 0; i < MARK_N; i++) {
+        const k = j * MARK_N + i, u = (i / (MARK_N - 1)) * 2 - 1, v = (j / (MARK_N - 1)) * 2 - 1;
+        const px = x + u * half, pz = z + v * half;
+        this.pos[k * 3] = px;
+        this.pos[k * 3 + 1] = ground(px, pz, y) + 0.06;
+        this.pos[k * 3 + 2] = pz;
+        this.rel[k * 2] = u * half;
+        this.rel[k * 2 + 1] = v * half;
+      }
+    }
+    this.mesh.geometry.attributes.position.needsUpdate = true;
+    this.mesh.geometry.attributes.aRel.needsUpdate = true;
+    this.mesh.visible = true;
+    this.busy = true;
   }
 }

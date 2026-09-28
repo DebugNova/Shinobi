@@ -318,6 +318,97 @@ export class Audio {
     for (let k = 0; k < 3; k++) this.noise(o, t + 0.02 + Math.random() * 0.12, 0.02, { type: 'highpass', f0: 3000 + Math.random() * 2000, gain: 0.2 });
   }
 
+  /** Uchiha Return: the gunbai raised (a heavy cloth swish, a wooden knock). */
+  gunbaiUp(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 0.7);
+    this.noise(o, t, 0.16, { f0: 500, f1: 1600, q: 1.4, gain: 0.35, attack: 0.02 });
+    this.tone(o, t + 0.06, 0.08, { type: 'triangle', f0: 380, f1: 300, gain: 0.25 });
+  }
+
+  /** The gunbai torn off his back: a leather creak, a heavy swish rising over the shoulder. */
+  gunbaiDraw(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 0.8);
+    this.noise(o, t, 0.06, { f0: 900, f1: 500, q: 3, gain: 0.3 });
+    this.noise(o, t + 0.03, 0.22, { f0: 300, f1: 1400, q: 1.1, gain: 0.45, attack: 0.05 });
+  }
+
+  /** The gust bursts out of the spin: a deep thump of air and a roar of wind racing away. */
+  gunbaiGust(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.3);
+    this.tone(o, t, 0.25, { f0: 110, f1: 45, gain: 0.7 });
+    this.noise(o, t, 0.7, { type: 'lowpass', f0: 1800, f1: 250, gain: 0.9, pink: true, attack: 0.01 });
+    this.noise(o, t + 0.02, 0.5, { f0: 2400, f1: 700, q: 0.8, gain: 0.35, attack: 0.02 });
+  }
+
+  /** The wind barrier holding: a swirling roar that sweeps round (call every frame with on; it fades). */
+  gunbaiWind(key, on, pos) {
+    this.loop(key, on, pos, () => {
+      const c = this.ctx;
+      const g = c.createGain();
+      g.gain.value = 0;
+      const pan = c.createPanner();
+      pan.refDistance = 3;
+      g.connect(pan).connect(this.sfx);
+      const s = c.createBufferSource();
+      s.buffer = this.pink;
+      s.loop = true;
+      const bp = c.createBiquadFilter();
+      bp.type = 'bandpass';
+      bp.frequency.value = 650;
+      bp.Q.value = 1.2;
+      // the whirl: the band sweeps up and down a few times a second
+      const lfo = c.createOscillator();
+      lfo.frequency.value = 2.6;
+      const lg = c.createGain();
+      lg.gain.value = 380;
+      lfo.connect(lg).connect(bp.frequency);
+      const lp = c.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 260;
+      s.connect(bp).connect(g);
+      s.connect(lp).connect(g);
+      s.start();
+      lfo.start();
+      return { gain: g, pan, level: 0.5, stop: () => [s, lfo].forEach((n) => n.stop()) };
+    });
+  }
+
+  /** The barrier answers a hit: a ringing clang off the wind; a blow adds a gust, a deflection a deep boom. */
+  gunbaiClang(pos = null, kind = 1) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.2);
+    for (const f of [640, 1010, 1580, 2330]) this.tone(o, t, 0.45, { type: 'triangle', f0: f, f1: f * 0.985, gain: 0.13 });
+    this.noise(o, t, 0.05, { type: 'highpass', f0: 2600, gain: 0.45 });
+    if (kind === 1) this.noise(o, t + 0.02, 0.4, { f0: 300, f1: 1800, q: 0.9, gain: 0.6, attack: 0.03 });
+    if (kind === 3) {
+      this.tone(o, t, 0.5, { f0: 80, f1: 34, gain: 0.7 });
+      this.noise(o, t, 0.6, { type: 'lowpass', f0: 700, f1: 90, gain: 0.6, pink: true });
+    }
+  }
+
+  /** Tengai Shinsei falling: a roar rising over the `dur` s of its fall, a whistle on top (it ends at the impact). */
+  meteorFall(pos = null, dur = 1.8) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 1.4);
+    this.noise(o, t, dur, { type: 'lowpass', f0: 120, f1: 900, gain: 0.8, pink: true, attack: dur * 0.8 });
+    this.noise(o, t + dur * 0.4, dur * 0.6, { f0: 700, f1: 2600, q: 5, gain: 0.25, attack: dur * 0.5 });
+    this.tone(o, t, dur, { type: 'sawtooth', f0: 38, f1: 62, gain: 0.12, attack: dur * 0.83 });
+  }
+
+  /** Tengai Shinsei lands: the heaviest boom in the game (a crack, a blast, a long rumble). */
+  meteorImpact(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 2.2);
+    this.noise(o, t, 0.12, { type: 'highpass', f0: 1200, gain: 0.9 });
+    this.tone(o, t, 0.9, { f0: 70, f1: 22, gain: 1 });
+    this.noise(o, t, 2.6, { type: 'lowpass', f0: 900, f1: 40, gain: 1, pink: true, attack: 0.01 });
+    this.noise(o, t + 0.1, 1.5, { f0: 500, f1: 150, q: 0.7, gain: 0.5 });
+    for (let k = 0; k < 10; k++) this.noise(o, t + 0.3 + Math.random() * 1.6, 0.05, { f0: 300 + Math.random() * 500, q: 2, gain: 0.3 });
+  }
+
   /** A burst of crackles (the burning field, a wall splash). */
   crackle(pos = null, n = 4, gain = 0.2) {
     if (!this.ok()) return;
