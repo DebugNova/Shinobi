@@ -225,9 +225,10 @@ if (ONLY.includes('tsukuyomi')) {
   // a hit inside it leaves B dazed to the end
   await A.p.evaluate((b) => { __game.teleport(b[0], b[2] + 1.6, 0); }, p1);
   await sleep(300);
+  // (his own M1 opener, I1: its flinch (34 frames) plays out before the dazed loop comes back)
   await A.p.evaluate(() => __game.input.press('attack'));
-  await sleep(700);
-  const m1 = await onB('U1');
+  await sleep(1100);
+  const m1 = await onB('I1');
   const still = await B.p.evaluate(() => ({ r: __game.ctrl.action?.h?.r ?? null, dz: __game.ctrl.action?.h?.dz ?? 0, clip: __game.view.act?.clip }));
   check('tsukuyomi: a hit inside the genjutsu keeps B dazed to its end', m1.length === 1 && m1[0].dz === ha[0]?.dz && still.dz === ha[0]?.dz && still.clip === 'dazed', `${JSON.stringify(m1.map((h) => ({ r: h.r, dz: h.dz })))} ${JSON.stringify(still)}`);
   await B.p.waitForFunction(() => !__game.arena.visible, { timeout: 3000, polling: 16 }).catch(() => {});

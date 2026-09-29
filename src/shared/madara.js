@@ -15,6 +15,7 @@ export const MADARA = {
   model: '/assets/characters/madara.vrm',
   standin: null,
   card: { tag: 'UCHIHA LEGEND', credit: 'Model: “Madara Uchiha” by AJ Studio · Gunbai by Madara.Uchiha.supreme · CC BY 4.0' },
+  hud: 'madara', // his HUD: Rinnegan portrait, Susanoo flames, armour-plate bar, painted icons (src/ui/madara.js)
   kit: { jutsu1: 'fireAnnihilation', jutsu2: 'woodCutting', jutsu3: 'uchihaReturn', ult: 'tengaiShinsei' },
 
   jutsu: {

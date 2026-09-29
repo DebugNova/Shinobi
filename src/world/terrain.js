@@ -3,7 +3,8 @@
 // (clumps of tapered blades, dark at the base and sunlit at the tips, swaying in the wind, fading out with distance).
 import * as THREE from 'three';
 import { SURF } from '../shared/config.js';
-import { WATER_Y, riverDist } from '../shared/map.js';
+import { WATER_Y, riverDist, riverX } from '../shared/map.js';
+import { outside, inTown } from './backdrop.js';
 import { mulberry32, fbm } from '../shared/rng.js';
 import { toon } from '../gfx/toon.js';
 
@@ -11,6 +12,7 @@ import { toon } from '../gfx/toon.js';
 export function dirtAt(map, x, z) {
   const w = map.world;
   const s = w.terrainSurf(x, z);
+  if (s === SURF.stone) return 1; // paved streets: dirt under the flagstones, never a grass patch
   let d = s === SURF.dirt ? 1 : 0;
   // forest and field paths (distance to segments between landmarks), with ragged edges
   for (const [a, b] of PATHS) {
@@ -42,7 +44,7 @@ export function buildTerrain(map, paint) {
   const hf = map.hf;
   const x0 = -120, x1 = 120, step = 1;
   const nx = Math.round((x1 - x0) / step) + 1;
-  const pos = new Float32Array(nx * nx * 3), splat = new Float32Array(nx * nx), uv = new Float32Array(nx * nx * 2);
+  const pos = new Float32Array(nx * nx * 3), splat = new Float32Array(nx * nx), uv = new Float32Array(nx * nx * 2), col = new Float32Array(nx * nx * 3);
   for (let j = 0; j < nx; j++) {
     for (let i = 0; i < nx; i++) {
       const x = x0 + i * step, z = x0 + j * step, k = j * nx + i;
@@ -53,6 +55,11 @@ export function buildTerrain(map, paint) {
       splat[k] = Math.abs(x) < 80 && Math.abs(z) < 80 ? dirtAt(map, x, z) : 0;
       // the river bed under the water: dirt
       if (y < WATER_Y + 0.05) splat[k] = 1;
+      // the backdrop: the town's streets are dirt; under the forest the ground is darker and cooler (its shade)
+      const o = outside(x, z);
+      if (inTown(x, z)) splat[k] = 1;
+      const shade = inTown(x, z) ? 0 : Math.min(1, Math.max(0, o / 6)) * (0.75 + 0.25 * fbm(x * 0.08, z * 0.08, 2, 5));
+      col.set([1 - shade * 0.42, 1 - shade * 0.3, 1 - shade * 0.36], k * 3);
     }
   }
   const idx = [];
@@ -68,9 +75,10 @@ export function buildTerrain(map, paint) {
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
   g.setAttribute('aSplat', new THREE.BufferAttribute(splat, 1));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
   g.setIndex(idx);
   g.computeVertexNormals();
-  const mat = toon({ map: paint.grass, splat: paint.dirt, tri: 0.16, splatScale: 0.2, hatch: 0.5 });
+  const mat = toon({ map: paint.grass, splat: paint.dirt, rock: paint.rock, rockScale: 0.07, tri: 0.16, splatScale: 0.2, hatch: 0.5, vertexColors: true });
   const mesh = new THREE.Mesh(g, mat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
@@ -148,7 +156,8 @@ export function buildGrass(map, count = 26000) {
         diffuseColor.rgb = mix(base, tip, smoothstep(0.0, 1.0, vH));`);
   };
   mat.side = THREE.DoubleSide;
-  const mesh = new THREE.InstancedMesh(geo, mat, count);
+  const REEDS = Math.round(count * 0.035);
+  const mesh = new THREE.InstancedMesh(geo, mat, count + REEDS);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   const g = {};
   let n = 0;
@@ -168,6 +177,22 @@ export function buildGrass(map, count = 26000) {
     const s = 0.8 + rng() * 0.5;
     sc.set(s, s * (0.75 + rng() * 0.6), s);
     mesh.setMatrixAt(n++, m4.compose(p, q, sc));
+  }
+  // reeds: the same clumps stretched tall, along the river's edge (standing in the shallows and on the wet bank)
+  for (let tries = 0, k = 0; tries < REEDS * 20 && k < REEDS; tries++) {
+    const z = -40 + rng() * 112, rx = riverX(z) + (rng() < 0.5 ? -1 : 1) * (4.1 + rng() * 1.8), x = rx;
+    const ty = w.terrain(x, z);
+    if (ty < WATER_Y - 0.12 || ty > WATER_Y + 0.6) continue;
+    w.ground(x, z, 80, g);
+    if (g.shape) continue;
+    const cl = 1 + Math.floor(rng() * 3);
+    for (let c = 0; c < cl && k < REEDS; c++, k++) {
+      p.set(x + (rng() - 0.5) * 0.6, Math.max(ty, WATER_Y - 0.1) - 0.05, z + (rng() - 0.5) * 0.6);
+      q.setFromAxisAngle(up, rng() * Math.PI * 2);
+      const s = 1.1 + rng() * 0.4;
+      sc.set(s, s * (3.2 + rng() * 1.6), s);
+      mesh.setMatrixAt(n++, m4.compose(p, q, sc));
+    }
   }
   mesh.count = n;
   mesh.userData.full = n; // graphics presets draw a fraction

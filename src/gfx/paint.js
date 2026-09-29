@@ -143,25 +143,67 @@ export const Paint = {
     return texture(c);
   },
 
-  /** Rock: cool grey-browns in blocky facets, crack lines. */
+  /**
+   * Rock: neutral light grey (the cliffs' vertex colours paint the strata tints, the terrain cools it), fine
+   * sediment lines running across (horizontal on a cliff face: the texture is mapped triplanar in world space) with a
+   * pale edge under each, thin jagged cracks mostly downward with a highlight beside them, a few pits.
+   */
   rock(seed = 4) {
     const n = 512, c = canvas(n), x = c.getContext('2d'), r = mulberry32(seed);
-    paintField(x, n, r, [hex(0x9a7f62), hex(0xab9072), hex(0xbca183), hex(0xcbb294)], { base: 3, steps: 4 });
+    paintField(x, n, r, [hex(0xa7a299), hex(0xafa9a0), hex(0xb7b1a7), hex(0xbfb9ae)], { base: 4, steps: 4 });
     x.lineCap = 'round';
-    for (let i = 0; i < 28; i++) {
+    let y = 0;
+    while (y < n) {
+      y += 14 + r() * 26;
+      const dark = r() < 0.7;
+      for (let seg = 0; seg < 3; seg++) {
+        const x0 = r() * n, len = 80 + r() * 260;
+        wrapped(x, n, x0, y, () => {
+          const wob = (r() - 0.5) * 6;
+          x.strokeStyle = dark ? 'rgba(70,62,54,0.28)' : 'rgba(90,80,70,0.16)';
+          x.lineWidth = 1 + r() * 1.4;
+          x.beginPath();
+          x.moveTo(0, 0);
+          x.bezierCurveTo(len * 0.33, wob, len * 0.66, -wob, len, wob * 0.5);
+          x.stroke();
+          x.strokeStyle = 'rgba(245,240,230,0.2)';
+          x.lineWidth = 1;
+          x.beginPath();
+          x.moveTo(0, 2);
+          x.bezierCurveTo(len * 0.33, wob + 2, len * 0.66, 2 - wob, len, wob * 0.5 + 2);
+          x.stroke();
+        });
+      }
+    }
+    for (let i = 0; i < 26; i++) {
       const px = r() * n, py = r() * n;
       wrapped(x, n, px, py, () => {
-        x.strokeStyle = 'rgba(70,52,38,0.55)';
-        x.lineWidth = 1.5 + r() * 2;
-        x.beginPath();
-        x.moveTo(0, 0);
+        const pts = [[0, 0]];
         let cx = 0, cy = 0;
-        for (let k = 0; k < 4; k++) {
-          cx += (r() - 0.5) * 40;
-          cy += r() * 30;
-          x.lineTo(cx, cy);
+        for (let k = 0; k < 5; k++) {
+          cx += (r() - 0.5) * 16;
+          cy += 8 + r() * 18;
+          pts.push([cx, cy]);
         }
+        x.strokeStyle = 'rgba(245,240,230,0.25)';
+        x.lineWidth = 1.2;
+        x.beginPath();
+        pts.forEach(([a, b], k) => (k ? x.lineTo(a + 1.5, b) : x.moveTo(a + 1.5, b)));
         x.stroke();
+        x.strokeStyle = 'rgba(55,46,40,0.6)';
+        x.lineWidth = 1 + r() * 1.2;
+        x.beginPath();
+        pts.forEach(([a, b], k) => (k ? x.lineTo(a, b) : x.moveTo(a, b)));
+        x.stroke();
+      });
+    }
+    for (let i = 0; i < 90; i++) {
+      const px = r() * n, py = r() * n, s2 = 1 + r() * 2.5;
+      wrapped(x, n, px, py, () => {
+        x.fillStyle = r() < 0.6 ? 'rgba(80,70,60,0.3)' : 'rgba(240,235,225,0.3)';
+        x.beginPath();
+        x.ellipse(0, 0, s2, s2 * 0.7, 0, 0, Math.PI * 2);
+        x.fill();
       });
     }
     return texture(c);
@@ -313,6 +355,23 @@ export const Paint = {
     return texture(c);
   },
 
+  /** Cherry blossom: petal-shaped dabs in pinks and white over a soft pink (tinted per tree by vertex colours). */
+  blossom(seed = 13) {
+    const n = 256, c = canvas(n), x = c.getContext('2d'), r = mulberry32(seed);
+    paintField(x, n, r, [hex(0xeebccb), hex(0xf2c6d2), hex(0xf6d0da), hex(0xf9dbe2)], { base: 6 });
+    for (let i = 0; i < 900; i++) {
+      const px = r() * n, py = r() * n, s = 3 + r() * 5;
+      wrapped(x, n, px, py, () => {
+        x.rotate(r() * 6.28);
+        x.fillStyle = r() < 0.45 ? 'rgba(255,245,248,0.55)' : r() < 0.6 ? 'rgba(214,110,145,0.45)' : 'rgba(236,150,175,0.4)';
+        x.beginPath();
+        x.ellipse(0, 0, s, s * 0.6, 0, 0, Math.PI * 2);
+        x.fill();
+      });
+    }
+    return texture(c);
+  },
+
   /** Shoji: translucent paper in a thin wooden lattice (one panel per texture). */
   shoji() {
     const w = 128, h = 256, c = canvas(w, h), x = c.getContext('2d');
@@ -394,6 +453,109 @@ export const Paint = {
     x.lineTo(n - 10, n - 10);
     x.stroke();
     return texture(c);
+  },
+
+  /**
+   * A building facade, one bay by one storey (4 m x 3.1 m; tiles both ways): pale plaster (vertex colours tint it per
+   * building), a dark floor beam, a window in a timber frame with a sill, glass with a sky glint, a grime streak.
+   */
+  facade(seed = 12) {
+    const w = 256, h = 200, c = canvas(w, h), x = c.getContext('2d'), r = mulberry32(seed);
+    const px = (m) => (m / 4) * w, py = (m) => h - (m / 3.1) * h; // metres -> canvas (v up)
+    const f = fbmField(w, r, 3, 3);
+    const img = x.createImageData(w, h);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const v = 236 + (f[(j % w) * w + i] - 0.5) * 26;
+      img.data.set([v, v - 3, v - 8, 255], (j * w + i) * 4);
+    }
+    x.putImageData(img, 0, 0);
+    // grime under the sill
+    const gr = x.createLinearGradient(0, py(0.9), 0, py(0.2));
+    gr.addColorStop(0, 'rgba(120,105,85,0.25)');
+    gr.addColorStop(1, 'rgba(120,105,85,0)');
+    x.fillStyle = gr;
+    x.fillRect(px(1.3), py(0.9), px(1.4), py(0.2) - py(0.9));
+    // floor beam
+    x.fillStyle = '#4a3526';
+    x.fillRect(0, py(0.2), w, py(0) - py(0.2));
+    x.fillStyle = 'rgba(255,255,255,0.12)';
+    x.fillRect(0, py(0.2), w, 2);
+    // window: frame, glass, glint, mullions, sill
+    const X0 = 1.1, X1 = 2.9, Y0 = 0.95, Y1 = 2.4;
+    x.fillStyle = '#4a3526';
+    x.fillRect(px(X0 - 0.1), py(Y1 + 0.1), px(X1 - X0 + 0.2), py(Y0 - 0.1) - py(Y1 + 0.1));
+    const gl = x.createLinearGradient(0, py(Y1), 0, py(Y0));
+    gl.addColorStop(0, '#5a7394');
+    gl.addColorStop(1, '#2c3a52');
+    x.fillStyle = gl;
+    x.fillRect(px(X0), py(Y1), px(X1 - X0), py(Y0) - py(Y1));
+    x.fillStyle = 'rgba(210,235,255,0.35)';
+    x.beginPath();
+    x.moveTo(px(X0 + 0.2), py(Y1));
+    x.lineTo(px(X0 + 0.55), py(Y1));
+    x.lineTo(px(X0 + 0.15), py(Y0));
+    x.lineTo(px(X0 - 0.0), py(Y0));
+    x.closePath();
+    x.fill();
+    x.fillStyle = '#4a3526';
+    x.fillRect(px((X0 + X1) / 2 - 0.04), py(Y1), px(0.08), py(Y0) - py(Y1));
+    x.fillRect(px(X0), py(Y0 + 0.62), px(X1 - X0), py(Y0) - py(Y0 + 0.07));
+    x.fillStyle = '#d9cfc0';
+    x.fillRect(px(X0 - 0.2), py(Y0 - 0.1), px(X1 - X0 + 0.4), py(Y0 - 0.22) - py(Y0 - 0.1));
+    return texture(c);
+  },
+
+  /**
+   * Every vertical shop sign in one texture (one material, one draw for all of them): n boards side by side, each
+   * 128 x 384, in four colour schemes (cream / black / red / indigo). A board's plane maps u from i/n to (i+1)/n.
+   */
+  signAtlas(texts) {
+    const cw = 128, ch = 384, n = texts.length, c = canvas(cw * n, ch), x = c.getContext('2d');
+    const schemes = [['#f1e6c8', '#2b1d12'], ['#2b2b30', '#f1e6c8'], ['#b3261e', '#fff4dc'], ['#23305e', '#f6f1e2']];
+    texts.forEach((t, i) => {
+      const [bg, fg] = schemes[i % schemes.length];
+      const x0 = i * cw;
+      x.fillStyle = bg;
+      x.fillRect(x0, 0, cw, ch);
+      x.strokeStyle = 'rgba(0,0,0,0.35)';
+      x.lineWidth = 6;
+      x.strokeRect(x0 + 5, 5, cw - 10, ch - 10);
+      x.strokeStyle = 'rgba(255,255,255,0.25)';
+      x.lineWidth = 2;
+      x.strokeRect(x0 + 11, 11, cw - 22, ch - 22);
+      x.fillStyle = fg;
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      const chars = [...t], size = Math.min(92, (ch - 50) / chars.length);
+      x.font = `${size}px "Yuji Syuku", serif`;
+      chars.forEach((k, j) => x.fillText(k, x0 + cw / 2, 25 + ((ch - 50) / chars.length) * (j + 0.5)));
+    });
+    const tex = texture(c, { repeat: false });
+    tex.userData = { n };
+    return tex;
+  },
+
+  /**
+   * Noren curtains, several designs in one texture (one material): each design a 512 x 128 cell of dyed cloth with a
+   * white character across its strips and a darker hem; cells stacked vertically (v from i/n to (i+1)/n).
+   */
+  norenAtlas(designs) {
+    const cw = 512, ch = 128, n = designs.length, c = canvas(cw, ch * n), x = c.getContext('2d');
+    designs.forEach(([text, bg], i) => {
+      const y0 = (n - 1 - i) * ch; // v up: design i at v i/n
+      x.fillStyle = bg;
+      x.fillRect(0, y0, cw, ch);
+      x.fillStyle = 'rgba(0,0,0,0.22)';
+      x.fillRect(0, y0 + ch - 14, cw, 14);
+      x.fillStyle = '#f6f1e2';
+      x.font = '92px "Yuji Syuku", serif';
+      x.textAlign = 'center';
+      x.textBaseline = 'middle';
+      x.fillText(text, cw / 2, y0 + ch / 2);
+    });
+    const tex = texture(c, { repeat: false });
+    tex.userData = { n };
+    return tex;
   },
 
   /** A painted sign: text on a coloured board (the ramen shop, the noren curtain). */

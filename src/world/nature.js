@@ -186,7 +186,7 @@ function rootGeometry(t, map, a, rng) {
  * canopy's (centre C, radii R, Rv): every clump of a tree shades as one soft mass, the anime-foliage look.
  * Vertex colours darken the canopy's underside and inside (cheap ambient occlusion).
  */
-function foliage(cx, cy, cz, r, rng, detail, C, tint, flat = 0.82) {
+export function foliage(cx, cy, cz, r, rng, detail, C, tint, flat = 0.82) {
   const g = new THREE.IcosahedronGeometry(r, detail);
   const p = g.attributes.position, n = g.attributes.normal;
   const f = [rng() * 10, rng() * 10, rng() * 10, rng() * 10];
@@ -216,22 +216,6 @@ function foliage(cx, cy, cz, r, rng, detail, C, tint, flat = 0.82) {
     col[i * 3 + 2] = ao * tint[2] * (1.12 - 0.12 * ao);
   }
   g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  return g;
-}
-
-/** Old-style blob (the woodland along the boundary walls): soft sphere normals, no canopy. */
-function clump(cx, cy, cz, r, rng, detail = 3) {
-  const g = new THREE.IcosahedronGeometry(r, detail);
-  const p = g.attributes.position, n = g.attributes.normal;
-  const f = [rng() * 10, rng() * 10, rng() * 10];
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-    const l = Math.hypot(x, y, z);
-    const nx = x / l, ny = y / l, nz = z / l;
-    const k = 1 + 0.16 * Math.sin(nx * 5 + f[0]) * Math.sin(ny * 4 + f[1]) + 0.1 * Math.sin(nz * 9 + f[2]) - (ny < -0.3 ? (-ny - 0.3) * 0.35 : 0);
-    p.setXYZ(i, cx + x * k, cy + y * k * 0.82, cz + z * k);
-    n.setXYZ(i, nx, ny, nz);
-  }
   return g;
 }
 
@@ -299,47 +283,189 @@ export function buildTrees(map, B, mat) {
   }
 }
 
-/** Cliff / rock-wall blocks: a subdivided box pushed outward with noise on its sides, and a grass cap on top. */
+// rock strata (multipliers on the neutral rock texture: sand, grey, rust, pale, dark), drawn by world height so the
+// bands run on from block to block along a cliff
+const STRATA = [[1.32, 1.13, 0.86], [1.42, 1.3, 1.1], [1.25, 1.02, 0.78], [1.1, 1.03, 0.95], [1.22, 0.96, 0.8], [1.02, 0.94, 0.86]];
+const hash1 = (n) => {
+  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+};
+// the strata's boundaries in world height (0.7-2.2 m thick; the same everywhere, so bands run on from block to block)
+const BOUNDS = [-6];
+while (BOUNDS[BOUNDS.length - 1] < 40) BOUNDS.push(BOUNDS[BOUNDS.length - 1] + 0.7 + hash1(BOUNDS.length * 3.1) * 1.5);
+const bandOf = (y) => {
+  let k = 0;
+  while (k < BOUNDS.length - 1 && BOUNDS[k + 1] <= y) k++;
+  return k;
+};
+
+/**
+ * A grass fringe hanging off one top edge of a cliff block (from a to b, outward normal n): tufts of random length
+ * (mostly short, now and then a long strand; a regular sawtooth read as teeth), leaning out over the rock.
+ */
+function fringe(ax, az, bx, bz, nx, nz, y, rng, scale = 1) {
+  const len = Math.hypot(bx - ax, bz - az), n = Math.max(2, Math.round(len / 0.2));
+  const pos = [], idx = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t;
+    const r = rng();
+    const drop = (i % 2 ? 0.1 + r * r * 0.75 : 0.05 + r * 0.1) * scale;
+    pos.push(x + nx * 0.05, y + 0.03, z + nz * 0.05, x + nx * (0.1 + drop * 0.3), y - drop, z + nz * (0.1 + drop * 0.3));
+    if (i) idx.push((i - 1) * 2, i * 2, (i - 1) * 2 + 1, i * 2, i * 2 + 1, (i - 1) * 2 + 1);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * One side of a rock block as layered strata, in the block's local frame: rows at every band boundary (twice, a
+ * centimetre apart, so each band steps out or in by its own amount: a lit ledge top or a shadowed underside, crisp
+ * in the toon bands), columns every ~0.7 m plus narrow cracks cut in. n = outward normal (local x, z), t = the face's
+ * tangent, L = half length along t, D = distance of the face from the centre. Corners move out along both normals so
+ * the sides meet. Vertex colours: the band's tint, a darker foot, moss dripping from the top, wet/stain streaks.
+ */
+function strataSide(o) {
+  const { n, t, L, D, y0, y1, seed, wet, world, colStep = 0.7 } = o;
+  const r = mulberry32(seed);
+  // columns: regular, and a crack (a narrow groove) now and then
+  const cols = [];
+  const nc = Math.max(2, Math.round((2 * L) / colStep));
+  for (let i = 0; i <= nc; i++) cols.push({ s: -L + (2 * L * i) / nc, crack: 0 });
+  const nk = Math.floor((2 * L) / 3.2 + r() * 1.5);
+  for (let k = 0; k < nk; k++) {
+    const c = -L + 0.6 + r() * (2 * L - 1.2), w = 0.07 + r() * 0.05, dep = 0.12 + r() * 0.12;
+    cols.push({ s: c - w, crack: 0.001 }, { s: c, crack: dep }, { s: c + w, crack: 0.001 });
+  }
+  cols.sort((p, q) => p.s - q.s);
+  // rows: the bottom, every band boundary (doubled), the top
+  const rows = [{ y: y0, band: bandOf(y0 + 0.01) }];
+  for (const yb of BOUNDS) if (yb > y0 + 0.05 && yb < y1 - 0.05) rows.push({ y: yb - 0.005, band: bandOf(yb - 0.01) }, { y: yb + 0.005, band: bandOf(yb + 0.01) });
+  rows.push({ y: y1, band: bandOf(y1 - 0.01), top: true });
+  const pos = [], col = [], idx = [];
+  const nr = rows.length, ncol = cols.length;
+  for (const R of rows) {
+    const below = y1 - R.y;
+    const k = STRATA[Math.floor(hash1(R.band) * STRATA.length)];
+    const ledge = R.top ? 0 : Math.min(below * 0.5, hash1(R.band + 0.5) * 0.3 - 0.06);
+    for (const C of cols) {
+      const corner = Math.abs(Math.abs(C.s) - L) < 1e-6;
+      const bump = ledge - (corner ? 0 : C.crack) * Math.min(1, below * 2);
+      const px = n[0] * (D + bump) + t[0] * (C.s + (corner ? Math.sign(C.s) * bump : 0));
+      const pz = n[1] * (D + bump) + t[1] * (C.s + (corner ? Math.sign(C.s) * bump : 0));
+      pos.push(px, R.y, pz);
+      const u = world(px, pz);
+      const foot = 0.72 + 0.28 * Math.min(1, (R.y - y0 - 2) / 2.5 + 0.35);
+      const drip = 0.5 + 1.4 * (0.5 + 0.5 * Math.sin(u * 0.9 + seed) * Math.sin(u * 0.37 + seed * 0.3));
+      const moss = R.top ? 0.9 : Math.max(0, 1 - below / drip) ** 0.8 * 0.9;
+      const stain = Math.max(0, Math.sin(u * 0.61 + seed) * Math.sin(u * 1.7) - 0.55) * 1.4 * Math.min(1, below / 3);
+      const crackDark = C.crack > 0.01 ? 0.55 : 1;
+      const kk = foot * (1 - stain * 0.3) * crackDark * (wet ? 0.7 : 1);
+      col.push((k[0] * (1 - moss) + 0.62 * moss) * kk, (k[1] * (1 - moss) + 1.02 * moss) * kk, (k[2] * (1 - moss) + 0.42 * moss) * kk * (wet ? 1.12 : 1));
+    }
+  }
+  for (let j = 0; j < nr - 1; j++) for (let i = 0; i < ncol - 1; i++) {
+    const p = j * ncol + i, q = p + ncol;
+    idx.push(p, p + 1, q, p + 1, q + 1, q);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.setIndex(idx);
+  // winding: faces must point along n
+  const ax = t[0], az = t[1];
+  if (ax * n[1] - az * n[0] < 0) {
+    const ix = g.index.array;
+    for (let i = 0; i < ix.length; i += 3) [ix[i + 1], ix[i + 2]] = [ix[i + 2], ix[i + 1]];
+  }
+  g.computeVertexNormals();
+  return g;
+}
+
+/**
+ * Cliff / rock-wall blocks. The sides are layered strata (strataSide): each band of rock steps out by its own amount,
+ * with cracks cut in, the bands painted in sand / grey / rust tints, a darker foot, moss dripping from the top and
+ * water stains; rock under a fall is dark and wet. On top a grass sheet following the ground and a ragged fringe
+ * hanging over every exposed face. The east rim behind the village is the village wall instead: masonry with a
+ * coping course and moss.
+ */
 export function buildCliffs(map, B, mat) {
   const rng = mulberry32(991);
+  const cliffs = map.props.filter((c) => c.t === 'cliff');
+  // is (x, z) inside another cliff block reaching at least up to y (a side there is hidden by its neighbour)?
+  const covered = (self, x, z, y) => cliffs.some((c) => {
+    if (c === self || c.s.y1 < y) return false;
+    const cs = c.s.c ?? 1, sn = c.s.s2 ?? 0, dx = x - c.s.x, dz = z - c.s.z;
+    return Math.abs(dx * cs + dz * sn) < c.s.hx - 0.05 && Math.abs(-dx * sn + dz * cs) < c.s.hz - 0.05;
+  });
   for (const c of map.props) {
     if (c.t !== 'cliff') continue;
     const s = c.s;
     const w = s.hx * 2, d = s.hz * 2, h = s.y1 - s.y0;
-    const g = new THREE.BoxGeometry(w, h, d, Math.max(2, Math.round(w / 0.9)), Math.max(2, Math.round(h / 0.9)), Math.max(2, Math.round(d / 0.9)));
-    const p = g.attributes.position;
-    const ph = [rng() * 10, rng() * 10];
-    for (let i = 0; i < p.count; i++) {
-      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const top = y > h / 2 - 1e-3;
-      // side faces bulge out (strata: stronger horizontal banding), the top stays flat to stand on
-      const ex = Math.abs(x) > s.hx - 1e-3, ez = Math.abs(z) > s.hz - 1e-3;
-      if (!top) {
-        const strata = 0.5 + 0.5 * Math.sin((y + s.y0) * 1.7 + ph[0]);
-        const bump = 0.18 * strata + 0.12 * Math.sin(x * 1.3 + z * 1.1 + ph[1]) * Math.sin(y * 2.1);
-        if (ex) x += Math.sign(x) * bump;
-        if (ez) z += Math.sign(z) * bump;
-      }
-      p.setXYZ(i, x, y, z);
-    }
-    g.computeVertexNormals();
     const yaw = s.c !== undefined ? -Math.atan2(s.s2, s.c) : 0;
-    B.add(mat.rock, g, M(s.x, (s.y0 + s.y1) / 2, s.z, 0, yaw, 0));
-    // grass cap with a ragged lip
-    if (!c.rim || h < 20) {
-      const cap = boxUV(w + 0.3, 0.3, d + 0.3);
-      B.add(mat.grassCap, cap, M(s.x, s.y1 + 0.02, s.z, 0, yaw, 0));
-    }
-    // the boundary walls: a line of woodland along the top (the horizon reads as forest, not a straight wall);
-    // low-poly clumps, set back behind the edge (out of bounds, no colliders)
-    if (c.rim) {
-      let nx = -s.s2, nz = s.c;
-      if (nx * s.x + nz * s.z < 0) (nx = -nx), (nz = -nz);
-      const n = 2 + Math.floor(rng() * 2);
-      for (let k = 0; k < n; k++) {
-        const t = ((k + 0.5) / n - 0.5) * w, r = 3 + rng() * 2.2, back = 1.2 + rng() * 2.5;
-        B.add(mat.leaves, clump(s.x + s.c * t + nx * back, s.y1 + r * 0.35 + rng() * 1.5, s.z + s.s2 * t + nz * back, r, rng, 2));
+    const cs = s.c ?? 1, sn = s.s2 ?? 0; // local x axis in world (x, z)
+    const W = (lx, lz) => [s.x + lx * cs - lz * sn, s.z + lx * sn + lz * cs];
+    const wall = c.rim && s.x > 70; // the east rim: the village wall
+    rng(); // (keeps the fringes' random stream as it was)
+    const place = M(s.x, 0, s.z, 0, yaw, 0);
+    let top = s.y1;
+    if (wall) {
+      // masonry: blocks in metres (the stone texture mapped on the faces), moss from the top, a coping course
+      const g = new THREE.BoxGeometry(w, h, d, 1, Math.max(2, Math.round(h / 1.1)), 1);
+      const p = g.attributes.position, uv = g.attributes.uv, nn = g.attributes.normal, col = new Float32Array(p.count * 3);
+      for (let i = 0; i < p.count; i++) {
+        uv.setXY(i, (Math.abs(nn.getX(i)) > 0.5 ? p.getZ(i) : p.getX(i)) * 0.45, p.getY(i) * 0.45);
+        const below = h / 2 - p.getY(i), moss = below < 1e-3 ? 0 : Math.max(0, 1 - below / 1.6) * 0.6;
+        const foot = 0.75 + 0.25 * Math.min(1, (h / 2 + p.getY(i)) / 3);
+        col.set([(0.98 * (1 - moss) + 0.62 * moss) * foot, (1 * (1 - moss) + 1.02 * moss) * foot, (1.03 * (1 - moss) + 0.42 * moss) * foot], i * 3);
       }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      B.add(mat.stoneWall, g, M(s.x, (s.y0 + s.y1) / 2, s.z, 0, yaw, 0));
+      B.add(mat.stone, boxUV(w + 0.2, 0.45, d + 0.4, 0.8), M(s.x, s.y1 + 0.2, s.z, 0, yaw, 0));
+      top += 0.43;
+    } else {
+      const world = (lx, lz) => {
+        const [x, z] = W(lx, lz);
+        return x + z * 0.83;
+      };
+      const sides = [
+        { n: [0, 1], t: [1, 0], L: s.hx, D: s.hz }, { n: [0, -1], t: [-1, 0], L: s.hx, D: s.hz },
+        { n: [1, 0], t: [0, -1], L: s.hz, D: s.hx }, { n: [-1, 0], t: [0, 1], L: s.hz, D: s.hx },
+      ];
+      sides.forEach((S, i) => {
+        // skip the sides nobody can see: covered by the next block, buried in the plateau behind, a rim wall's back
+        const [mx, mz] = W(S.n[0] * (S.D + 0.4), S.n[1] * (S.D + 0.4));
+        const nx = S.n[0] * cs - S.n[1] * sn, nz = S.n[0] * sn + S.n[1] * cs;
+        if (covered(c, mx, mz, s.y1 - 0.05)) return;
+        if (!c.rim && map.world.terrain(s.x + nx * (S.D + 1.2), s.z + nz * (S.D + 1.2)) > s.y1 - 0.5) return;
+        if (c.rim && nx * s.x + nz * s.z > 0) return;
+        B.add(mat.rock, strataSide({ ...S, y0: s.y0, y1: s.y1, seed: c.seed + i * 17, wet: !!c.notch, world, colStep: c.rim ? 1.4 : 0.7 }), place);
+      });
+      const tp = new THREE.PlaneGeometry(w, d).rotateX(-Math.PI / 2).translate(0, s.y1, 0);
+      B.add(mat.rock, tp, place);
+    }
+    if (c.notch) continue; // the stream runs over it: no grass
+    // the grass on top: a sheet over the block following the ground (the heightfield runs on under the block and
+    // pokes through its top in places), so it meets the plateau without a step or a seam; the same texture scale as
+    // the terrain. A fringe hangs over every exposed face (ground well below the top beside it).
+    const nu = Math.max(1, Math.round(w / 1.2)), nv = Math.max(1, Math.round(d / 1.2));
+    const sheet = new THREE.PlaneGeometry(w + 0.1, d + 0.1, nu, nv).rotateX(-Math.PI / 2);
+    const sp = sheet.attributes.position;
+    for (let i = 0; i < sp.count; i++) {
+      const [x, z] = W(sp.getX(i), sp.getZ(i));
+      const onEdge = Math.abs(Math.abs(sp.getX(i)) - (w + 0.1) / 2) < 1e-3 || Math.abs(Math.abs(sp.getZ(i)) - (d + 0.1) / 2) < 1e-3;
+      sp.setXYZ(i, x, Math.max(top, onEdge ? top : map.world.terrain(x, z)) + 0.05, z);
+    }
+    sheet.computeVertexNormals();
+    B.add(mat.grassCap, sheet);
+    const hw = s.hx + 0.05, hd = s.hz + 0.05;
+    for (const [a0, b0, n] of [[[-hw, hd], [hw, hd], [0, 1]], [[hw, -hd], [-hw, -hd], [0, -1]], [[hw, hd], [hw, -hd], [1, 0]], [[-hw, -hd], [-hw, hd], [-1, 0]]]) {
+      const [ax, az] = W(...a0), [bx, bz] = W(...b0), nx = n[0] * cs - n[1] * sn, nz = n[0] * sn + n[1] * cs;
+      const mx = (ax + bx) / 2 + nx * 1.5, mz = (az + bz) / 2 + nz * 1.5;
+      if (map.world.terrain(mx, mz) > top - 1.2) continue; // the plateau side: no face to hang over
+      B.add(mat.grassCap, fringe(ax, az, bx, bz, nx, nz, top + 0.05, rng, wall ? 0.6 : 1));
     }
   }
 }

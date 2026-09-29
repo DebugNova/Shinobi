@@ -11,6 +11,7 @@ import { PALETTE, MATCH } from '../shared/config.js';
 import { charOf } from '../shared/characters.js';
 import { renderPortrait } from './portrait.js';
 import { ITACHI_ICONS, sharingan, uchihaFlames, FRAME } from './uchiha.js';
+import { MADARA_ICONS, rinnegan, madaraFlames, MADARA_FRAME } from './madara.js';
 import { gpuInfo, diagnose } from '../gfx/perfcheck.js';
 
 const _v = new THREE.Vector3();
@@ -54,8 +55,15 @@ const ICONS = {
   stakes: `<defs><radialGradient id="gw" cx=".45" cy=".35"><stop offset="0" stop-color="#a9d98a"/><stop offset="1" stop-color="#1f3d1c"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gw)"/><path d="M8 76 Q50 68 92 76 L92 100 L8 100Z" fill="#4a3120"/><g stroke="#24160c" stroke-width="3" stroke-linejoin="round"><path d="M22 78 L34 40 L40 78Z" fill="#9a6a3e"/><path d="M42 78 L58 14 L64 78Z" fill="#b07a48"/><path d="M66 78 L78 46 L82 78Z" fill="#8a5c34"/></g><path d="M34 40 L36 50 L31 50Z M58 14 L60 26 L55 26Z M78 46 L79 54 L76 54Z" fill="#f3e2c0"/>`,
   gunbai: `<defs><radialGradient id="gg" cx=".4" cy=".35"><stop offset="0" stop-color="#e0525a"/><stop offset="1" stop-color="#43090f"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gg)"/><rect x="46" y="58" width="8" height="36" rx="3" fill="#2a1a14" stroke="#0d0706" stroke-width="2"/><ellipse cx="50" cy="38" rx="27" ry="30" fill="#2a1a14"/><ellipse cx="50" cy="38" rx="21" ry="24" fill="#f1e6cc"/><path d="M50 14v48M29 38h42" stroke="#b9a37a" stroke-width="2.5"/><path d="M54 90c6 2 8 6 6 10" stroke="#c9c9d2" stroke-width="3" fill="none" stroke-dasharray="3 2"/>`,
   meteor: `<defs><radialGradient id="gm" cx=".5" cy=".4"><stop offset="0" stop-color="#6a4a8a"/><stop offset="1" stop-color="#140a22"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gm)"/><path d="M8 12 L52 48 L40 60Z" fill="#ff9a2a" opacity=".85"/><path d="M18 14 L54 46 L46 54Z" fill="#ffe28a"/><path d="M44 50c2-12 14-18 26-14 12 4 16 16 12 28-4 12-18 16-28 12-10-4-12-14-10-26z" fill="#4b3a36" stroke="#120a08" stroke-width="3"/><path d="M50 70c6 4 16 4 22-2" stroke="#ff6a1a" stroke-width="3" fill="none"/><circle cx="62" cy="50" r="5" fill="#2c211e"/><circle cx="72" cy="60" r="3" fill="#2c211e"/>`,
+  ...MADARA_ICONS, // Madara's kit (madara.js): overrides the plain ones above
   ...ITACHI_ICONS, // Itachi's kit (uchiha.js)
   log: `<circle cx="50" cy="50" r="50" fill="#6a4a2e"/><rect x="24" y="30" width="52" height="40" rx="18" fill="#b07a48" stroke="#3a2412" stroke-width="3"/><ellipse cx="30" cy="50" rx="8" ry="18" fill="#d9a877" stroke="#3a2412" stroke-width="3"/>`,
+};
+
+// per-character HUD themes (C.hud): flames, the portrait's eye, the ring (art: uchiha.js, madara.js; css: #hud.t-<name>)
+const THEMES = {
+  uchiha: { flames: uchihaFlames, eye: sharingan, frame: FRAME },
+  madara: { flames: madaraFlames, eye: rinnegan, frame: MADARA_FRAME },
 };
 
 export class HUD {
@@ -138,12 +146,12 @@ export class HUD {
   /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G (kits with a third jutsu), R; and the
    *  character's HUD theme (C.hud: 'uchiha' = Sharingan portrait, black flames, red-framed bar and icons). */
   setKit(C) {
-    const uchiha = C.hud === 'uchiha';
+    const T = THEMES[C.hud];
     this.theme = C.hud || '';
-    this.root.classList.toggle('t-uchiha', uchiha);
-    this.el.theme.innerHTML = uchiha ? uchihaFlames() : '';
-    this.el.eye.innerHTML = uchiha ? sharingan() : '';
-    this.el.frame.innerHTML = uchiha ? FRAME : `<path d="${brushRing(60, 60, 50, 14, 2)}" fill="#0d0908" fill-rule="evenodd"/>`;
+    for (const k of Object.keys(THEMES)) this.root.classList.toggle('t-' + k, k === C.hud);
+    this.el.theme.innerHTML = T ? T.flames() : '';
+    this.el.eye.innerHTML = T ? T.eye() : '';
+    this.el.frame.innerHTML = T ? T.frame : `<path d="${brushRing(60, 60, 50, 14, 2)}" fill="#0d0908" fill-rule="evenodd"/>`;
     const K = C.kit, J = C.jutsu;
     const row = [['tool', 'scroll', ''], ['shuriken', 'shuriken', '1'], [K.jutsu1, 'Q'], [K.jutsu2, 'E'], [K.jutsu3, 'G']]
       .filter(([id]) => id)
@@ -160,7 +168,7 @@ export class HUD {
   /** A face portrait of the fighter model, rendered once into the portrait circle. face: metres to raise the view
    *  above the head bone (card.face: Itachi's collar hides everything below his eyes). */
   portrait(renderer, vrm, shadows, face = 0) {
-    if (this.theme === 'uchiha') return; // the Sharingan stands in for the face
+    if (THEMES[this.theme]) return; // the theme's eye stands in for the face
     try {
       const url = renderPortrait(renderer, vrm.scene, shadows, {
         w: 256, h: 256, fov: 22,

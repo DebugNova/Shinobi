@@ -53,8 +53,8 @@
       #boot.out { opacity: 0; pointer-events: none; }
       @media (prefers-reduced-motion: reduce) { .bt-art.on, .bt-sun, .bt-leaves i, .bt-spin { animation: none; } }
     </style>
-    <script type="module" crossorigin src="/assets/index-ycw4HStU.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-BtlnrOLJ.css">
+    <script type="module" crossorigin src="/assets/index-CPllQKwT.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-JZuLh1sh.css">
   </head>
   <body>
     <!-- ============ BOOT (loading) SCREEN: inline so it shows before the game code has downloaded ============ -->
@@ -234,6 +234,11 @@
           <div class="ti-cards" id="ti-cards"></div>
           <small id="ti-note">Same moves, same stats · only the look changes</small>
         </div>
+        <!-- shown while a password-locked character is picked (main.js pickChar) -->
+        <label class="ti-name ti-pw hidden" id="ti-pw">
+          <span id="ti-pw-label">PASSWORD</span>
+          <input id="ti-pw-in" type="password" maxlength="32" spellcheck="false" autocomplete="off" placeholder="Enter the password" />
+        </label>
       </aside>
       <div class="ti-foot"><span>WASD move · Space jump / wall run · Shift dash · LMB attack · RMB guard · Q E R jutsu · Esc menu</span></div>
     </section>

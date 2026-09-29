@@ -238,3 +238,66 @@ index and other notes refer to it).
     Amaterasu's) runs before bloom, tone mapping and the grades whatever order the pass was given (the constructor's
     list is only the order among equals). Amaterasu's painting is therefore tone mapped (Neutral) and graded like
     the scene: judged as it looks in the game, not as written.
+65. **A HUD icon judged in game may just be on cooldown:** Madara's new meteor icon looked dark, murky and half-drawn in a
+    screenshot; the SVG alone (360 px) was fine. The ultimate's sweep (`--cd` = 1 - gauge/100) covers an empty gauge with
+    72% black and `.h-skill:not(.ready)` desaturates it. Render icon art standalone before "fixing" it, and add
+    `ready` + clear `--cd` for an in-game look. Also: a shared theme's structural css is selected with
+    `:is(.t-a, .t-b)` (same specificity as one class), and the second theme's colour overrides go after it.
+66. **A painted face must carry the character's identity markers, measured on the model:** Amaterasu's first close-up
+    (a jagged fringe, sleepy slit eyes 0.27 as tall as wide, all-red skin) read as a generic anime face, "not Itachi".
+    Film the model's face (studio camera) and paint what makes it him: the forehead protector with the slashed Leaf,
+    center-parted bangs, the brows' angle, the tear-trough lines, the skin tone. In the same pass: fixed-size parts on
+    things of different sizes break (a 0.012 flare on a 0.006 drip made a flat tab: scale it by the width), and a
+    freshly written shader got two reversed smoothstep edges again (gotcha 62): run the scan after every edit.
+67. **Find a word in a recording by its voicing, not its loudness:** the owner's amaterasu.mp3 sits at -12 to -20 dB
+    RMS from 0.2 s to its end (a drone, then fire), so loudness showed no word at all, and the drone's steady 85 Hz
+    periodicity fooled a plain pitch tracker. The word showed as a jump in pitch (110-140 Hz) and energy (-8 dB) with
+    formants up to 3 kHz on a spectrogram (`ffmpeg -lavfi showspectrumpic`), consonant gaps where the high band goes
+    dark. Also: ffmpeg filter arguments can't hold a Windows path (the drive's colon splits the option): run it from
+    the output's directory with a relative name. Compare two decodes by cross-correlation, not their loudest sample
+    (two near-equal peaks 13 ms apart made a false "encoder delay").
+68. **Behind a proxy every player is localhost:** on the VPS, Caddy connects to the game from 127.0.0.1; so do
+    cloudflared (`npm run share`) and Vite's dev proxy. A "loopback only" check on the socket would have given the dev
+    commands to every player on the internet. Take the address the proxy saw: Cloudflare's `cf-connecting-ip`, else the
+    LAST X-Forwarded-For entry (the nearest proxy's own; a client can forge the earlier ones). Vite's proxy only sends
+    the header with `xfwd: true`. scripts/test/devcmd.mjs forges each case over raw WebSockets.
+69. **A held blade sticks out of the fist's thumb side:** gripSegment (hurtbox.js) runs along the hand's +z, so a
+    kunai in a plain fist on an arm reaching forward pointed sideways, across the strike (Itachi's rising cut: tip at
+    x +0.43 m, z 0.36 while the victim stood at z 0.95; the hit missed at real speed). Turn the wrist so the blade
+    leads (itachim1.js `armed()`: wrist [0, -70, 0] on every kunai key) and measure the segment, don't eyeball it:
+    `scripts/debug/clipbones.mjs <url> <move>` prints the hitbox in the fighter frame. A straight arm out to the side
+    reaches only ~0.42 m on the generated arms: a spinning slash must end in a forehand cut in front, not a sideways arm.
+70. **A move's step aims where the victim was when the move began, and the victim is still sliding:** the previous
+    hit's push (6-7 m/s, friction 10) carries it on through the next move's startup, so Itachi's Crimson Crescent met
+    it at 1.35 m instead of 0.95 and missed (and R3 some runs). `C.liveTrack` re-aims the step every tick at the
+    target's live position with the same speed profile (AttackAction.step); every contact then lands within 2 cm of its
+    `gap` (itachicombo.mjs prints the distance at each first active frame).
+71. **Two fighters can't overlap: the separation push moves a warp's end spot:** Heaven Drop warped to 0.2 m short of
+    the victim (to hang over it) and the controller's `separate` shoved him back to 0.7 m, out of reach of a straight-
+    down fist. Put warp spots at least the two radii (0.68 m) apart and reach there with the pose (the diagonal dive).
+    Check every move's reach with `scripts/debug/hitreach.mjs <url>` (margin = hitbox r + body r - distance over the
+    active frames at the expected spot; Naruto's proven moves: 0.33-0.39 m; Itachi's all >= 0.27).
+72. **Draw calls cost, triangles don't: never split a batch just to cull it:** the frame is CPU-bound on submitting
+    draws (~25 us each with the toon materials' uniforms), and the RTX 4050 eats triangles. Cutting the static batches into
+    44 m cells (frustum-culled) halved the triangles drawn and still lost ~25 fps (+50 calls); 20 m grass chunks repacked
+    into one buffer as the camera moved cost a 150 ms upload hitch; distance-culled "clutter" cells were +30 calls. What
+    works: merge more, not less. Flat-coloured pieces carry their colour as vertex colours in ONE `palette` material
+    (palette.js `tint`; Batch.add folds any material with `userData.palette` into it: pots, rope, rust, ridge caps,
+    interiors), every roof one neutral tile texture tinted per house, every sign board one atlas texture (`signAtlas`,
+    `norenAtlas`), both falls + foam in one mesh each (a per-vertex `aLayer` picks the back/front look), the backdrop
+    forest two instanced draws. The map pass added 1 500 pieces and ~15 materials' worth of art for +2 draw calls.
+73. **Judge a map's cost against a baseline build, back to back:** perf.mjs numbers swing 105-145 fps between runs of
+    the SAME build on this laptop (gotcha 20), so "before" numbers from an earlier run prove nothing. Check out the last
+    commit in a worktree (`git worktree add --detach <dir> HEAD`; node_modules is in git), build it to its own dist and
+    serve it on another port (3105), then alternate new/base runs. Profile both unminified (prof.mjs; 3103 new, 3106
+    base): the per-frame JS came out identical (10.86 vs 10.92 ms), so the remaining gap was GPU: the terrain's new
+    rock-on-slopes blend did six extra texture fetches on every terrain pixel (now inside `if (vWNormal.y < 0.72)`:
+    flat ground skips it), and the backdrop forest sampled triplanar + hatching over large screen areas (now its own
+    UVs, no hatch: far and fogged). After those the two builds were within noise (128 vs 130 fps, same 1% lows).
+74. **A ring seen from inside must face inward; far opaque art keeps the default render order:** the mountain ring's
+    triangles faced out, so from inside the arena its front faces were culled: nothing drawn (then, with the back
+    faces, the peaks showed as flat cut-outs). Wind every row toward the centre. And it was given `renderOrder -9` to
+    draw "behind everything": opaque objects then draw it FIRST, shading its whole screen area before the town, hills
+    and trees in front overwrite it. With the default order three sorts opaques front to back and the depth test
+    rejects the hidden mountain pixels before they are shaded. Only the sky dome (depthWrite off, at the far plane)
+    needs to go first.

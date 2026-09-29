@@ -73,20 +73,101 @@ export class AttackAction {
     const hover = this.M.hover ?? 1;
     this.physicsOpts = this.air ? { ...ctrl.opts, gravity: ctrl.opts.gravity * hover, fallMul: 1 } : ctrl.opts;
     if (this.air) b.vy = Math.max(0, b.vy * 0.2) + this.vy;
-    // a leap: off the ground, aimed to meet an airborne target at the contact frame
+    // a leap: off the ground, aimed to meet an airborne target at the contact frame (`at`: later in the move, e.g.
+    // after a launcher's contact, rising with the victim)
     const L = this.M.leap;
-    if (L && ctrl.grounded) {
-      const g = ctrl.opts.gravity * L.g, tc = this.M.startup * F;
-      let vy = L.vy;
-      if (L.aim && target && target.y - b.y > 0.5) vy = clamp((target.y - b.y + 0.2 + 0.5 * g * tc * tc) / tc, 9, 16);
-      b.vy = vy;
-      b.ground = false;
-      this.physicsOpts = { ...ctrl.opts, gravity: g, fallMul: 1 };
-      this.leapt = true;
-    }
+    if (L && !L.at && ctrl.grounded) this.leap(ctrl, target);
+    // (a leap later in the move, a launcher's: the air string may still start once it ends)
     if (this.air || this.leapt) ctrl.airCombo = true;
     game.net.act('atk', { m: id, i: this.inst, tg: target?.id ?? undefined });
     game.audio?.whoosh?.(this.M.weight);
+  }
+
+  leap(ctrl, target) {
+    const L = this.M.leap, b = ctrl.body;
+    const g = ctrl.opts.gravity * L.g, tc = Math.max(F, (this.M.startup - (L.at || 0)) * F);
+    let vy = L.vy;
+    if (L.aim && target && target.y - b.y > 0.5) vy = clamp((target.y - b.y + 0.2 + 0.5 * g * tc * tc) / tc, 9, 16);
+    b.vy = vy;
+    b.ground = false;
+    this.physicsOpts = { ...ctrl.opts, gravity: g, fallMul: 1 };
+    this.leapt = true;
+  }
+
+  /** The target where it is drawn now (a juggled victim keeps moving), or null. */
+  liveTarget() {
+    const T = this.target;
+    if (!T || T.dead) return null;
+    for (const t of this.game.combat.targets()) if (t.id === T.id) return t;
+    return null;
+  }
+
+  /**
+   * The crow warp (Itachi's strings: M.warp): from frame `at` for `f` frames the body flies to a spot by the target's
+   * live position (`behind` it, `above` it, else `d` metres ahead), fast and weightless (his body is crows meanwhile on
+   * every screen: movefx.js MOVE_FX `hide`), then holds that spot until the strike lands. Returns true while it drives.
+   */
+  warpStep(ctrl, dt) {
+    const W = this.M.warp, b = ctrl.body;
+    if (!W || this.t < W.at * F || this.t >= this.M.startup * F) {
+      if (this.warpOn) this.warpEnd(ctrl);
+      return false;
+    }
+    const T = this.liveTarget();
+    if (!this.warpOn) {
+      this.warpOn = true;
+      this.warp0 = [b.x, b.y, b.z];
+      let ux = -Math.sin(ctrl.yaw), uz = -Math.cos(ctrl.yaw);
+      if (T) {
+        const dx = T.x - b.x, dz = T.z - b.z, d = Math.hypot(dx, dz);
+        if (d > 0.2) {
+          ux = dx / d;
+          uz = dz / d;
+        }
+      }
+      this.warpU = [ux, uz];
+      this.physicsOpts = { ...ctrl.opts, gravity: 0.001, fallMul: 1 };
+    }
+    const [ux, uz] = this.warpU, up = W.up || 0;
+    let x, y, z;
+    if (T) {
+      const k = W.to === 'behind' ? W.gap ?? 0.9 : -(W.back ?? 0.3);
+      x = T.x + ux * k;
+      z = T.z + uz * k;
+      y = W.to === 'above' || !ctrl.grounded ? T.y + up : b.y;
+    } else {
+      x = this.warp0[0] + ux * (W.d ?? 3);
+      z = this.warp0[2] + uz * (W.d ?? 3);
+      y = this.warp0[1] + up;
+    }
+    // never farther than `max` from where he vanished (the server allows that much: server/combat.js validate)
+    const mx = x - this.warp0[0], mz = z - this.warp0[2], ml = Math.hypot(mx, mz), max = W.max ?? 7;
+    if (ml > max) {
+      x = this.warp0[0] + (mx * max) / ml;
+      z = this.warp0[2] + (mz * max) / ml;
+    }
+    const left = (W.at + W.f) * F - this.t;
+    // the flight (at most 60 m/s), then held on the spot as the target moves until the strike
+    const k = left > dt * 0.5 ? 1 / Math.max(dt, left) : 12;
+    const vmax = left > dt * 0.5 ? 60 : 9;
+    b.vx = clamp((x - b.x) * k, -vmax, vmax);
+    b.vz = clamp((z - b.z) * k, -vmax, vmax);
+    if (W.to === 'above' || !ctrl.grounded) b.vy = clamp((y - b.y) * k, -vmax, vmax);
+    // facing the target from the new spot (turned while he is crows: no pop on screen)
+    if (T) {
+      const tx = T.x - x, tz = T.z - z;
+      if (Math.hypot(tx, tz) > 0.2) this.yawTo = Math.atan2(-tx, -tz);
+      if (left > 0 && W.to === 'behind') ctrl.yaw = this.yawTo;
+    }
+    return true;
+  }
+
+  warpEnd(ctrl) {
+    this.warpOn = false;
+    const b = ctrl.body, hover = this.M.hover ?? 1;
+    b.vx = b.vz = 0;
+    if (!ctrl.grounded) b.vy = 0;
+    this.physicsOpts = this.air || !ctrl.grounded ? { ...ctrl.opts, gravity: ctrl.opts.gravity * hover, fallMul: 1 } : ctrl.opts;
   }
 
   get frame() {
@@ -135,6 +216,8 @@ export class AttackAction {
     }
     this.t += dt;
     this.held = false;
+    if (M.leap?.at && !this.leapt && this.t >= M.leap.at * F && ctrl.grounded) this.leap(ctrl, this.liveTarget());
+    const warping = this.warpStep(ctrl, dt);
     const D = M.dive;
     if (D && this.t >= D.at * F) {
       if (!this.dived) {
@@ -153,8 +236,27 @@ export class AttackAction {
     const f = this.frame;
     // root motion from the data (the move's own travel profile)
     const st = this.t - this.stepFrom;
-    if (st >= 0 && st < this.stepT) {
-      const k = this.stepK[0] + (this.stepK[1] - this.stepK[0]) * (st / this.stepT);
+    if (warping) {
+      // (the warp drives the body)
+    } else if (st >= 0 && st < this.stepT) {
+      const u = st / this.stepT;
+      // live tracking (C.liveTrack): the travel re-aimed every tick at where the target is now (a victim still sliding
+      // from the last hit's push), keeping the speed profile: what is left of it covers what is left of the way
+      const T = ctrl.C.liveTrack && this.target ? this.liveTarget() : null;
+      if (T) {
+        const tx = T.x - b.x, tz = T.z - b.z, d = Math.hypot(tx, tz), S = M.step;
+        if (d > 0.1) {
+          this.dir[0] = tx / d;
+          this.dir[1] = tz / d;
+          this.yawTo = Math.atan2(-this.dir[0], -this.dir[1]);
+        }
+        const [k0, k1] = this.stepK, left = (1 - u) * (k0 + ((k1 - k0) * (1 + u)) / 2) * this.stepT;
+        this.moved ??= 0;
+        const need = clamp(d - S.track.gap, 0, Math.max(0, S.track.max + 1 - this.moved));
+        this.stepV = left > 1e-4 ? need / left : 0;
+      }
+      const k = this.stepK[0] + (this.stepK[1] - this.stepK[0]) * u;
+      if (T) this.moved += this.stepV * k * dt;
       b.vx = this.dir[0] * this.stepV * k;
       b.vz = this.dir[1] * this.stepV * k;
       if (this.air) b.vy = this.vy * k;
@@ -166,7 +268,8 @@ export class AttackAction {
     }
     // chains
     if (this.queued && f >= M.cancel) {
-      const next = this.queued === 'heavy' ? (M.kind === 'light' && ctrl.grounded ? 'H' : null) : M.next;
+      // (`nextOnHit`: the string only goes on from a move that connected: a launcher's follow-up needs a victim up there)
+      const next = this.queued === 'heavy' ? (M.kind === 'light' && ctrl.grounded ? 'H' : null) : M.nextOnHit && !this.hit ? null : M.next;
       if (next && (next !== 'H' || ctrl.grounded)) {
         this.replace = new AttackAction(this.game, ctrl, next, this.game.combat.findTarget(ctrl, ctrl.C.moves[next].step.track.range));
         if (this.queued === 'light' && this.more) {
@@ -462,7 +565,7 @@ export class Combat {
       if (air) {
         if (ctrl.airCombo) return;
         ctrl.airCombo = true;
-        return this.startAttack(ctrl, 'A1');
+        return this.startAttack(ctrl, ctrl.C.light.air || 'A1');
       }
       // two strings: from a standstill or a walk, and on the move (running, sprinting, out of a dash)
       const Lt = ctrl.C.light;
@@ -635,7 +738,11 @@ export class Combat {
     }
     const w = Math.min(4, 1 + (spec.hitstop || 4) / 3 - 1 + (AIRBORNE.has(res.react) ? 1 : 0));
     if (res.blocked) g.fx.block(point);
-    else g.fx.impact(point, w);
+    else {
+      g.fx.impact(point, w);
+      // (a launcher's or a finisher's own impact: Itachi's chakra sphere)
+      if (spec.fx === 'sphere') g.movefx?.sphere(point);
+    }
     if (mine) g.cam.addTrauma(res.blocked ? 0.12 : 0.1 + w * 0.07);
     g.audio?.impact?.(point, w, res.blocked);
   }
@@ -820,7 +927,10 @@ export class Combat {
       const hb = g.player.hurt.center;
       if (!att || att.fighter) {
         if (m.b) g.fx.block(hb);
-        else g.fx.impact(hb, w);
+        else {
+          g.fx.impact(hb, w);
+          if (hitSpec(att?.info.ch, String(m.m))?.fx === 'sphere') g.movefx?.sphere(hb);
+        }
       }
       g.audio?.impact?.(hb, w, !!m.b);
       g.hud.hurt?.(m.d, m.hp);
@@ -840,7 +950,7 @@ export class Combat {
     // someone else's hit (or ours, confirmed): show it
     if (m.a !== g.net.id) {
       const p = e.fighter?.hurt?.center;
-      if (p) this.feedback(p, { blocked: !!m.b, react: m.r }, { hitstop: m.hs }, false);
+      if (p) this.feedback(p, { blocked: !!m.b, react: m.r }, { hitstop: m.hs, fx: hitSpec(g.remotes.get(m.a)?.info.ch, String(m.m))?.fx }, false);
       // the attacker's own hitstop on their side
       const att = g.remotes.get(m.a);
       if (att) att.hitstopUntil = performance.now() + m.hs * (1000 / 60);

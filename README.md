@@ -46,6 +46,23 @@ Without the VPS: run `npm run share` in a second terminal. It prints a `https://
 | Scoreboard / menu | Tab / Esc | View / Menu |
 | Performance overlay | F3 | |
 | Hitbox view (debug) | F4 | |
+| Developer commands | / (see below) | |
+
+### Developer commands (testing)
+
+Press **/** in a match, type a command, press **Enter** (Esc closes the bar):
+
+| Command | What it does |
+|---|---|
+| `/ult` (or `/ultimate`, `/u`) | fills your ultimate gauge: press R straight away |
+| `/cd` | resets your jutsu cooldowns and fills your chakra |
+| `/sub` | fills your substitution pips |
+| `/all` | all of the above |
+
+They only work for a player on the laptop running the server (`npm start` or `npm run dev`, opened on that
+laptop). Friends on the LAN, players over `npm run share` and everyone on the VPS are refused, so nobody can cheat
+in a real match. To let everyone use them (a test session with friends), start the server with `SHINOBI_DEV=1`;
+`SHINOBI_DEV=0` turns them off even for you.
 
 ### M1: the two combo strings
 
@@ -117,13 +134,27 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
 
 ### Itachi's jutsu
 
-Itachi moves and fights like Naruto (same M1 strings, heavy, shuriken) but has his own jutsu. Through Tsukuyomi and
-Amaterasu his Sharingan blazes into the spinning Mangekyō.
+Itachi moves like Naruto (same heavy and shuriken) but fights with his own M1 strings and his own jutsu. Through
+Tsukuyomi and Amaterasu his Sharingan blazes into the spinning Mangekyō.
+
+His M1 (left click) has three strings, paced so you can see every strike:
+- **Standing: Uchiha Taijutsu (6 hits).** Backfist, spinning heel kick, a kunai drawn from his cloak in a low cut, a
+  rising cut, then a chakra palm that launches the enemy in a white burst and he leaps after them. Keep clicking and he
+  bursts into crows, re-forms above them and drives them into the ground with a heel drop (a dust cloud). Or stop
+  clicking after the launch: once his leap ends, click again for the whole air string (a 10-hit juggle).
+- **On the move: Crow Rush (5 hits).** A flying side kick, an airborne hook kick, a diagonal kunai cut, crows carry him
+  behind the enemy for an elbow, and a spinning crimson cut throws them away.
+- **In the air: Crow Heaven (5 hits).** A snap kick, a spinning kunai cut, a heel hook, crows to the enemy's back
+  for a backfist, then a front flip into an upside-down diving punch that slams them down in a cloud of dust.
 
 Playing as Itachi, your HUD changes too: your portrait is a Sharingan (its three tomoe turn, and it becomes the
 Mangekyō when your ultimate is ready), with black flames streaming off it along a red-framed gold health bar that
 pulses red when you're low. His skill icons have crimson metal rims, look dimmed while they recharge, and flash
 with a ring when they're ready again.
+
+Madara has his own HUD too: a Rinnegan portrait (ripples run out from the pupil; it turns into the red Rinne Sharingan with
+nine turning tomoe when your ultimate is ready), blue Susanoo flames streaming along a dark-iron plated health bar with a
+crimson fill, and hand-painted icons for the Great Fire Annihilation, Wood Release stakes, the gunbai barrier and the meteor.
 
 - **Q: Fire Style: Phoenix Sage Fire** (30 chakra, 9 s). A seal, two fingers to his lips, and he blows three
   fireballs one after another. They leave spread out and curve in on the target (lock-on target or whoever you look
@@ -153,19 +184,24 @@ with a ring when they're ready again.
   and ink too (the log still drops). Only the look is his: the dash moves exactly like everyone's.
 - **R: Amaterasu** (ultimate): a **5-second cinematic on everyone's screen at the same moment**. He raises two
   fingers to his right eye; the world flips into a dark teal negative, his arms fling wide and a flock of crows bursts
-  off his back; the camera rushes into his face; his eyes, shut, fill the screen and slowly open, the Sharingan spins
-  into the Mangekyō, veins crawl in and blood runs down from his right eye; the camera drives into the pupil and black
+  off his back; the camera rushes into his face; his face fills the screen (forehead protector, bangs, the lines under his eyes), eyes
+  shut; they open wide, the Sharingan spins into the Mangekyō, veins crawl in and blood runs down from his right eye; the camera drives into the pupil and black
   flames burst out over the view; they burn away onto **everyone he was facing** (up to 30 m, in his line of sight,
   decided 0.2 s after the press), who are now ablaze. **While it plays the whole arena holds still**: nobody can
   move, attack or be hit, and burns wait. The flames can't be put out (not by dashing, substitution or a barrier)
   and keep burning until they have burnt **half of the victim's maximum health** (the ignition included), a tick
   every 0.3 s. Your only answer is not to be in front of him when he presses it. (One cinematic at a time: another
-  Itachi's Amaterasu is refused while one plays, his gauge kept. Its voice line and sounds come later.)
+  Itachi's Amaterasu is refused while one plays, his gauge kept.) Everyone hears his voice from the press: "Amaterasu" rings out
+  as his eyes open fully, then the black flames roar and slowly fade.
 
 ### The map
 
-"Training Grounds": the village (shops, the ramen stand, stone stairs up to the upper street), the forest of giant
-trees, the cliffs and waterfall, the river with its bridge and stepping stones, and the training field.
+"Training Grounds": the village (shops, the ramen stand, stone stairs up to the upper street, flagstone streets, a
+red torii gate from the bridge, a new south-east street with flat-roofed blocks and a round tower), the forest of
+giant trees with a small shrine, layered rock cliffs with a stream falling down them in two waterfalls, the river with
+its bridge, stepping stones, reeds and cherry trees, and the training field with dummies, targets and a weapons rack.
+Beyond the walls: forested hills, three ranges of mountains fading into the haze, and the rest of the town rising on
+terraces east of the village.
 
 - **Trees:** run up a trunk (hold Space) into a branch above you to climb onto it; branches are wide enough to run
   along and jump between. Keep running up the trunk and you come out on top of the canopy, the highest lookout in
@@ -174,6 +210,11 @@ trees, the cliffs and waterfall, the river with its bridge and stepping stones, 
   up inside one).
 - **Stairs:** the stone stairs between the ramen shop and the next house take you from the square to the upper
   street; walk or sprint up them smoothly.
+- **Rooftops:** the flat-roofed blocks and the round tower in the south-east street have walkable roofs behind a low
+  parapet (run up a wall to get there).
+- **The stream:** you can wade along it across the ridge and the ledge and jump down beside the falls.
+- Barrels, lanterns, carts, benches, stalls, dummies, stumps and boulders are solid; flowers, bushes, reeds and grass
+  are not (run straight through them).
 
 In the pause menu (Esc): mouse sensitivity, invert Y, field of view, volume, music, and the graphics preset
 (Auto picks one from your graphics card; Low / Medium / High / Ultra; High and Ultra render at full resolution).
@@ -212,7 +253,8 @@ Naruto's jutsu, while Madara and Itachi have their own (see "Madara's jutsu" and
   cloak and shins only): for this game it got generated arms (Akatsuki sleeves with the red lining, hands with his
   purple nails) and dark trousers under the cloak, a fairer skin tone, a skeleton, skin weights with the cloak opening at its front slit
   over the legs, toon shading in one material, and the stand-in's body size; the credit is also on his character card
-  and in the VRM's meta. For now he fights with Naruto's moves and jutsu.
+  and in the VRM's meta. For now he fights with Naruto's moves and jutsu. Amaterasu's voice line and flame roar
+  (public/assets/audio/amaterasu.mp3) are the owner's recording, trimmed and faded for the game.
 
 ### Adding a character from an unrigged model (.glb)
 

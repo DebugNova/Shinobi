@@ -4,10 +4,10 @@
 // and the icons. Every animated piece is its own <svg> element moved by CSS transform/opacity only: the compositor
 // runs them (no repaint, no main-thread work per frame).
 
-const f = (n) => n.toFixed(1);
+export const f = (n) => n.toFixed(1);
 
 /** A seeded 0..1 generator (the art is the same on every load). */
-function rnd(seed) {
+export function rnd(seed) {
   let s = seed >>> 0;
   return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
 }
@@ -16,7 +16,7 @@ function rnd(seed) {
 export const MANGEKYO = 'M52.6,54.7L52.6,57.7L51.5,60.7L49.4,63.5L46.3,65.8L42.4,67.3L37.8,67.8L32.8,67.2L27.7,65.3L29.0,67.0L37.3,70.7L45.5,71.1L52.5,68.7L57.3,64.4L59.8,59.3L59.9,54.4L58.1,50.6L55.2,48.6ZM44.6,49.9L42.1,48.4L40.0,46.0L38.6,42.7L38.2,38.9L38.8,34.8L40.6,30.5L43.7,26.5L47.9,23.1L45.8,23.3L38.4,28.7L33.9,35.6L32.5,42.8L33.8,49.1L37.1,53.8L41.3,56.3L45.4,56.7L48.6,55.2ZM52.8,45.4L55.3,43.9L58.5,43.3L62.0,43.8L65.5,45.3L68.8,47.9L71.5,51.6L73.5,56.3L74.4,61.6L75.2,59.7L74.3,50.6L70.5,43.3L65.0,38.5L58.8,36.4L53.2,36.9L48.9,39.3L46.5,42.7L46.2,46.2Z';
 
 // one tomoe, its head at the origin, the tail trailing along the orbit (-x, bending toward the eye's centre)
-const TOMOE = 'M0,-5.6A5.6,5.6 0 1,1 -5.6,0Q-8.6,4.6 -15.5,4.6Q-7.6,-3.4 0,-5.6Z';
+export const TOMOE = 'M0,-5.6A5.6,5.6 0 1,1 -5.6,0Q-8.6,4.6 -15.5,4.6Q-7.6,-3.4 0,-5.6Z';
 
 // ---- the portrait: a Sharingan
 
@@ -50,9 +50,10 @@ export const FRAME = `<defs><linearGradient id="ue-ring" x1="0" y1="0" x2="0" y2
 
 // the flames' box (px, positioned by hud.css): the portrait's centre at (100, 104), the bar from x 140, y 85-123
 const W = 460, H = 208, CX = 100, CY = 104;
+export const BOX = { W, H, CX, CY };
 
 /** Flame tongues licking off the circle (cx, cy, r) between angles a0..a1 (radians), bent by the wind (1, -0.25). */
-function crown(seed, n, r, len, a0, a1) {
+export function crown(seed, n, r, len, a0, a1) {
   const R = rnd(seed);
   let d = '';
   for (let i = 0; i < n; i++) {
@@ -69,7 +70,7 @@ function crown(seed, n, r, len, a0, a1) {
 }
 
 /** A closed outline through points, smoothed (quadratic curves through the midpoints: no corners but the tips). */
-function smooth(pts) {
+export function smooth(pts) {
   const m = (a, b) => `${f((a[0] + b[0]) / 2)},${f((a[1] + b[1]) / 2)}`;
   let d = `M${m(pts[0], pts[1])}`;
   for (let i = 1; i <= pts.length; i++) d += `Q${f(pts[i % pts.length][0])},${f(pts[i % pts.length][1])} ${m(pts[i % pts.length], pts[(i + 1) % pts.length])}`;
@@ -78,7 +79,7 @@ function smooth(pts) {
 
 /** A streamer of flame blown along the bar from (x0, y0): tapering, wavering, licks peeling off its outer edge
  *  (side -1 = the top edge, 1 = the bottom). */
-function streamer(seed, x0, y0, L, th, amp, lift, side, licks) {
+export function streamer(seed, x0, y0, L, th, amp, lift, side, licks) {
   const top = [], bot = [], N = 40;
   for (let i = 0; i <= N; i++) {
     const t = i / N, x = x0 + t * L, y = y0 + Math.sin(t * 4.5 + seed) * amp * t + lift * t * t;
@@ -92,7 +93,7 @@ function streamer(seed, x0, y0, L, th, amp, lift, side, licks) {
 }
 
 /** Small torn-off flames drifting away along the bar (animated by CSS). */
-function shards(seed, n, y0, y1, x0, x1) {
+export function shards(seed, n, y0, y1, x0, x1) {
   const R = rnd(seed);
   let d = '';
   for (let i = 0; i < n; i++) {
@@ -102,11 +103,12 @@ function shards(seed, n, y0, y1, x0, x1) {
   return d;
 }
 
-/** One flame layer: a soft crimson glow, the rim, the black body on top (the rim shows only round the outside). */
-function layer(cls, d, rim = '#b00c16') {
+/** One flame layer: a soft glow (two wide faint strokes), the rim, the body on top (the rim shows only round the
+ *  outside). Colours default to Itachi's (crimson glow and rim, black body); madara.js passes its own. */
+export function layer(cls, d, rim = '#b00c16', glow = ['#ff1e2a', '#ff2a30'], body = '#060102') {
   return `<svg class="u-fl ${cls}" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" fill="none" stroke-linejoin="round">
-    <path d="${d}" stroke="#ff1e2a" stroke-width="9" opacity=".12"/><path d="${d}" stroke="#ff2a30" stroke-width="5" opacity=".25"/>
-    <path d="${d}" stroke="${rim}" stroke-width="2.6"/><path d="${d}" fill="#060102"/></svg>`;
+    <path d="${d}" stroke="${glow[0]}" stroke-width="9" opacity=".12"/><path d="${d}" stroke="${glow[1]}" stroke-width="5" opacity=".25"/>
+    <path d="${d}" stroke="${rim}" stroke-width="2.6"/><path d="${d}" fill="${body}"/></svg>`;
 }
 
 /** Every flame layer, back to front (inside .h-theme). */
@@ -144,7 +146,7 @@ function crow(x, y, s, rot, flip = 1, eye = false) {
 }
 
 /** A row of flames rising from the bottom edge: tongues at xs with heights hs, their tips leaning by lean. */
-function flameRow(seed, base, xs, hs, lean) {
+export function flameRow(seed, base, xs, hs, lean) {
   const R = rnd(seed);
   let d = `M-5,105L-5,${base}`;
   xs.forEach((x, i) => {

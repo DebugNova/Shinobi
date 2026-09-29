@@ -50,6 +50,9 @@ uniform float uTexScale;
 #ifdef TOON_SPLAT
 uniform sampler2D uSplat; uniform float uSplatScale; varying float vSplat;
 #endif
+#ifdef TOON_ROCK
+uniform sampler2D uRock; uniform float uRockScale;
+#endif
 float toonLit = 1.0;
 
 struct LambertMaterial { vec3 diffuseColor; float specularStrength; };
@@ -118,6 +121,15 @@ const FRAG_MAP_TRI = /* glsl */ `
 #else
   #include <map_fragment>
 #endif
+#ifdef TOON_ROCK
+  // steep ground turns to rock (the backdrop's hills and mountains) with a noisy edge. Flat ground (nearly all the
+  // arena) skips it: six more texture fetches per pixel of terrain cost real GPU time
+  if (vWNormal.y < 0.72) {
+    vec4 rk = triSample(uRock, vWPos, vWNormal, uRockScale);
+    float steep = 1.0 - smoothstep(0.45, 0.66, vWNormal.y + (rk.r - 0.5) * 0.45);
+    diffuseColor.rgb = mix(diffuseColor.rgb, rk.rgb * vec3(0.78, 0.8, 0.9), steep); // cooler than the cliffs' tan: distance
+  }
+#endif
 `;
 
 const FRAG_HATCH = /* glsl */ `
@@ -136,6 +148,7 @@ const FRAG_HATCH = /* glsl */ `
  * A toon world material. o: { color, map, tri (world texture scale: texture repeats per metre), hatch (0..1),
  * fade (dither between camera and player, default true), near (dither away within ~3 m of the camera), vertexColors, side, transparent, alphaTest, emissive,
  * splat: a second texture blended in by the vertex attribute aSplat (terrain: grass -> dirt), splatScale,
+ * rock: a texture that takes over steep ground (triplanar, rockScale),
  * vertex: { pars, main } extra vertex code (after begin_vertex: modify `transformed`), uniforms: extra uniforms,
  * key: a program cache key for the extra code }
  */
@@ -155,12 +168,15 @@ export function toon(o = {}) {
   const tri = !!(o.tri && o.map);
   const splat = o.splat || null;
   const splatScale = { value: o.splatScale ?? texScale.value };
+  const rock = o.rock || null;
+  const rockScale = { value: o.rockScale ?? 0.1 };
   m.onBeforeCompile = (s) => {
-    Object.assign(s.uniforms, TOON, { uHatchAmt: hatchAmt, uTexScale: texScale, uSplat: { value: splat }, uSplatScale: splatScale }, o.uniforms || {});
+    Object.assign(s.uniforms, TOON, { uHatchAmt: hatchAmt, uTexScale: texScale, uSplat: { value: splat }, uSplatScale: splatScale, uRock: { value: rock }, uRockScale: rockScale }, o.uniforms || {});
     if (fade) s.defines = { ...(s.defines || {}), TOON_FADE: '' };
     if (o.near) s.defines = { ...(s.defines || {}), TOON_NEAR: '' };
     if (tri) s.defines = { ...(s.defines || {}), TOON_TRI: '' };
     if (splat) s.defines = { ...(s.defines || {}), TOON_SPLAT: '' };
+    if (rock) s.defines = { ...(s.defines || {}), TOON_ROCK: '' };
     s.vertexShader = s.vertexShader
       .replace('#include <common>', `#include <common>\n${VERT_PARS}\n#ifdef TOON_SPLAT\nattribute float aSplat; varying float vSplat;\n#endif\n${o.vertex?.pars || ''}`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>\n#ifdef TOON_SPLAT\nvSplat = aSplat;\n#endif\n${o.vertex?.main || ''}`)
@@ -171,7 +187,7 @@ export function toon(o = {}) {
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>\n${FRAG_FADE}`)
       .replace('#include <opaque_fragment>', `${FRAG_HATCH}\n#include <opaque_fragment>`);
   };
-  m.customProgramCacheKey = () => `toon${fade ? 'F' : ''}${o.near ? 'N' : ''}${tri ? 'T' : ''}${splat ? 'S' : ''}${o.key || ''}`;
+  m.customProgramCacheKey = () => `toon${fade ? 'F' : ''}${o.near ? 'N' : ''}${tri ? 'T' : ''}${splat ? 'S' : ''}${rock ? 'R' : ''}${o.key || ''}`;
   m.userData.toon = { hatchAmt, texScale };
   return m;
 }

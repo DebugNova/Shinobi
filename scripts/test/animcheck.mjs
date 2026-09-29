@@ -75,7 +75,7 @@ await page.evaluate((POP_DEG, SPIKE) => {
     const R = P.rec;
     R.frames++;
     // rotation this frame per bone; a spike one frame ago is a pop; the fastest rotation is kept as information
-    const ctx = { t: Math.round(now - R.t0), dt: +dt.toFixed(1), key: f.anim.key, sp: +f.anim.gait.speed.toFixed(1), skid: +f.anim.gait.skidW.toFixed(2), ph: +f.anim.gait.phase.toFixed(2), act: g.ctrl.action ? g.ctrl.action.constructor.name + ':' + g.ctrl.st : 'st ' + g.ctrl.st, feet: f.anim.gait.feet.map((L) => [L.planted ? 1 : 0, L.swing, L.yaw, L.pitch, L.p.x, L.p.y, L.p.z]), lw: f.anim.gait.legYaw };
+    const ctx = { t: Math.round(now - R.t0), dt: +dt.toFixed(1), key: f.anim.key, sp: +f.anim.gait.speed.toFixed(1), skid: +f.anim.gait.skidW.toFixed(2), ph: +f.anim.gait.phase.toFixed(2), act: (g.ctrl.action ? g.ctrl.action.constructor.name + ':' + g.ctrl.st : 'st ' + g.ctrl.st) + (f.view?.act ? ' ' + f.view.act.clip + ' f' + (f.view.act.t * 60).toFixed(1) : ''), feet: f.anim.gait.feet.map((L) => [L.planted ? 1 : 0, L.swing, L.yaw, L.pitch, L.p.x, L.p.y, L.p.z]), lw: f.anim.gait.legYaw };
     nodes.forEach((n, i) => {
       const d = Math.min(1, Math.abs(prev[i].dot(n.quaternion)));
       const raw = dt < 30 ? (2 * Math.acos(d) * 180) / Math.PI : 0;

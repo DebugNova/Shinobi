@@ -18,6 +18,7 @@ import { SealFx } from '../gfx/tsukuyomifx.js';
 import { TsukuyomiWorld } from './tsukuyomi.js';
 import { AmaterasuCinema } from './amaterasu.js';
 import { segSeg } from './hurtbox.js';
+import { warpHidden } from '../gfx/movefx.js';
 
 const F = 1 / 60;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -716,21 +717,21 @@ export class ItachiKit {
   }
 
   /** The crow shift, every frame, for one Itachi: while his view says dash he is ink (returns true: hidden). */
-  updateShift(f, C, dt, quiet) {
-    const dashing = !!C.crowShift && !f.dead && f.view?.st === ST.dash;
+  updateShift(f, C, dt, quiet, warp = false) {
+    const dashing = !!C.crowShift && !f.dead && (f.view?.st === ST.dash || warp);
     let sh = this.shifts.get(f);
     if (!dashing) {
       if (sh?.on) this.shiftEnd(f, sh, quiet);
       return false;
     }
     if (!sh) this.shifts.set(f, (sh = { on: false, strands: [], px: 0, pz: 0, dx: 0, dz: -1 }));
-    if (!sh.on) this.shiftStart(f, sh, quiet);
+    if (!sh.on) this.shiftStart(f, sh, quiet, warp);
     else this.shiftStep(f, sh, quiet);
     return true;
   }
 
   /** The dash begins: crows scatter where he stood, ink splashes back, the brush starts at his body. */
-  shiftStart(f, sh, quiet) {
+  shiftStart(f, sh, quiet, warp = false) {
     const p = f.pos, v = f.view, g = this.game, q = this.quality();
     sh.on = true;
     sh.px = p.x;
@@ -765,6 +766,15 @@ export class ItachiKit {
     }
     this.feathers.puff(p.x, p.y + 1.0, p.z, Math.round(12 * q) + 3, 0.7, 3.2);
     this.inkSplash(p, dx, dz, 0.7, 0.3);
+    // an M1 warp (the combo goes on elsewhere): the body bursts into a flock where it hung (the reference's cloud of
+    // crows and feathers), out to the sides and up, never at the camera
+    if (warp) {
+      for (let n = Math.round(10 * q) + 4; n > 0; n--) {
+        const a = Math.random() * 6.283, sp = 2.5 + Math.random() * 3.5, h = 0.3 + Math.random() * 1.4;
+        this.flyOff(p.x + Math.cos(a) * 0.25, p.y + h, p.z + Math.sin(a) * 0.25, Math.cos(a) * sp, 2.5 + Math.random() * 4, Math.sin(a) * sp, 0.8 + Math.random() * 0.7, 0.75);
+      }
+      this.feathers.puff(p.x, p.y + 1.0, p.z, Math.round(14 * q) + 4, 0.9, 3.6);
+    }
     g.audio?.crowShift?.(f === g.player ? null : p);
   }
 
@@ -1044,9 +1054,10 @@ export class ItachiKit {
     const each = (f, C, local) => {
       if (!f || !C?.jutsu.crowEscape) return;
       seen.add(f);
-      // his dash: ink instead of a body (the crow shift)
-      const shifting = this.updateShift(f, C, dt, quiet);
+      // his dash, and the warps of his M1 strings: ink and crows instead of a body (the crow shift)
       const act = f.view?.act, on = !f.dead && !!act && CAST_CLIPS.has(act.clip);
+      const warp = !f.dead && !!act && warpHidden(act.clip, act.t * 60);
+      const shifting = this.updateShift(f, C, dt, quiet, warp);
       const fr = on ? act.t * 60 : -1, clip = on ? act.clip.replace('_air', '') : '';
       const S = on ? this.stateOf(f, act.key) : this.per.get(f);
       const hit = (x) => S && S.last < x && fr >= x;

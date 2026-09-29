@@ -4,12 +4,15 @@
 //   the negative world   light and dark swapped onto a cold teal ramp (the reference shots: a white Itachi on a dark
 //                        blue-green world); past the subject (depth) the arena sinks into drifting smoke, ink specks
 //                        drift across, the edges sink
-//   the painted close-up his eyes filling the screen, painted in the shader (nothing to load): the face in low red
-//                        light, black hair strands (with their shadows), the lids (a lash line that flicks out at the
-//                        outer corner, the crease, his tear-trough lines), the Sharingan (three tomoe riding a ring)
+//   the painted close-up his eyes filling the screen, painted in the shader (nothing to load), Itachi as his model
+//                        draws him: pale skin, the forehead protector (steel plate, the Leaf engraved and slashed
+//                        through), center-parted bangs (with their shadows), sharp brows pressed down to the nose, his
+//                        long straight tear-trough lines; the eyes wide open (the whole iris showing), the lids (a lash
+//                        line that flicks out at the outer corner, the crease), the Sharingan (three tomoe riding a ring)
 //                        turning into his Mangekyō (three curved blades) from the pupil out, veins crawling in from the
-//                        corners, blood welling on the lower lid of his right eye and running down in two streams with
-//                        a drop at each head, embers rising, black flames licking up the frame's bottom edge
+//                        corners (over the whole white of the bleeding eye), blood welling along the lower lid of his
+//                        right eye and running down in three streams with a drop at each head, embers rising, black
+//                        flames licking up the frame's bottom edge
 //   the black flames     Amaterasu bursting out of the pupil over the whole view, then burning away in holes with
 //                        glowing edges (the arena behind: the flames on the victims)
 //   a flash, the letterbox bars
@@ -20,22 +23,22 @@ import { Effect, EffectAttribute, BlendFunction } from 'postprocessing';
 
 // The painted close-up's layout (screen heights from the screen's centre; the camera's zoom works in the same units).
 export const AMA_LAYOUT = {
-  eyeR: [-0.325, 0.005], // his right eye (on the left of the screen): the one that bleeds (the model paints its blood there)
-  eyeL: [0.325, 0.005],
+  eyeR: [-0.325, 0.0], // his right eye (on the left of the screen): the one that bleeds (the model paints its blood there)
+  eyeL: [0.325, 0.0],
   hw: 0.215, // half an eye's width
-  iris: [0.03, -0.035], // the iris centre, eye units (+x toward the outer corner)
-  ir: 0.43, // its radius, eye units
+  iris: [0.0, 0.03], // the iris centre, eye units (+x toward the outer corner)
+  ir: 0.42, // its radius, eye units (wide open: the whole iris shows, a sliver of white above and below)
 };
 const L = AMA_LAYOUT;
 const v2 = (a) => `vec2(${a[0].toFixed(4)}, ${a[1].toFixed(4)})`;
 
-// hair strands: root x (at y 0.62), tip x, tip y, half width at the root; and how far each bows sideways
+// hair strands (his model: center-parted bangs framing the face, their ends over the forehead protector's, one thin
+// strand across each eye's white): root x (at y 0.62), tip x, tip y, half width at the root; and how far each bows
 const HAIR = [
-  [0.04, -0.03, -0.36, 0.034], [0.11, 0.075, -0.1, 0.026], [-0.62, -0.61, -0.56, 0.07], [-0.77, -0.88, -0.6, 0.1],
-  [0.64, 0.63, -0.56, 0.07], [0.79, 0.9, -0.6, 0.1], [-0.3, -0.25, 0.19, 0.065], [-0.14, -0.2, 0.15, 0.05],
-  [0.25, 0.31, 0.2, 0.062], [0.43, 0.51, 0.13, 0.05], [-0.49, -0.53, -0.28, 0.022],
+  [-0.56, -0.78, -0.62, 0.08], [-0.72, -0.94, -0.62, 0.1], [-0.4, -0.52, 0.08, 0.045], [-0.26, -0.14, -0.3, 0.012],
+  [0.57, 0.8, -0.62, 0.08], [0.74, 0.95, -0.62, 0.1], [0.41, 0.54, 0.1, 0.045], [0.4, 0.5, -0.36, 0.013],
 ];
-const BEND = [0.025, -0.02, -0.05, 0.02, 0.05, -0.02, 0.02, -0.02, -0.02, 0.025, 0.03];
+const BEND = [-0.03, -0.02, -0.02, 0.012, 0.03, 0.02, 0.02, -0.012];
 
 const frag = /* glsl */ `
 uniform float uTime; uniform float uNeg; uniform vec2 uIso; uniform float uBars; uniform vec4 uFlash;
@@ -72,11 +75,15 @@ vec3 amTeal(float n) {
   return mix(c, vec3(0.9, 0.935, 0.945), smoothstep(0.68, 0.96, n));
 }
 
-// ---- the lids, eye units (x -1 inner corner .. 1 outer, y up from the eye's centre)
-float amLo(float x) { float s = max(1.0 - x * x, 0.0); return -0.2 * pow(s, 0.8) * (1.0 + 0.2 * x) + 0.035 * x - 0.02; }
-float amUpO(float x) { float s = max(1.0 - x * x, 0.0); return 0.34 * pow(s, 0.6) * (1.0 - 0.3 * x) + 0.06 * x - 0.02; }
-// (shut, the upper lid lies on the lower: opening lifts it)
-float amUp(float x, float open) { return mix(amLo(x), amUpO(x), open); }
+// ---- the lids, eye units (x -1 inner corner .. 1 outer, y up from the eye's centre). Wide open like the reference
+// art: an almond ~0.45 as tall as it is wide, the outer corner higher than the inner (a fierce slant), the whole iris
+// showing. Shut, both lids meet on a gentle arc low in the eye; opening lifts the upper lid most (open > 1: wider still)
+float amMid(float x) { return 0.1 * x - 0.02; }
+float amShut(float x) { return amMid(x) - 0.2 * pow(max(1.0 - x * x, 0.0), 0.8); }
+float amLoO(float x) { return amMid(x) - 0.4 * pow(max(1.0 - x * x, 0.0), 0.75) * (1.0 + 0.15 * x); }
+float amUpO(float x) { return amMid(x) + 0.5 * pow(max(1.0 - x * x, 0.0), 0.55) * (1.0 - 0.18 * x); }
+float amLo(float x, float open) { return mix(amShut(x), amLoO(x), open); }
+float amUp(float x, float open) { return mix(amShut(x), amUpO(x), open); }
 
 // ---- the iris patterns in the unit disc (1 = the iris's edge): ink coverage
 float amTomoe(vec2 q, float r, float a, float spin) {
@@ -137,15 +144,18 @@ vec3 amIris(vec2 q0) {
 }
 
 // ---- one blood stream from root down \`len\`: coverage (x) and the across coordinate for its shading (y)
+// (gravity-straight with a slow meander, like the reference art: a tighter wobble read as a worm)
+float amStreamX(float s, float seed) { return 0.0035 * sin(s * 8.0 + seed) + 0.006 * s + 0.0012 * sin(s * 31.0 + seed * 3.0); }
 vec2 amStream(vec2 p, vec2 root, float len, float w0, float seed, float aa) {
   float s = root.y - p.y;
   if (len <= 0.0 || s < -0.03 || s > len + 0.05) return vec2(0.0);
-  float cx = root.x + 0.007 * sin(s * 19.0 + seed) + 0.012 * s + 0.003 * sin(s * 47.0 + seed * 3.0);
-  float w = w0 * (0.82 + 0.22 * sin(s * 29.0 + seed * 2.0)) + 0.009 * exp(-max(s, 0.0) * 28.0);
+  float cx = root.x + amStreamX(s, seed);
+  // (wide where it wells over the lid, thinning, swelling a little toward the drop)
+  float w = w0 * (0.88 + 0.12 * sin(s * 17.0 + seed * 2.0)) * (1.0 + 0.25 * smoothstep(len - 0.08, len, s) + 0.9 * exp(-max(s, 0.0) * 30.0));
   float dx = (p.x - cx) / w;
   float body = (1.0 - smoothstep(1.0 - aa / w, 1.0 + aa / w, abs(dx))) * smoothstep(-0.004, 0.004, s) * (1.0 - smoothstep(len - 0.004, len, s));
   // the drop at its head: rounder, a little wider, hanging
-  float hx = root.x + 0.007 * sin(len * 19.0 + seed) + 0.012 * len + 0.003 * sin(len * 47.0 + seed * 3.0);
+  float hx = root.x + amStreamX(len, seed);
   vec2 hd = (p - vec2(hx, root.y - len - w0 * 0.5)) / vec2(w0 * 1.45, w0 * 1.9);
   float head = 1.0 - smoothstep(1.0 - aa / w0, 1.0 + aa / w0, length(hd));
   float cov = max(body, head);
@@ -177,15 +187,42 @@ vec3 amEmbers(vec2 p, float t) {
   return acc;
 }
 
-// ---- the painted close-up (display colours; p: screen heights from the centre, after the zoom)
+// ---- the forehead protector's engraving
+float amSeg(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a, ba = b - a;
+  return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+}
+// the Leaf's mark (q in its radius: 1 = the outer turn): signed distance to its strokes (< 0 inside)
+float amLeaf(vec2 q) {
+  float r = length(q), a = atan(q.y, q.x);
+  // the spiral: from the top turning left and inward, half the radius a turn, 1.3 turns
+  float t0 = mod(a - 1.75, AM_TAU) / AM_TAU;
+  float d = 1e3;
+  for (int k = 0; k < 2; k++) {
+    float t = t0 + float(k);
+    if (t <= 1.3) d = min(d, abs(r - (1.0 - 0.5 * t)) - 0.1);
+  }
+  // its tail flicking out to the upper right, tapering
+  vec2 s0 = vec2(-0.178, 0.984), ba = vec2(0.68, 0.15);
+  float h = clamp(dot(q - s0, ba) / dot(ba, ba), 0.0, 1.0);
+  d = min(d, length(q - s0 - ba * h) - 0.1 * (1.0 - 0.85 * h));
+  // the stem's triangle at the lower left
+  vec2 c1 = vec2(-0.81, -0.29), c2 = vec2(-0.27, -0.74), ap = vec2(-1.05, -0.98);
+  return min(d, min(amSeg(q, c1, ap), amSeg(q, ap, c2)) - 0.09);
+}
+
+// ---- the painted close-up (display colours; p: screen heights from the centre, after the zoom). Itachi as his model
+// draws him (in-game close-up, 2026-09-29): pale skin, the forehead protector low over the brows (steel plate, the Leaf
+// slashed through), center-parted black bangs framing the face, sharp brows angled down to the nose, his long straight
+// tear-trough lines; the eyes wide open as in the reference art the owner sent
 vec3 amPaint(vec2 p, float aa) {
   float t = uEyeT;
   float lit = smoothstep(0.0, 0.75, t);
-  // hair: the strands (the nearest covers), their shadow on the skin (cast down and right)
+  // hair: the strands (the nearest covers), their shadow (cast down and right)
   float hair = 0.0, hairHl = 0.0, hairS = 0.0, shadow = 0.0;
   for (int i = 0; i < ${HAIR.length}; i++) {
     vec4 h = AM_HAIR[i];
-    float bend = AM_BEND[i] + 0.006 * sin(uTime * 1.2 + float(i) * 1.7);
+    float bend = AM_BEND[i] + 0.004 * sin(uTime * 1.2 + float(i) * 1.7);
     float s = (0.62 - p.y) / (0.62 - h.z);
     if (s > 0.0 && s < 1.0) {
       float cx = mix(h.x, h.y, s) + bend * sin(s * AM_PI);
@@ -198,18 +235,20 @@ vec3 amPaint(vec2 p, float aa) {
         hairS = s;
       }
     }
-    vec2 ps = p - vec2(0.012, -0.03);
+    vec2 ps = p - vec2(0.012, -0.022);
     float s2 = (0.62 - ps.y) / (0.62 - h.z);
     if (s2 > 0.0 && s2 < 1.0) {
       float cx2 = mix(h.x, h.y, s2) + bend * sin(s2 * AM_PI);
-      float wd2 = h.w * pow(1.0 - s2, 0.75) + 0.005;
+      float wd2 = h.w * pow(1.0 - s2, 0.75) + 0.004;
       shadow = max(shadow, 1.0 - smoothstep(wd2 * 0.6, wd2 * 1.4, abs(ps.x - cx2)));
     }
   }
-  // the fringe's mass above the forehead
-  float mass = smoothstep(0.29, 0.3, p.y + 0.03 * sin(p.x * 23.0) + 0.015 * sin(p.x * 57.0 + 1.0));
+  // above the protector's cloth: the hair it holds down
+  float mass = smoothstep(0.49 - aa, 0.49 + aa, p.y + 0.07 * p.x * p.x);
   if (mass > hair) { hair = mass; hairHl = 0.0; hairS = 0.0; }
-  shadow = max(shadow, smoothstep(0.2, 0.29, p.y + 0.03 * sin(p.x * 23.0)));
+  // the protector's lower edge (the cloth, curving round the head) and its shadow on the forehead
+  float yb = 0.19 - 0.06 * p.x * p.x;
+  float band = smoothstep(yb - aa, yb + aa, p.y);
 
   // the nearer eye: eye units, +x toward its outer corner
   float side = p.x < 0.0 ? -1.0 : 1.0;
@@ -225,83 +264,124 @@ vec3 amPaint(vec2 p, float aa) {
   float faceW = 0.8 - 0.22 * (1.0 - smoothstep(-0.6, -0.05, p.y));
   float inFace = 1.0 - smoothstep(faceW - aa, faceW + aa, abs(p.x));
 
-  // the skin: three painted tones, lit from below by the red, shaded under the brow, the fringe and the nose
-  float Lt = 0.5;
-  // (the brow ridge shades the lid softly; the cheekbones under the eyes and the nose bridge catch the light)
-  vec2 br = (e - vec2(0.1, 0.5)) / vec2(1.3, 0.32);
+  // the skin: three cel tones (his model's pale skin: lit #f5d9c3-ish, its MToon shade), shaded under the protector,
+  // the hair and the brow ridge, the face turning away past the eyes
+  float Lt = 0.62;
+  vec2 br = (e - vec2(0.0, 0.62)) / vec2(1.25, 0.3);
   Lt -= 0.1 * exp(-dot(br, br));
   Lt -= 0.2 * shadow;
-  Lt += 0.06 * (1.0 - smoothstep(-0.5, -0.1, p.y));
-  Lt += 0.1 * (1.0 - smoothstep(0.0, 0.03, abs(p.x - 0.012))) * (1.0 - smoothstep(-0.05, 0.08, p.y)) * smoothstep(-0.45, -0.2, p.y);
-  Lt -= 0.12 * smoothstep(0.08, 0.3, p.y);
-  // (the shade down the nose's left side: a band just left of the bridge)
-  float nose = (1.0 - smoothstep(-0.03, 0.0, p.x)) * smoothstep(-0.075, -0.035, p.x) * (1.0 - smoothstep(-0.1, 0.1, p.y));
-  Lt -= 0.09 * nose;
-  float b1 = smoothstep(0.34, 0.37, Lt), b2 = smoothstep(0.585, 0.615, Lt);
-  vec3 skin = mix(mix(vec3(0.24, 0.1, 0.11), vec3(0.6, 0.38, 0.34), b1), vec3(0.86, 0.63, 0.52), b2);
-  skin += vec3(0.4, 0.02, 0.02) * (1.0 - smoothstep(-0.5, 0.0, p.y)) * 0.55;
-  // (soft light on the cheekbones: added after the bands, a hard-edged band there read as a pasted oval)
-  vec2 ck = (e - vec2(0.2, -1.0)) / vec2(1.1, 0.55);
-  skin += vec3(0.22, 0.13, 0.1) * exp(-dot(ck, ck)) * (1.0 - shadow * 0.7) * (side > 0.0 ? 1.0 : 0.7);
+  Lt -= 0.28 * smoothstep(yb - 0.045, yb - 0.005, p.y);
+  Lt -= 0.12 * smoothstep(0.6, 0.78, abs(p.x));
+  float b1 = smoothstep(0.34, 0.37, Lt), b2 = smoothstep(0.525, 0.555, Lt);
+  vec3 skin = mix(mix(vec3(0.6, 0.38, 0.38), vec3(0.86, 0.66, 0.6), b1), vec3(0.97, 0.85, 0.77), b2);
+  // (the scene's red: from below and in the socket round each eye as the Mangekyō wakes; soft light added after the bands)
+  skin *= vec3(1.0, 0.9, 0.88);
+  skin += vec3(0.3, 0.0, 0.01) * (1.0 - smoothstep(-0.5, -0.02, p.y)) * 0.5;
+  vec2 ck = (e - vec2(0.2, -1.1)) / vec2(1.1, 0.5);
+  skin += vec3(0.1, 0.07, 0.05) * exp(-dot(ck, ck)) * (1.0 - shadow * 0.7);
+  // (the nose: a soft shade down its left side growing toward its tip, a faint light on the bridge; banded, it read as
+  // a stripe)
+  float nose = exp(-pow((p.x + 0.035) / 0.022, 2.0)) * (1.0 - smoothstep(-0.3, 0.02, p.y));
+  skin *= 1.0 - 0.13 * nose;
+  skin += vec3(0.04, 0.03, 0.025) * exp(-pow((p.x - 0.008) / 0.012, 2.0)) * (1.0 - smoothstep(-0.1, 0.06, p.y));
   col = mix(col, skin, inFace);
 
-  // his tear-trough lines, down beside the nose from the inner corners
+  // his tear-trough lines: long and straight, from below the inner corners down and outward
   {
-    float s = (-0.14 - e.y) / 0.72;
+    float s = (-0.3 - e.y) / 1.3;
     if (s > 0.0 && s < 1.0) {
-      float xc = mix(-0.9, -0.52, s) - 0.07 * sin(s * AM_PI);
-      float w = 0.02 * (1.0 - 0.55 * s);
-      col = mix(col, vec3(0.16, 0.05, 0.06), (1.0 - smoothstep(w - ea, w + ea, abs(e.x - xc))) * (1.0 - 0.5 * s) * 0.8 * inFace);
+      float xc = mix(-0.98, -0.3, s) - 0.03 * sin(s * AM_PI);
+      float w = 0.026 * pow(sin(AM_PI * pow(s, 0.55)), 0.8) + 0.003;
+      col = mix(col, vec3(0.3, 0.11, 0.11), (1.0 - smoothstep(w - ea, w + ea, abs(e.x - xc))) * 0.85 * inFace);
     }
   }
-  // his brows: thin, sharp, rising to the outer end (half under the fringe)
+  // his brows: sharp, the inner ends pressed down toward the nose, tapering out to a point
   {
-    float s = (e.x + 0.85) / 2.0;
+    float s = (e.x + 1.05) / 2.15;
     if (s > 0.0 && s < 1.0) {
-      float yc = 0.56 + 0.2 * sin(s * 2.4) - 0.06 * s;
-      float w = 0.045 * pow(sin(AM_PI * pow(s, 0.55)), 0.9) + 0.004;
-      col = mix(col, vec3(0.03, 0.012, 0.02), (1.0 - smoothstep(w - ea, w + ea, abs(e.y - yc))) * 0.92 * inFace);
+      float yc = 0.5 + 0.42 * s - 0.14 * s * s;
+      float w = 0.058 * pow(1.0 - s, 0.8) * smoothstep(-0.02, 0.08, s) + 0.002;
+      col = mix(col, vec3(0.05, 0.025, 0.035), (1.0 - smoothstep(w - ea, w + ea, abs(e.y - yc))) * 0.95 * inFace);
     }
   }
-  // the crease above the lid
+  // the lid's crease
   {
-    float yc = amUpO(e.x) + 0.2 + 0.03 * e.x;
-    float m = amBand(e.y - yc, -0.012, 0.012, ea) * smoothstep(-0.55, -0.2, e.x) * (1.0 - smoothstep(0.85, 1.0, e.x));
-    col = mix(col, vec3(0.22, 0.08, 0.09), m * 0.7);
+    float yc = amUpO(e.x) + 0.12 + 0.02 * e.x;
+    float m = amBand(e.y - yc, -0.01, 0.01, ea) * smoothstep(-0.5, -0.15, e.x) * (1.0 - smoothstep(0.8, 1.0, e.x));
+    col = mix(col, vec3(0.45, 0.22, 0.22), m * 0.55);
   }
-
   // the Mangekyō's light in the socket round each eye
   {
-    vec2 g = (e - AM_IC) / vec2(1.7, 0.95);
-    col += vec3(0.55, 0.02, 0.02) * exp(-dot(g, g) * 1.6) * (0.25 * smoothstep(0.0, 0.6, uIris.x) + 0.25 * uIris.z) * inFace;
+    vec2 g = (e - AM_IC) / vec2(1.6, 1.1);
+    col += vec3(0.5, 0.02, 0.02) * exp(-dot(g, g) * 1.6) * (0.2 * smoothstep(0.0, 0.6, uIris.x) + 0.2 * uIris.z) * inFace;
   }
+
+  // the forehead protector: the dark cloth band, the steel plate over it
+  {
+    vec3 cc = vec3(0.045, 0.05, 0.09) + vec3(0.06, 0.07, 0.12) * amBand(p.y - yb, 0.006, 0.014, aa);
+    col = mix(col, cc * (1.0 - 0.3 * shadow), band);
+    float ax = abs(p.x);
+    float yp = 0.203 - 0.012 * p.x * p.x, hp = p.y - yp;
+    // (its top edge shows only on screens wider than the letterbox, just under the hair the cloth holds down)
+    float pl = smoothstep(-aa, aa, hp) * (1.0 - smoothstep(0.4 - aa, 0.4 + aa, ax)) * (1.0 - smoothstep(0.25 - aa, 0.25 + aa, hp));
+    // (rounded lower corners)
+    vec2 cr = vec2(ax - 0.37, hp - 0.03);
+    if (cr.x > 0.0 && cr.y < 0.0) pl *= 1.0 - smoothstep(0.03 - aa, 0.03 + aa, length(cr));
+    if (pl > 0.001) {
+      vec3 st = mix(vec3(0.5, 0.5, 0.53), vec3(0.74, 0.74, 0.76), smoothstep(0.0, 0.14, hp));
+      st *= 0.94 + 0.06 * amN(vec2(p.x * 4.0, p.y * 160.0));
+      // (the bevel: a lit line just above the edge, the edge's underside dark; the ends curving away)
+      st = mix(st, vec3(0.92, 0.92, 0.94), amBand(hp, 0.008, 0.013, aa) * 0.75);
+      st *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 0.007, hp));
+      st *= 1.0 - 0.28 * smoothstep(0.32, 0.4, ax);
+      // rivets at its corners
+      vec2 rv = vec2(ax - 0.36, hp - 0.03);
+      st = mix(st, vec3(0.3, 0.3, 0.33), 1.0 - smoothstep(0.009 - aa, 0.009 + aa, length(rv)));
+      st = mix(st, vec3(0.95), (1.0 - smoothstep(0.0035 - aa, 0.0035 + aa, length(rv - vec2(-0.003, 0.003)))) * 0.8);
+      // the Leaf, engraved
+      st = mix(st, vec3(0.16, 0.15, 0.17), 1.0 - smoothstep(-aa, aa, amLeaf((p - vec2(0.0, 0.288)) / 0.052) * 0.052));
+      // the slash through it (a deep groove, its lower lip catching the light)
+      vec2 sa = vec2(-0.13, 0.294), sb = vec2(0.14, 0.283), sba = sb - sa;
+      float sh = clamp(dot(p - sa, sba) / dot(sba, sba), 0.0, 1.0);
+      float sw = 0.0042 * (1.0 - pow(abs(2.0 * sh - 1.0), 4.0)) + 0.0008;
+      st = mix(st, vec3(0.92, 0.92, 0.94), (1.0 - smoothstep(sw - aa, sw + aa, amSeg(p + vec2(0.0, 0.0045), sa, sb))) * 0.6);
+      st = mix(st, vec3(0.1, 0.1, 0.12), 1.0 - smoothstep(sw - aa, sw + aa, length(p - sa - sba * sh)));
+      // (the Mangekyō's red glancing off its lower edge; the bangs' shadows)
+      st += vec3(0.3, 0.02, 0.02) * (1.0 - smoothstep(0.0, 0.06, hp)) * 0.5;
+      col = mix(col, st * (1.0 - 0.4 * shadow), pl);
+    }
+  }
+
   // the eye itself
-  float up = amUp(e.x, open), lo = amLo(e.x);
+  float up = amUp(e.x, open), lo = amLo(e.x, open);
   float inEye = step(abs(e.x), 1.0) * smoothstep(lo - ea, lo + ea, e.y) * (1.0 - smoothstep(up - ea, up + ea, e.y)) * smoothstep(0.0, 0.02, up - lo);
   if (inEye > 0.001) {
-    // the white: shaded under the upper lid, pink at the corners, veins crawling in from them
-    vec3 w = vec3(0.93, 0.89, 0.87);
-    w = mix(w, vec3(0.86, 0.58, 0.58), smoothstep(0.55, 1.0, abs(e.x)));
-    float veins = uIris.w * (bleeds ? 1.0 : 0.3);
+    // the white: pink at the corners, veins crawling in from them (the bleeding eye's cover it, like the reference art)
+    vec3 w = vec3(0.96, 0.94, 0.93);
+    w = mix(w, vec3(0.9, 0.62, 0.62), smoothstep(0.6, 1.0, abs(e.x)));
+    float veins = uIris.w * (bleeds ? 1.0 : 0.35);
     if (veins > 0.001) {
-      float n1 = amN(e * vec2(5.0, 7.0) + side * 3.1 + amN(e * 3.0) * 1.6);
-      float n2 = amN(e * vec2(11.0, 15.0) + 7.3 + amN(e * 5.0 + 2.0));
-      float v = max(1.0 - smoothstep(0.0, 0.05, abs(n1 - 0.5)), (1.0 - smoothstep(0.0, 0.06, abs(n2 - 0.5))) * 0.7);
-      float grow = smoothstep(0.0, 0.25, abs(e.x) + amN(e * 2.5) * 0.35 - 1.05 + veins * 1.1);
-      w = mix(w, vec3(0.72, 0.03, 0.05), v * grow * smoothstep(0.02, 0.18, length(e - AM_IC) - AM_IR));
-      w = mix(w, vec3(0.9, 0.55, 0.54), veins * 0.35);
+      vec2 wq = e * 3.0 + vec2(side * 5.3, 1.1);
+      vec2 warp = vec2(amN(wq), amN(wq + 4.7)) * 0.6;
+      float n1 = amN(e * vec2(4.0, 6.0) + warp + side * 3.1);
+      float n2 = amN(e * vec2(9.0, 12.0) + warp * 1.6 + 7.3);
+      float n3 = amN(e * vec2(18.0, 22.0) + warp * 2.2 + 2.9);
+      float v = max(max(1.0 - smoothstep(0.0, 0.05, abs(n1 - 0.5)), (1.0 - smoothstep(0.0, 0.06, abs(n2 - 0.5))) * 0.75), (1.0 - smoothstep(0.0, 0.07, abs(n3 - 0.5))) * 0.45);
+      float grow = smoothstep(0.0, 0.2, abs(e.x) + amN(e * 2.5) * 0.35 - 1.1 + veins * 1.2);
+      w = mix(w, vec3(0.78, 0.04, 0.06), v * grow * smoothstep(0.02, 0.1, length(e - AM_IC) - AM_IR));
+      w = mix(w, vec3(0.93, 0.6, 0.58), veins * 0.3 * (bleeds ? 1.0 : 0.5));
     }
     // the iris, glowing onto the white round it
     vec2 q = (e - AM_IC) / AM_IR;
     float r = length(q);
-    w += vec3(0.5, 0.02, 0.02) * exp(-max(r - 1.0, 0.0) * 5.0) * 0.35;
+    w += vec3(0.5, 0.02, 0.02) * exp(-max(r - 1.0, 0.0) * 5.0) * 0.3;
     vec3 ball = w;
     if (r < 1.03) ball = mix(w, amIris(q), 1.0 - smoothstep(1.0 - ea / AM_IR, 1.0 + ea / AM_IR, r));
-    // the upper lid's shadow on the ball
-    ball *= 1.0 - 0.6 * smoothstep(up - 0.26, up, e.y);
+    // the upper lid's shadow on the ball: a cool band under the lash line
+    ball = mix(ball, ball * vec3(0.55, 0.52, 0.62), smoothstep(up - 0.2, up - 0.02, e.y));
     // blood pooling on the lower lid (his right eye)
     if (bleeds && uBlood.x > 0.001) {
-      float pool = (1.0 - smoothstep(0.0, 0.03 + 0.12 * smoothstep(0.0, 0.5, uBlood.x) + 0.015 * sin(e.x * 9.0), e.y - lo));
+      float pool = (1.0 - smoothstep(0.0, 0.03 + 0.1 * smoothstep(0.0, 0.5, uBlood.x) + 0.015 * sin(e.x * 9.0), e.y - lo));
       vec3 bc = mix(vec3(0.55, 0.02, 0.04), vec3(0.95, 0.5, 0.5), amBand(e.y - lo, 0.02, 0.035, ea) * 0.6);
       ball = mix(ball, bc, pool * smoothstep(0.0, 0.12, uBlood.x));
     }
@@ -311,29 +391,30 @@ vec3 amPaint(vec2 p, float aa) {
     ball = mix(ball, vec3(1.1), (1.0 - smoothstep(0.7, 1.0, length(h2))) * 0.7);
     col = mix(col, ball, inEye);
   }
-  // the lash line: thick toward the outer corner, flicking out past it; the lower lid's fine line
+  // the lash line: thick toward the outer corner, flicking out and down past it; the lower lid's line
   {
-    float xl = e.x;
-    float ly, th;
+    float xl = e.x, ly, th;
     if (xl <= 1.0) {
       ly = up;
-      th = 0.045 + 0.08 * smoothstep(-0.7, 0.95, xl);
+      th = 0.04 + 0.075 * smoothstep(-0.7, 0.95, xl);
     } else {
       float u = xl - 1.0;
-      ly = amUp(1.0, open) - 0.2 * u - 0.8 * u * u;
-      th = 0.125 * pow(max(1.0 - u / 0.33, 0.0), 1.3);
+      ly = amUp(1.0, open) - 0.12 * u - 0.9 * u * u;
+      th = 0.115 * pow(max(1.0 - u / 0.3, 0.0), 1.3);
     }
-    float lash = amBand(e.y - ly, -0.012, th, ea) * step(-1.03, xl) * step(xl, 1.33);
-    float lower = amBand(lo - e.y, -0.004, 0.02 * smoothstep(-0.3, 0.6, xl), ea) * step(-0.3, xl) * step(xl, 1.0);
-    vec3 ink = vec3(0.03, 0.012, 0.018);
-    col = mix(col, ink, max(lash, lower * 0.85));
+    float lash = amBand(e.y - ly, -0.014, th, ea) * step(-1.03, xl) * step(xl, 1.3);
+    float lower = amBand(lo - e.y, -0.004, 0.012 + 0.022 * smoothstep(0.2, 1.0, xl), ea) * smoothstep(-0.55, -0.3, xl) * step(xl, 1.0);
+    col = mix(col, vec3(0.03, 0.012, 0.018), max(lash, lower * 0.9));
   }
-  // the blood: two streams from his right eye's lower lid, running down
+  // the blood (his right eye): welling along the lower lid, three streams running down, a drop at each head
   if (uBlood.x > 0.001 && p.x < 0.0) {
-    vec2 r1 = AM_ER + vec2(-0.05, amLo(0.05)) * AM_HW;
-    vec2 r2 = AM_ER + vec2(-0.55, amLo(0.55)) * AM_HW;
-    col = amBloodShade(col, amStream(p, r1, uBlood.x * 0.62, 0.011, 1.3, aa));
-    col = amBloodShade(col, amStream(p, r2, uBlood.y * 0.38, 0.0065, 4.1, aa));
+    float o = uLid.x;
+    float well = smoothstep(0.0, 0.25, uBlood.x);
+    float lw = (0.012 + 0.035 * sin(AM_PI * clamp((e.x + 0.6) / 1.4, 0.0, 1.0))) * well;
+    col = amBloodShade(col, vec2(amBand(lo - e.y, 0.0, lw, ea) * step(-0.6, e.x) * step(e.x, 0.8), -0.3));
+    col = amBloodShade(col, amStream(p, AM_ER + vec2(-0.05, amLo(0.05, o)) * AM_HW, uBlood.x * 0.62, 0.013, 1.3, aa));
+    col = amBloodShade(col, amStream(p, AM_ER + vec2(-0.55, amLo(0.55, o)) * AM_HW, uBlood.y * 0.38, 0.0075, 4.1, aa));
+    col = amBloodShade(col, amStream(p, AM_ER + vec2(0.4, amLo(-0.4, o)) * AM_HW, uBlood.y * 0.13, 0.006, 2.2, aa));
   }
   // the Mangekyō waking: a red shock ring round each eye
   if (uIris.x > 0.01 && uIris.x < 0.999) {

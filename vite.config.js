@@ -36,7 +36,8 @@ export default defineConfig({
     host: true,
     port: 5174,
     proxy: {
-      '/ws': { target: 'ws://localhost:3100', ws: true },
+      // (xfwd: the server sees who really connected: dev commands are for this laptop only, not LAN friends via Vite)
+      '/ws': { target: 'ws://localhost:3100', ws: true, xfwd: true },
       '/api': { target: 'http://localhost:3100' },
     },
   },

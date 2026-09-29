@@ -35,6 +35,23 @@ const ULT_FULL = process.env.SHINOBI_ULT === '1';
 // Password-locked characters (the owner's rule): joining as one needs `join.pw`. Kept here only, never in the
 // client bundle; the title screen asks for it (characters with `locked: true`).
 const LOCKED = { itachi: 'HUNNY' };
+// Developer commands (`dev{c}`, the in-game "/" bar: /ult, /cd, /sub, /all) for testing without earning things: only
+// for a player on this machine, never one arriving through a proxy or tunnel (the VPS's Caddy, cloudflared);
+// SHINOBI_DEV=1 opens them to everyone (a test with friends), SHINOBI_DEV=0 closes them.
+const DEV = process.env.SHINOBI_DEV;
+const LOOPBACK = /^(::1|127\.\d+\.\d+\.\d+|::ffff:127\.\d+\.\d+\.\d+)$/;
+/** Where a connection really comes from. Behind a proxy on this machine, the address the proxy saw: Cloudflare's
+ *  tunnel names the client; otherwise the last X-Forwarded-For entry (the nearest proxy's own: earlier ones can be
+ *  forged by the client; Caddy replaces the header, Vite's dev proxy appends to it). */
+function clientAddr(req) {
+  const sock = req.socket?.remoteAddress || '';
+  if (!LOOPBACK.test(sock)) return sock;
+  const cf = req.headers['cf-connecting-ip'];
+  if (cf) return String(cf).trim();
+  const xff = String(req.headers['x-forwarded-for'] || '').split(',').map((s) => s.trim()).filter(Boolean);
+  return xff.length ? xff[xff.length - 1] : sock;
+}
+const devAllowed = (ws) => DEV === '1' || (DEV !== '0' && LOOPBACK.test(ws.addr || ''));
 if (process.env.SHINOBI_MATCH) {
   const [d, r, rs] = process.env.SHINOBI_MATCH.split(',').map(Number);
   if (d > 0) T.duration = d;
@@ -825,7 +842,31 @@ function onMessage(ws, raw) {
       p.name = autoName(msg.name, p.ch, p);
       broadcast({ t: 'name', id: p.id, name: p.name });
       break;
+    case 'dev':
+      handleDev(ws, p, msg);
+      break;
   }
+}
+
+/** A developer command (see DEV): fills what the server owns; the answer `dev{c,ok,why?}` tells the client to do its
+ *  part (cooldowns and chakra are also kept on the client). */
+function handleDev(ws, p, msg) {
+  const c = String(msg.c || '').slice(0, 16);
+  if (!devAllowed(ws)) {
+    log(`  dev /${c} refused (${p.name}, ${ws.addr || '?'})`);
+    return send(p, { t: 'dev', c, ok: 0, why: 'off' });
+  }
+  if (!['ult', 'sub', 'cd', 'all'].includes(c)) return send(p, { t: 'dev', c, ok: 0, why: 'unknown' });
+  const C = charOf(p.ch);
+  if (c === 'ult' || c === 'all') p.ult = 100;
+  if (c === 'sub' || c === 'all') {
+    p.pips = C.stats.subPips;
+    p.pipT = 0;
+  }
+  if (c === 'cd' || c === 'all') p.casts.clear();
+  sendGauge(p);
+  send(p, { t: 'dev', c, ok: 1 });
+  log(`  dev /${c} (${p.name})`);
 }
 
 function onClose(ws) {
@@ -904,8 +945,9 @@ function serveStatic(req, res) {
 const server = http.createServer(serveStatic);
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 1 << 16 });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   ws.missed = 0;
+  ws.addr = clientAddr(req);
   if (LAG) {
     ws.lagOut = new LagLine(LAG);
     ws.lagIn = new LagLine(LAG);
@@ -949,6 +991,7 @@ server.listen(PORT, '0.0.0.0', () => {
   for (const ip of lan) console.log(`  Friends (LAN):   http://${ip}:${PORT}`);
   console.log(`  Over the internet: npm run share  (prints a https link)`);
   if (LAG) console.log(`\n  LAG SIMULATION ON: rtt ${LAG.rtt} ms, jitter ${LAG.jitter} ms, loss ${LAG.loss}%`);
+  console.log(`  Dev commands (/ult /cd /sub /all in game): ${DEV === '1' ? 'EVERYONE (SHINOBI_DEV=1)' : DEV === '0' ? 'off' : 'players on this laptop only'}`);
   console.log('');
 });
 

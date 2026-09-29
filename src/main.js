@@ -19,6 +19,7 @@ import { Sky } from './world/sky.js';
 import { Post } from './gfx/post.js';
 import { HUD, loadSettings } from './ui/hud.js';
 import { renderPortrait } from './ui/portrait.js';
+import { DevBar } from './ui/devbar.js';
 import { FrameGovernor } from './gfx/governor.js';
 import { ShadowCache } from './gfx/shadows.js';
 import { gpuInfo, detectPreset } from './gfx/perfcheck.js';
@@ -155,10 +156,11 @@ class Game {
     // ---- gameplay objects
     this.input = new Input(canvas);
     this.input.onPause = () => this.togglePause();
-    this.input.onKey = (code) => this.debugKey(code);
+    this.input.onKey = (code, e) => this.debugKey(code, e);
     this.net = new Net();
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     this.hud = new HUD(this);
+    this.devbar = new DevBar(this);
     this.audio = new Audio();
     addEventListener('click', (e) => e.target?.closest?.('button, select, .pm-tab') && this.audio.click());
     this.applySettings(loadSettings());
@@ -219,7 +221,17 @@ class Game {
     }
     // the shadow cache owns the shadow maps: arm it or this render samples maps that don't exist yet
     this.shadows.arm(this.scene, warm.map(({ f }) => ({ root: f.root, sphere: new THREE.Sphere(f.pos.clone(), 2) })));
+    // this frame draws every piece of the arena (no frustum culling), so all its buffers are uploaded now: a chunk
+    // first seen mid-fight would upload then (a 100+ ms hitch)
+    const culled = [];
+    this.arena.traverse((o) => {
+      if (o.isMesh && o.frustumCulled && o.visible) {
+        o.frustumCulled = false;
+        culled.push(o);
+      }
+    });
     this.post.render(1 / 60);
+    for (const o of culled) o.frustumCulled = true;
     this.scene.traverse((o) => {
       if (!o.material) return;
       for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
@@ -541,6 +553,7 @@ class Game {
     });
     n.on('hitx', (m) => this.combat.onHitx(m));
     n.on('gauge', (m) => (this.gauge = m));
+    n.on('dev', (m) => this.devbar.onAnswer(m));
     n.on('match', (m) => {
       this.match = m;
       this.hud.matchPhase?.(m);
@@ -713,7 +726,7 @@ class Game {
     this.camera.lookAt(10, 3, 0);
     this.sky.update(dt, this.camera);
     updateToon(this.sky.sun, this.camera, null, dt);
-    this.art.update(dt, this.fx);
+    this.art.update(dt, this.fx, this.camera);
     this.fx.update(dt);
   }
 
@@ -786,7 +799,7 @@ class Game {
     this.sky.update(dt, this.camera);
     this._focus ||= new THREE.Vector3();
     updateToon(this.sky.sun, this.camera, inCine ? cine.focus : inWorld ? tw.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
-    this.art.update(dt, this.fx);
+    this.art.update(dt, this.fx, this.camera);
     if (this.debug) {
       const hurts = (this._hurts ||= []);
       hurts.length = 0;
@@ -1034,7 +1047,13 @@ class Game {
     this.hud.togglePause();
   }
 
-  debugKey(code) {
+  debugKey(code, e) {
+    // "/": the developer's command bar (/ult, /cd, /sub, /all: src/ui/devbar.js)
+    if ((code === 'Slash' || code === 'NumpadDivide' || e?.key === '/') && this.state === 'playing' && this.input.enabled) {
+      e?.preventDefault(); // (or the "/" lands in the field it focuses)
+      this.devbar.show();
+      return true;
+    }
     if (code === 'F3') {
       this.hud.togglePerf();
       return true;

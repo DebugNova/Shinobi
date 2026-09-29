@@ -167,7 +167,10 @@ export class Combat {
     const a = Array.isArray(msg.a) && msg.a.length >= 4 && msg.a.every(Number.isFinite) ? msg.a : null;
     const ap = this.posAt(att, at, {});
     const ax = a ? a[0] : ap.x, ay = a ? a[1] : ap.y, az = a ? a[2] : ap.z, ayaw = a ? a[3] : ap.yaw;
-    if (a && Math.hypot(a[0] - ap.x, a[2] - ap.z) > 2.5 + (t - at) * 0.012) return { ok: false, why: 'attacker-pos' };
+    // (a crow warp moves the attacker several metres a few frames before the strike: at high ping the history still has
+    // him where he vanished; the warp's own reach is allowed on top)
+    const warp = spec.move?.warp ? spec.move.warp.max ?? 7 : 0;
+    if (a && Math.hypot(a[0] - ap.x, a[2] - ap.z) > 2.5 + warp + (t - at) * 0.012) return { ok: false, why: 'attacker-pos' };
     // a clone or projectile hit comes from its own position (must be near the caster's reach)
     const c = !spec.win && Array.isArray(msg.c) && msg.c.length >= 4 && msg.c.every(Number.isFinite) ? msg.c : null;
     if (spec.area) {

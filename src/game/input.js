@@ -29,12 +29,16 @@ export class Input {
     this.enabled = false;
     this.device = 'kbm';
     this.onPause = null;
-    this.onKey = null; // (code) => handled, for UI keys (F3, F4...)
+    this.onKey = null; // (code, event) => handled, for UI keys (F3, F4, "/"...)
+    this.quietUntil = 0; // (s) no pause from Esc / a lost pointer lock before this (a UI field closed by Esc)
     this.pad = { x: 0, y: 0, lx: 0, ly: 0, buttons: [] };
     this._padPrev = [];
 
+    // (typing in a text field, e.g. the dev command bar, is not playing)
+    const typing = (e) => e.target instanceof HTMLElement && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable);
     addEventListener('keydown', (e) => {
       if (e.code === 'Escape') return; // handled on keyup/pointerlockchange (browsers eat the first Esc)
+      if (typing(e)) return;
       if (this.onKey?.(e.code, e)) return;
       const a = KEYS[e.code];
       if (!a || !this.enabled) return;
@@ -49,7 +53,7 @@ export class Input {
         this.down.delete(a);
         this.releases.set(a, now());
       }
-      if (e.code === 'Escape' && this.enabled) this.onPause?.();
+      if (e.code === 'Escape' && this.enabled && !typing(e) && now() >= this.quietUntil) this.onPause?.();
     });
     addEventListener('blur', () => {
       this.down.clear();
@@ -93,7 +97,7 @@ export class Input {
       const was = this.locked;
       this.locked = document.pointerLockElement === canvas;
       // losing the lock (Esc, alt-tab) opens the pause menu; not under automation (tests switch tabs)
-      if (was && !this.locked && this.enabled && !navigator.webdriver) this.onPause?.();
+      if (was && !this.locked && this.enabled && !navigator.webdriver && now() >= this.quietUntil) this.onPause?.();
     });
   }
 

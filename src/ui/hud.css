@@ -118,11 +118,12 @@
 .h-theme { position: absolute; left: -46px; top: -50px; width: 460px; height: 208px; pointer-events: none; }
 .h-eye { display: none; }
 
-/* ---- Uchiha theme (a character's hud: 'uchiha'; art in src/ui/uchiha.js). Animated parts move by transform /
+/* ---- Uchiha + Madara themes (a character's hud: 'uchiha' / 'madara'; art in src/ui/uchiha.js, madara.js): the layout and the
+   animations are shared, Madara's colours are overrides in the block after this one. Animated parts move by transform /
    opacity only (compositor); nothing here animates a property that repaints except the ult's glow. */
-#hud.t-uchiha .h-port-img, #hud.t-uchiha .h-hp-ink { display: none; }
-.t-uchiha .h-eye { display: block; position: absolute; inset: 9px; }
-.t-uchiha .h-eye > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#hud:is(.t-uchiha, .t-madara) .h-port-img, #hud:is(.t-uchiha, .t-madara) .h-hp-ink { display: none; }
+:is(.t-uchiha, .t-madara) .h-eye { display: block; position: absolute; inset: 9px; }
+:is(.t-uchiha, .t-madara) .h-eye > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .u-eye-tomoe { animation: u-spin 7s linear infinite; transition: opacity 0.45s; will-change: transform, opacity; }
 .u-eye-mk { opacity: 0; animation: u-spin 18s linear infinite reverse; transition: opacity 0.45s; will-change: transform, opacity; }
 .h-me.ult .u-eye-tomoe { opacity: 0; }
@@ -131,8 +132,8 @@
 .h-me.ult .u-eye-glow { animation: u-pulse 1.3s ease-in-out infinite; }
 @keyframes u-spin { to { transform: rotate(360deg); } }
 @keyframes u-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
-.t-uchiha .h-chakra { inset: -12px; width: 132px; height: 132px; }
-.t-uchiha .h-chakra circle { stroke: #7fe0ff; stroke-width: 2.6; filter: drop-shadow(0 0 3px #36c6ff); }
+:is(.t-uchiha, .t-madara) .h-chakra { inset: -12px; width: 132px; height: 132px; }
+:is(.t-uchiha, .t-madara) .h-chakra circle { stroke: #7fe0ff; stroke-width: 2.6; filter: drop-shadow(0 0 3px #36c6ff); }
 
 /* black flames streaming off the portrait along the bar */
 .u-fl { position: absolute; left: 0; top: 0; overflow: visible; will-change: transform, opacity; }
@@ -145,35 +146,85 @@
 @keyframes u-drift { 0% { opacity: 0; transform: translate(-14px, 3px); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(36px, -6px) scale(0.7); } }
 
 /* the health bar: crimson metal frame, dark trough, gold fill */
-.t-uchiha .h-hpwrap { z-index: 1; margin-left: -12px; }
-.t-uchiha .h-hpwrap::before, .t-uchiha .h-hpwrap::after { content: ''; position: absolute; left: 6px; right: 0; top: 5px; height: 28px; border-radius: 4px 14px 14px 4px; pointer-events: none; }
-.t-uchiha .h-hpwrap::before { background: linear-gradient(180deg, #ff7a5c 0%, #e0161e 28%, #8a040c 62%, #d8121c 100%); box-shadow: 0 0 0 2px #080102, 0 4px 10px rgba(0, 0, 0, 0.55); }
-.t-uchiha .h-hpwrap::after { box-shadow: 0 0 14px 3px rgba(255, 30, 30, 0.85); opacity: 0; will-change: opacity; }
-.t-uchiha .h-me.low .h-hpwrap::after { animation: u-pulse 0.8s ease-in-out infinite; }
-.t-uchiha .h-hp { left: 10px; right: 4px; top: 9px; height: 20px; transform: none; border-radius: 2px 10px 10px 2px; background: linear-gradient(180deg, #120102, #3a0508 60%, #240304); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.7); }
-.t-uchiha .h-hp b { background: linear-gradient(180deg, #fff8c0 0%, #ffe45a 22%, #ffc21e 55%, #f58a0a 82%, #d86a06 100%); box-shadow: inset 0 -2px 0 rgba(120, 30, 0, 0.35); }
-.t-uchiha .h-me.low .h-hp b { background: linear-gradient(180deg, #ffd0a0 0%, #ff7a2a 30%, #e8301a 70%, #a0100a 100%); }
-.t-uchiha .h-hp s { background: linear-gradient(180deg, #ffd8c8, #ff3a2a 40%, #b0101a); }
-.t-uchiha .h-hp::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+:is(.t-uchiha, .t-madara) .h-hpwrap { z-index: 1; margin-left: -12px; }
+:is(.t-uchiha, .t-madara) .h-hpwrap::before, :is(.t-uchiha, .t-madara) .h-hpwrap::after { content: ''; position: absolute; left: 6px; right: 0; top: 5px; height: 28px; border-radius: 4px 14px 14px 4px; pointer-events: none; }
+:is(.t-uchiha, .t-madara) .h-hpwrap::before { background: linear-gradient(180deg, #ff7a5c 0%, #e0161e 28%, #8a040c 62%, #d8121c 100%); box-shadow: 0 0 0 2px #080102, 0 4px 10px rgba(0, 0, 0, 0.55); }
+:is(.t-uchiha, .t-madara) .h-hpwrap::after { box-shadow: 0 0 14px 3px rgba(255, 30, 30, 0.85); opacity: 0; will-change: opacity; }
+:is(.t-uchiha, .t-madara) .h-me.low .h-hpwrap::after { animation: u-pulse 0.8s ease-in-out infinite; }
+:is(.t-uchiha, .t-madara) .h-hp { left: 10px; right: 4px; top: 9px; height: 20px; transform: none; border-radius: 2px 10px 10px 2px; background: linear-gradient(180deg, #120102, #3a0508 60%, #240304); box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.7); }
+:is(.t-uchiha, .t-madara) .h-hp b { background: linear-gradient(180deg, #fff8c0 0%, #ffe45a 22%, #ffc21e 55%, #f58a0a 82%, #d86a06 100%); box-shadow: inset 0 -2px 0 rgba(120, 30, 0, 0.35); }
+:is(.t-uchiha, .t-madara) .h-me.low .h-hp b { background: linear-gradient(180deg, #ffd0a0 0%, #ff7a2a 30%, #e8301a 70%, #a0100a 100%); }
+:is(.t-uchiha, .t-madara) .h-hp s { background: linear-gradient(180deg, #ffd8c8, #ff3a2a 40%, #b0101a); }
+:is(.t-uchiha, .t-madara) .h-hp::after { content: ''; position: absolute; inset: 0; pointer-events: none;
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 45%), repeating-linear-gradient(90deg, transparent 0 calc(10% - 1.5px), rgba(60, 8, 0, 0.4) calc(10% - 1.5px) 10%); }
-.t-uchiha .h-arrow { right: -30px; background: #ff3a2e; }
-.t-uchiha .h-arrow.on { filter: drop-shadow(0 0 6px #ff2a2a); }
-.t-uchiha .h-subs { left: 22px; top: 38px; gap: 8px; }
-.t-uchiha .h-subs i, .t-uchiha .h-pips i { width: 9px; height: 9px; border-radius: 1.5px; transform: rotate(45deg); background: #2a0406; border: 1.5px solid #080102; }
-.t-uchiha .h-subs i.on, .t-uchiha .h-pips i.on { background: linear-gradient(135deg, #fff2a0, #ffb21e 55%, #e0600a); box-shadow: 0 0 5px rgba(255, 180, 40, 0.8); }
+:is(.t-uchiha, .t-madara) .h-arrow { right: -30px; background: #ff3a2e; }
+:is(.t-uchiha, .t-madara) .h-arrow.on { filter: drop-shadow(0 0 6px #ff2a2a); }
+:is(.t-uchiha, .t-madara) .h-subs { left: 22px; top: 38px; gap: 8px; }
+:is(.t-uchiha, .t-madara) .h-subs i, :is(.t-uchiha, .t-madara) .h-pips i { width: 9px; height: 9px; border-radius: 1.5px; transform: rotate(45deg); background: #2a0406; border: 1.5px solid #080102; }
+:is(.t-uchiha, .t-madara) .h-subs i.on, :is(.t-uchiha, .t-madara) .h-pips i.on { background: linear-gradient(135deg, #fff2a0, #ffb21e 55%, #e0600a); box-shadow: 0 0 5px rgba(255, 180, 40, 0.8); }
 
 /* skill icons: crimson metal rims, gloss, dimmed while cooling down */
-.t-uchiha .h-skills { gap: 17px; }
-.t-uchiha .h-skill { isolation: isolate; box-shadow: 0 0 0 7.5px #070102, 0 6px 14px 6px rgba(0, 0, 0, 0.45); }
-.t-uchiha .h-skill::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; z-index: -1; background: conic-gradient(from 200deg, #ff7a5c, #c0101a 18%, #5a0208 40%, #d8141c 58%, #ff6a50 70%, #8a040c 88%, #ff7a5c); }
-.t-uchiha .h-skill::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: inset 0 0 0 2px #0a0102, inset 0 0 10px rgba(0, 0, 0, 0.65); background: radial-gradient(ellipse 70% 45% at 50% 6%, rgba(255, 255, 255, 0.26), transparent 70%); }
-.t-uchiha .h-skill:not(.ready) svg { filter: saturate(0.45) brightness(0.78); }
-.t-uchiha .h-skill .h-cd { background: conic-gradient(rgba(10, 0, 2, 0.72) calc(var(--cd) * 360deg), transparent 0); }
-.t-uchiha .h-skill b, .t-uchiha .h-skill kbd { z-index: 2; }
-.t-uchiha .h-skill b { font-size: 27px; text-shadow: 0 0 8px #ff1a1a, 0 2px 0 #000; }
-.t-uchiha .h-skill kbd { bottom: -13px; background: #0a0102; box-shadow: 0 0 0 1.5px #b80c16; color: #ffe0d0; }
-.t-uchiha .h-skill.ult { box-shadow: 0 0 0 8.5px #070102, 0 6px 14px 6px rgba(0, 0, 0, 0.45); }
-.t-uchiha .h-skill.ult::before { inset: -7px; }
-.t-uchiha .h-skill.ult.ready { animation: u-ult 1.3s ease-in-out infinite; }
+:is(.t-uchiha, .t-madara) .h-skills { gap: 17px; }
+:is(.t-uchiha, .t-madara) .h-skill { isolation: isolate; box-shadow: 0 0 0 7.5px #070102, 0 6px 14px 6px rgba(0, 0, 0, 0.45); }
+:is(.t-uchiha, .t-madara) .h-skill::before { content: ''; position: absolute; inset: -6px; border-radius: 50%; z-index: -1; background: conic-gradient(from 200deg, #ff7a5c, #c0101a 18%, #5a0208 40%, #d8141c 58%, #ff6a50 70%, #8a040c 88%, #ff7a5c); }
+:is(.t-uchiha, .t-madara) .h-skill::after { content: ''; position: absolute; inset: 0; border-radius: 50%; pointer-events: none; box-shadow: inset 0 0 0 2px #0a0102, inset 0 0 10px rgba(0, 0, 0, 0.65); background: radial-gradient(ellipse 70% 45% at 50% 6%, rgba(255, 255, 255, 0.26), transparent 70%); }
+:is(.t-uchiha, .t-madara) .h-skill:not(.ready) svg { filter: saturate(0.45) brightness(0.78); }
+:is(.t-uchiha, .t-madara) .h-skill .h-cd { background: conic-gradient(rgba(10, 0, 2, 0.72) calc(var(--cd) * 360deg), transparent 0); }
+:is(.t-uchiha, .t-madara) .h-skill b, :is(.t-uchiha, .t-madara) .h-skill kbd { z-index: 2; }
+:is(.t-uchiha, .t-madara) .h-skill b { font-size: 27px; text-shadow: 0 0 8px #ff1a1a, 0 2px 0 #000; }
+:is(.t-uchiha, .t-madara) .h-skill kbd { bottom: -13px; background: #0a0102; box-shadow: 0 0 0 1.5px #b80c16; color: #ffe0d0; }
+:is(.t-uchiha, .t-madara) .h-skill.ult { box-shadow: 0 0 0 8.5px #070102, 0 6px 14px 6px rgba(0, 0, 0, 0.45); }
+:is(.t-uchiha, .t-madara) .h-skill.ult::before { inset: -7px; }
+:is(.t-uchiha, .t-madara) .h-skill.ult.ready { animation: u-ult 1.3s ease-in-out infinite; }
 @keyframes u-ult { 0%, 100% { box-shadow: 0 0 0 8.5px #070102, 0 0 18px 6px rgba(255, 20, 40, 0.45); } 50% { box-shadow: 0 0 0 8.5px #070102, 0 0 30px 11px rgba(255, 40, 50, 0.85); } }
-.t-uchiha .h-burst { border-color: #ff4a3a; box-shadow: 0 0 10px #ff2a2a; }
+:is(.t-uchiha, .t-madara) .h-burst { border-color: #ff4a3a; box-shadow: 0 0 10px #ff2a2a; }
+
+/* ---- Madara's colours (art in src/ui/madara.js): a Rinnegan whose ripples run outward; while the ultimate is ready the
+   Rinne Sharingan (red iris, nine tomoe turning) takes over. Susanoo-blue flames, a bar of dark iron plates with a gold
+   rim and a crimson fill (his armour), icons ringed in steel-blue with gold studs. */
+.m-eye-rip { transform: scale(0.3); opacity: 0; animation: m-rip 3.2s ease-out infinite; will-change: transform, opacity; }
+.m-eye-rip2 { animation-delay: 1.6s; }
+.m-eye-rs, .m-eye-rt { opacity: 0; transition: opacity 0.45s; will-change: transform, opacity; }
+.m-eye-rt { animation: u-spin 9s linear infinite; }
+.m-eye-glow { position: absolute; inset: -15px; border-radius: 50%; background: radial-gradient(circle, transparent 57%, rgba(120, 150, 255, 0.7) 64%, rgba(80, 110, 255, 0) 75%); opacity: 0; transition: opacity 0.4s; will-change: opacity; }
+.h-me.ult .m-eye-rs, .h-me.ult .m-eye-rt { opacity: 1; }
+.h-me.ult .m-eye-rip { animation-play-state: paused; opacity: 0; }
+.h-me.ult .m-eye-glow { background: radial-gradient(circle, transparent 57%, rgba(255, 40, 40, 0.65) 64%, rgba(255, 20, 30, 0) 75%); animation: u-pulse 1.3s ease-in-out infinite; }
+.m-eye-glow { animation: m-breathe 3.2s ease-in-out infinite; }
+@keyframes m-rip { 0% { transform: scale(0.3); opacity: 0.85; } 100% { transform: scale(3.7); opacity: 0; } }
+@keyframes m-breathe { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.55; } }
+
+#hud.t-madara .h-chakra circle { stroke: #9fc0ff; filter: drop-shadow(0 0 3px #5a8cff); }
+.t-madara .h-hpwrap::before { background: linear-gradient(180deg, #ffe7a0 0%, #c9a24a 16%, #4a3a1c 34%, #1a1a30 52%, #3a4a92 78%, #9fb4ff 100%); box-shadow: 0 0 0 2px #04050e, 0 4px 10px rgba(0, 0, 0, 0.6); }
+.t-madara .h-hpwrap::after { box-shadow: 0 0 14px 3px rgba(255, 50, 40, 0.85); }
+.t-madara .h-hp { background: linear-gradient(180deg, #06070f, #161a30 60%, #0c0e1c); }
+.t-madara .h-hp b { background: linear-gradient(180deg, #ffd0b8 0%, #ff6a4a 18%, #e0281c 50%, #a80f14 82%, #7a0810 100%); box-shadow: inset 0 -2px 0 rgba(50, 0, 10, 0.4); }
+.t-madara .h-me.low .h-hp b { background: linear-gradient(180deg, #fff0d0 0%, #ff9a3a 20%, #ff4a1a 55%, #c01a0a 100%); }
+.t-madara .h-hp s { background: linear-gradient(180deg, #f0f4ff, #7a90e8 45%, #34408a); }
+/* lamellar plates: vertical lacing lines every 5%, two horizontal cord lines */
+.t-madara .h-hp::after { background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0) 42%), linear-gradient(180deg, transparent 32%, rgba(40, 0, 6, 0.45) 33% 37%, transparent 38% 62%, rgba(40, 0, 6, 0.45) 63% 67%, transparent 68%), repeating-linear-gradient(90deg, transparent 0 calc(5% - 1.5px), rgba(30, 0, 8, 0.55) calc(5% - 1.5px) 5%); }
+.t-madara .h-arrow { background: #7fa4ff; }
+.t-madara .h-arrow.on { filter: drop-shadow(0 0 6px #5a8cff); }
+.t-madara .h-subs i, .t-madara .h-pips i { background: #12142a; border-color: #04050e; }
+.t-madara .h-subs i.on, .t-madara .h-pips i.on { background: linear-gradient(135deg, #f0f4ff, #8aa4ff 55%, #4a5ee0); box-shadow: 0 0 5px rgba(120, 150, 255, 0.85); }
+
+.t-madara .h-skill { box-shadow: 0 0 0 7.5px #04050e, 0 6px 14px 6px rgba(0, 0, 0, 0.5); }
+.t-madara .h-skill::before { background: conic-gradient(from 200deg, #ffe7a0, #c9a24a 12%, #34428a 30%, #9fb4ff 48%, #3a4a92 62%, #d8b45a 78%, #5a6ee0 90%, #ffe7a0); }
+.t-madara .h-skill::after { box-shadow: inset 0 0 0 2px #05060e, inset 0 0 10px rgba(0, 0, 0, 0.65); }
+.t-madara .h-skill b { text-shadow: 0 0 8px #5a8cff, 0 2px 0 #000; }
+.t-madara .h-skill kbd { background: #05060e; box-shadow: 0 0 0 1.5px #c9a24a; color: #fff2d0; }
+.t-madara .h-skill.ult { box-shadow: 0 0 0 8.5px #04050e, 0 6px 14px 6px rgba(0, 0, 0, 0.5); }
+.t-madara .h-skill.ult.ready { animation: m-ult 1.3s ease-in-out infinite; }
+@keyframes m-ult { 0%, 100% { box-shadow: 0 0 0 8.5px #04050e, 0 0 18px 6px rgba(255, 60, 40, 0.45); } 50% { box-shadow: 0 0 0 8.5px #04050e, 0 0 30px 11px rgba(255, 90, 60, 0.85); } }
+.t-madara .h-burst { border-color: #9fb4ff; box-shadow: 0 0 10px #5a8cff; }
+
+/* ---- the developer's command bar ("/" in a match: src/ui/devbar.js) */
+#devbar { position: fixed; left: 50%; bottom: 20vh; width: min(460px, calc(100vw - 32px)); transform: translate(-50%, 8px); opacity: 0; pointer-events: none; transition: opacity 0.12s, transform 0.12s; z-index: 60; font-family: var(--num); color: var(--paper); }
+#devbar.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+#devbar .db-row { display: flex; align-items: center; gap: 6px; padding: 8px 14px; background: rgba(10, 6, 4, 0.9); border: 1px solid rgba(255, 138, 31, 0.55); border-radius: 4px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5); }
+#devbar .db-slash { font-weight: 700; font-size: 22px; color: var(--o); }
+#devbar input { flex: 1; min-width: 0; background: none; border: 0; outline: 0; color: var(--paper); font: 600 20px var(--num); letter-spacing: 0.06em; caret-color: var(--o); user-select: text; }
+#devbar .db-hint { margin-top: 6px; padding: 8px 14px; background: rgba(10, 6, 4, 0.72); border-radius: 4px; font-size: 15px; letter-spacing: 0.04em; color: rgba(247, 241, 230, 0.82); }
+#devbar .db-hint p { margin: 2px 0; }
+#devbar .db-hint b { display: inline-block; min-width: 58px; color: var(--o2); font-weight: 700; }
+#devbar .db-hint .db-keys { margin-top: 6px; font-size: 13px; color: rgba(247, 241, 230, 0.5); }

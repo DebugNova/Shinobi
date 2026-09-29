@@ -3,8 +3,16 @@
 // (a low thump, a crack, a boom for heavy hits; a metallic clank when blocked), dash, substitution poof, the chakra
 // charge hum and the Rasengan whirr (loops), the ultimate's roar and burst, UI clicks, and ambience by zone (forest
 // birds and wind, the village's murmur, the river). A light battle loop plays when the music volume is up.
+// Recorded lines are the exception: FILES (the owner's recordings in public/assets/audio/), fetched at load, decoded
+// once the context runs, played from any offset (a cinematic heard late joins its line where it is).
 import { SURF } from '../shared/config.js';
 import { riverDist } from '../shared/map.js';
+
+export const FILES = {
+  // Amaterasu's voice line + black-flame roar (trimmed from the owner's amaterasu.mp3: its first 3.10 s cut, a 30 ms
+  // fade in, the burning faded out over its last 7.3 s; "Amaterasu" starts 1.46 s in, its stressed "TE" at 1.94-2.20)
+  amaterasu: '/assets/audio/amaterasu.mp3',
+};
 
 export class Audio {
   constructor() {
@@ -13,6 +21,64 @@ export class Audio {
     this.musicVol = 0;
     this.loops = new Map();
     this.lastStep = 0;
+    // (the files' bytes, fetched now; their decoded buffers once the context exists)
+    this.files = new Map();
+    for (const [k, url] of Object.entries(FILES)) {
+      const f = { data: null, buf: null, decoding: false };
+      // (no-cache: the file keeps its name when re-cut, and /assets/ is cached a day: always revalidate)
+      f.data = fetch(url, { cache: 'no-cache' }).then((r) => (r.ok ? r.arrayBuffer() : null)).catch(() => null);
+      this.files.set(k, f);
+    }
+  }
+
+  /** A file's decoded buffer (null until it is ready: the first call after the context starts decodes it). */
+  buffer(key) {
+    const f = this.files.get(key);
+    if (!f || !this.ctx) return null;
+    if (!f.buf && !f.decoding) {
+      f.decoding = true;
+      f.data
+        .then((d) => (d ? this.ctx.decodeAudioData(d) : null))
+        .then((b) => { f.buf = b; })
+        .catch((e) => console.warn(`[shinobi] audio ${key}: ${e?.message || e}`));
+    }
+    return f.buf;
+  }
+
+  /** How long after it is scheduled a sound is heard (s): the output device's latency. */
+  latency() {
+    return this.ctx ? this.ctx.outputLatency || this.ctx.baseLatency || 0 : 0;
+  }
+
+  /** Plays a file `delay` s from now, from `offset` s into it, straight to the mix (not spatialised). Returns a handle
+   *  ({ stop(fade) }) or null (the context not running, the file not decoded yet, or the offset past its end). */
+  playFile(key, { offset = 0, delay = 0, gain = 1 } = {}) {
+    if (!this.ok()) return null;
+    const buf = this.buffer(key);
+    if (!buf || offset >= buf.duration) return null;
+    const c = this.ctx, s = c.createBufferSource(), g = this.out(null, gain);
+    s.buffer = buf;
+    s.connect(g);
+    const at = c.currentTime + Math.max(0, delay);
+    // (started past the file's own fade in: a 15 ms ramp, or the first sample clicks)
+    if (offset > 0.001) {
+      g.gain.setValueAtTime(0, at);
+      g.gain.linearRampToValueAtTime(gain, at + 0.015);
+    }
+    s.start(at, Math.max(0, offset));
+    let done = false;
+    s.onended = () => { done = true; };
+    return {
+      stop: (fade = 0.3) => {
+        if (done) return;
+        done = true;
+        const t = c.currentTime;
+        g.gain.cancelScheduledValues(t);
+        g.gain.setValueAtTime(g.gain.value, t);
+        g.gain.linearRampToValueAtTime(0, t + fade);
+        s.stop(t + fade + 0.02);
+      },
+    };
   }
 
   /** Needs a user gesture (the JOIN click). */
@@ -60,6 +126,7 @@ export class Audio {
     }
     this.startAmbience();
     this.startMusic();
+    for (const k of this.files.keys()) this.buffer(k); // (decoded now, ready long before anyone casts)
   }
 
   setVolume(v, music) {
@@ -195,6 +262,15 @@ export class Audio {
     if (!this.ok()) return;
     const t = this.ctx.currentTime, o = this.out(pos, 0.6);
     this.noise(o, t, 0.12 + weight * 0.04, { f0: 600 + weight * 150, f1: 2600, q: 1.8, gain: 0.35 + weight * 0.08, attack: 0.02 });
+  }
+
+  /** A kunai drawn or put away: a short bright scrape and a thin ring of steel. */
+  kunai(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 0.5);
+    this.noise(o, t, 0.09, { type: 'highpass', f0: 2600, f1: 6000, gain: 0.22, attack: 0.004 });
+    const f = 3400 + Math.random() * 700;
+    this.tone(o, t + 0.01, 0.3, { type: 'triangle', f0: f, f1: f * 0.995, gain: 0.035, attack: 0.002 });
   }
 
   impact(pos, weight = 1, blocked = false) {

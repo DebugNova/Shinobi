@@ -6,14 +6,16 @@
 //   the negative world (a flash) light and dark swap onto cold teal, the camera low in front of him; the arms fling
 //                     wide, a flock of crows bursts off his back, feathers drift past the lens; the camera pushes in,
 //                     then rushes into his face
-//   the eyes          (a flash) his eyes painted over the whole view (amaterasufx.js): shut, a flutter, opening slowly;
-//                     the Sharingan spins up into the Mangekyō; veins crawl in, blood wells and runs down from the right
+//   the eyes          (a flash) his eyes painted over the whole view (amaterasufx.js): shut, a flutter, opening wide
+//                     (snapping wider for a moment as the Mangekyō takes); the Sharingan spins up into the Mangekyō;
+//                     veins crawl in, blood wells and runs down from the right
 //                     eye; black flames lick up the bottom edge; the camera drives into the right pupil and black
 //                     flames burst out of it over everything
 //   the flames        under the black the arena comes back in colour, the camera on a victim; at `focus` (server
 //                     clock, the same instant everywhere) the flames latch onto everyone the gaze took (the server told
 //                     every screen who at the pick); the black burns away onto them; the game camera eases back.
-// Visual and local, except the timing and who burns (the server's). Audio: hooks only (audio.amaterasuCine?.(phase)).
+// Visual and local, except the timing and who burns (the server's). Audio: the voice line (the owner's recording, on
+// the same clock: "Amaterasu" as the eyes open fully, voiceStep), and hooks for the rest (audio.amaterasuCine?.(phase)).
 import * as THREE from 'three';
 import { charOf } from '../shared/characters.js';
 import { AMA_LAYOUT } from '../gfx/amaterasufx.js';
@@ -49,7 +51,15 @@ export const AMA = {
   burn: [4.42, 4.9], // the black burns away onto them (the flames at the data's `focus`, 4.37)
   ret: 0, // s the game camera takes to ease back (0: a cut at the end, the data's cinema[1]: gliding home from the victim passed through its head)
   barsOut: 0.3, // s for the letterbox to go
+  // the voice line (audio.js FILES.amaterasu) starts here, at the press: its drone under the fingers and the negative
+  // world, "Amaterasu" from 1.46 (the owner's ear: the negative world, the
+  // push in), its stressed "TE" just before the rush into his face (1.94); the burning in it fades
+  // out over ~7 s after the cinematic
+  voice: 0,
+  voiceLate: 3.0, // (a screen that hears of the cast later than this after the line's start skips it: the word begun)
 };
+// (the picture reaches the screen about a frame after it is drawn: the voice is scheduled that much later)
+const SHOW_LAG = 0.01;
 
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _q = new THREE.Quaternion();
 // (a frozen screen's input: nothing held, nothing pressed; the presses made meanwhile stay buffered in the real one)
@@ -92,6 +102,11 @@ export class AmaterasuCinema {
       if (this.S.id === id && this.S.inst === inst) return;
       this.end(); // (the server lets one run at a time: a newer one wins)
     }
+    // (the last one's fire tail, if it is still fading, makes way)
+    if (this.voice) {
+      this.voice.stop(0.5);
+      this.voice = null;
+    }
     const C = charOf(ch), J = C.jutsu.amaterasu;
     if (!J?.cinema) return;
     this.S = {
@@ -122,6 +137,12 @@ export class AmaterasuCinema {
   end() {
     const g = this.game, S = this.S;
     if (!S) return;
+    // (cut short, by its caster leaving or respawning or a newer cast, its voice goes too; played out, the fire tail
+    // fades on by itself)
+    if (this.voice && this.time() < S.endT) {
+      this.voice.stop(0.3);
+      this.voice = null;
+    }
     if (S.hud) g.hud?.cinema?.(false);
     this.showRings(true);
     this.S = null;
@@ -160,6 +181,7 @@ export class AmaterasuCinema {
     if (!f || t > S.endT + AMA.ret + AMA.barsOut) return this.end();
     const A = g.post.amaterasu;
     this.cam = false;
+    this.voiceStep(t);
     // ---- in the arena: the view darkens and drains round him
     if (t < AMA.cut) {
       const k = ss(AMA.gather[0], AMA.gather[1], t);
@@ -209,6 +231,21 @@ export class AmaterasuCinema {
       this.sound('end');
       this.showRings(true);
     }
+  }
+
+  /** The voice line on the cinematic's clock (the server's: every screen hears the word at the same moment). Scheduled
+   *  on the audio clock just ahead of time (sample-exact, not on a frame), earlier by the output's latency, later by
+   *  the display's; a screen that hears of the cast late joins the line where it is. Not while the clock is held. */
+  voiceStep(t) {
+    const S = this.S, a = this.game.audio;
+    if (S.voice || !a?.playFile || (this.hold !== undefined && this.hold !== null)) return;
+    const due = AMA.voice - (a.latency() - SHOW_LAG);
+    if (t < due - 0.15 || t > due + AMA.voiceLate) return;
+    const h = a.playFile('amaterasu', { offset: t - due, delay: due - t });
+    // (null: the audio not running or the file not decoded yet: tried again next frame, within voiceLate)
+    if (!h) return;
+    S.voice = true;
+    this.voice = h;
   }
 
   sound(k) {
@@ -304,9 +341,11 @@ export class AmaterasuCinema {
     A.eye = ss(AMA.eye - 0.01, AMA.eye + 0.03, t);
     A.eyeT = T;
     const flutter = 0.16 * Math.sin(Math.PI * clamp((t - AMA.flutter[0]) / (AMA.flutter[1] - AMA.flutter[0]), 0, 1));
-    const lid = Math.max(flutter, ss(AMA.lids[0], AMA.lids[1], t) ** 1.3);
+    // (wide open at 1; the Mangekyō taking snaps them wider for a moment: > 1 lifts the lids past the open shape)
+    const snap = 0.08 * Math.exp(-Math.pow((t - AMA.morph[1]) / 0.12, 2));
+    const lid = Math.max(flutter, ss(AMA.lids[0], AMA.lids[1], t) ** 1.3) + snap;
     // (his left eye a breath behind his right)
-    A.lid = [lid, Math.max(flutter * 0.8, ss(AMA.lids[0] + 0.05, AMA.lids[1] + 0.05, t) ** 1.3)];
+    A.lid = [lid, Math.max(flutter * 0.8, ss(AMA.lids[0] + 0.05, AMA.lids[1] + 0.05, t) ** 1.3) + snap];
     const morph = ss(AMA.morph[0], AMA.morph[1], t);
     // the spin: slow, whirling up through the change, settling
     const w = 1.1 + 16 * Math.exp(-Math.pow((t - (AMA.morph[0] + AMA.morph[1]) / 2) / 0.16, 2));

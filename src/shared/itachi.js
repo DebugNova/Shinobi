@@ -1,4 +1,4 @@
-// Itachi Uchiha: Naruto's body mechanics and M1 (stats, movement, light/air/heavy moves, reactions) with his own
+// Itachi Uchiha: Naruto's body mechanics (stats, movement, heavy, reactions) with his own M1 strings (ITACHI_MOVES) and
 // jutsu kit. The one data file for his abilities; shared by the client (gameplay, effects, hit detection) and the
 // server (validation, damage). Frames are 60 Hz ticks; distances in metres. Tune here.
 //   Q  Phoenix Sage Fire   three fireballs blown one after another; each homes on the target until it dashes
@@ -7,6 +7,152 @@
 //   R  Amaterasu           everyone in front of him bursts into black flames that burn 50% of their health away
 // Geometry that must match on the client and the server lives in itachikit.js (built from these numbers).
 import { NARUTO } from './naruto.js';
+
+// The kunai in his right fist (I3-I4, R3-R5, IA2): a grip box along the fist's grip axis, the blade `len` past the
+// thumb, the handle `back` past the little finger (drawn there: movefx.js PROPS.kunai uses the same numbers).
+const KUNAI = { grip: 'rightHand', len: 0.5, back: 0.1, r: 0.17 };
+// moves that warp (crows) hold no travel of their own: `step` only names the tracking range
+const STILL = (range) => ({ d: 0, f: 1, track: { range, max: 0, gap: 0 } });
+
+// Itachi's M1 strings (the frame data format of naruto.js `moves`; the keyed clips it_* are src/char/itachimoves.js,
+// their effects movefx.js MOVE_FX). New fields: warp (the crow warp: at, f frames, to 'behind'|'above', gap/back/up
+// metres from the target's live position, max metres: src/game/combat.js warpStep), leap.at (the leap comes later in
+// the move), nextOnHit (the string only continues from a hit), hit.fx ('sphere': the chakra sphere burst on impact).
+export const ITACHI_MOVES = {
+  // ---- Uchiha Taijutsu (M1 from a standstill): backfist, spinning heel, the kunai drawn in a low cut, a rising cut,
+  // a palm that launches (he leaps after the victim), and the crows carry him above it for a heel drop to the ground
+  I1: {
+    name: 'Uchiha Backfist', anim: 'it_backhand', kind: 'light', next: 'I2',
+    startup: 11, active: 4, recovery: 16, cancel: 16, hitCancel: 16,
+    step: { d: 1.8, from: 2, f: 9, k: [1.4, 0.6], track: { range: 6, max: 3, gap: 0.66 } },
+    hit: { box: { cap: ['rightLowerArm', 'rightHand'], r: 0.2, ext: 0.1 }, dmg: 40, react: 'flinch', stun: 34, kb: [5.5, 0], hitstop: 5, reach: 2.4 },
+    weight: 1,
+  },
+  I2: {
+    name: 'Spinning Heel', anim: 'it_spinheel', kind: 'light', next: 'I3',
+    startup: 13, active: 5, recovery: 17, cancel: 20, hitCancel: 19,
+    step: { d: 1.4, from: 1, f: 11, k: [1.3, 0.7], track: { range: 6, max: 2.6, gap: 0.85 } },
+    hit: { box: { cap: ['leftLowerLeg', 'leftFoot'], r: 0.23, ext: 0.14 }, dmg: 45, react: 'flinch', stun: 36, kb: [6, 0], hitstop: 6, reach: 2.6 },
+    weight: 2,
+  },
+  I3: {
+    name: 'Kunai Draw', anim: 'it_kunaidraw', kind: 'light', next: 'I4',
+    startup: 12, active: 4, recovery: 18, cancel: 19, hitCancel: 18,
+    step: { d: 1.6, from: 3, f: 9, k: [1.5, 0.5], track: { range: 6, max: 2.8, gap: 0.95 } },
+    hit: { box: KUNAI, dmg: 50, react: 'flinch', stun: 38, kb: [6, 0], hitstop: 6, reach: 2.8 },
+    weight: 2,
+  },
+  I4: {
+    name: 'Rising Cut', anim: 'it_risingcut', kind: 'light', next: 'I5',
+    startup: 11, active: 4, recovery: 18, cancel: 18, hitCancel: 18,
+    step: { d: 1.4, from: 2, f: 9, k: [1.4, 0.6], track: { range: 6, max: 2.6, gap: 0.78 } },
+    hit: { box: KUNAI, dmg: 55, react: 'stagger', stun: 40, kb: [6.5, 0], hitstop: 7, reach: 2.8 },
+    weight: 2,
+  },
+  I5: {
+    name: 'Chakra Palm Launch', anim: 'it_palmrise', kind: 'light', next: 'I6', nextOnHit: true,
+    startup: 14, active: 4, recovery: 22, cancel: 26, hitCancel: 22,
+    step: { d: 1.4, from: 3, f: 10, k: [1.5, 0.5], track: { range: 6, max: 2.6, gap: 0.7 } },
+    // he leaps after the victim once the palm has struck (the victim's flight: the same arc, a little ahead). M1
+    // pressed on through it: the crow finisher (I6); let it end in the air and M1 starts the air string (IA1-IA5)
+    leap: { at: 18, vy: 11, g: 0.66 },
+    hit: { box: { cap: ['rightLowerArm', 'rightHand'], r: 0.27, ext: 0.18 }, dmg: 60, react: 'launch', stun: 0, kb: [1.5, 11], hitstop: 9, reach: 2.4, fx: 'sphere' },
+    weight: 3,
+  },
+  I6: {
+    name: 'Crow Descent', anim: 'it_crowdrop', kind: 'light', next: null, air: true, hover: 0.2,
+    startup: 20, active: 5, recovery: 28, cancel: 99, hitCancel: 30,
+    step: STILL(9),
+    // crows at 3, re-formed above the victim (0.7 m over its feet, 0.6 m short of it) by 11, the heel comes down at 20
+    warp: { at: 3, f: 8, to: 'above', up: 0.7, back: 0.6, max: 7 },
+    dive: { at: 25, vy: -22, land: 34 },
+    hit: { box: { cap: ['rightLowerLeg', 'rightFoot'], r: 0.27, ext: 0.14 }, dmg: 85, react: 'spike', stun: 0, kb: [2, -18], hitstop: 9, reach: 3.2 },
+    weight: 4,
+  },
+
+  // ---- Crow Rush (M1 on the move): a flying side kick, an airborne hook kick, the kunai drawn in a diagonal cut,
+  // crows to the target's back for an elbow, a spinning crimson cut that throws the victim away
+  R1: {
+    name: 'Flying Side Kick', anim: 'it_flykick', kind: 'light', next: 'R2',
+    startup: 12, active: 5, recovery: 16, cancel: 18, hitCancel: 18,
+    step: { d: 4.2, f: 13, k: [1.3, 0.7], track: { range: 9, max: 5, gap: 0.95 } },
+    hit: { box: { cap: ['rightLowerLeg', 'rightFoot'], r: 0.25, ext: 0.16 }, dmg: 45, react: 'flinch', stun: 36, kb: [6.5, 0], hitstop: 6, reach: 2.8 },
+    weight: 2,
+  },
+  R2: {
+    name: 'Aerial Hook Kick', anim: 'it_airhook', kind: 'light', next: 'R3',
+    startup: 13, active: 5, recovery: 17, cancel: 19, hitCancel: 19,
+    step: { d: 1.6, from: 1, f: 11, k: [1.3, 0.7], track: { range: 6, max: 2.8, gap: 0.85 } },
+    hit: { box: { cap: ['leftLowerLeg', 'leftFoot'], r: 0.24, ext: 0.14 }, dmg: 45, react: 'flinch', stun: 36, kb: [6, 0], hitstop: 6, reach: 2.7 },
+    weight: 2,
+  },
+  R3: {
+    name: 'Kunai Crescent Draw', anim: 'it_crossslash', kind: 'light', next: 'R4',
+    startup: 11, active: 4, recovery: 17, cancel: 17, hitCancel: 17,
+    step: { d: 1.6, from: 2, f: 9, k: [1.5, 0.5], track: { range: 6, max: 2.8, gap: 0.95 } },
+    hit: { box: KUNAI, dmg: 50, react: 'flinch', stun: 38, kb: [5.5, 0], hitstop: 6, reach: 2.8 },
+    weight: 2,
+  },
+  R4: {
+    name: 'Crow Flank', anim: 'it_crowflank', kind: 'light', next: 'R5',
+    startup: 18, active: 4, recovery: 16, cancel: 20, hitCancel: 20,
+    step: STILL(8),
+    // crows at 3, re-formed at the target's back (0.62 m past it, facing it) by 10, a turning elbow at 18
+    warp: { at: 3, f: 7, to: 'behind', gap: 0.62, max: 7 },
+    hit: { box: { cap: ['rightUpperArm', 'rightLowerArm'], r: 0.22, ext: 0.12 }, dmg: 55, react: 'stagger', stun: 40, kb: [7, 0], hitstop: 7, reach: 2.4 },
+    weight: 3,
+  },
+  R5: {
+    name: 'Crimson Crescent', anim: 'it_crescent', kind: 'light', next: null,
+    startup: 15, active: 5, recovery: 26, cancel: 99, hitCancel: 24,
+    step: { d: 1.2, from: 2, f: 12, k: [1.2, 0.8], track: { range: 6, max: 2.4, gap: 0.95 } },
+    hit: { box: { ...KUNAI, r: 0.2 }, dmg: 90, react: 'knockback', stun: 0, kb: [13, 6], hitstop: 9, reach: 3, fx: 'sphere' },
+    weight: 4,
+  },
+
+  // ---- Crow Heaven (M1 in the air): a snap kick, a spinning kunai cut, a heel hook, crows to the victim's back for a
+  // backfist, then a front flip over it into an upside-down diving fist that drives it into the ground
+  IA1: {
+    name: 'Air Snap Kick', anim: 'it_air_snap', kind: 'air', next: 'IA2', hover: 0.15,
+    startup: 9, active: 4, recovery: 14, cancel: 13, hitCancel: 12,
+    step: { d: 0.7, track: { range: 4.5, max: 2.2, gap: 0.8, vertical: true } },
+    hit: { box: { cap: ['rightLowerLeg', 'rightFoot'], r: 0.22, ext: 0.12 }, dmg: 35, react: 'flinch', stun: 30, kb: [1.2, 2.6], hitstop: 5, reach: 2.5 },
+    weight: 1,
+  },
+  IA2: {
+    name: 'Air Spin Slash', anim: 'it_air_slash', kind: 'air', next: 'IA3', hover: 0.15,
+    startup: 11, active: 5, recovery: 14, cancel: 15, hitCancel: 14,
+    step: { d: 0.6, track: { range: 4.5, max: 2, gap: 0.95, vertical: true } },
+    hit: { box: KUNAI, dmg: 40, react: 'flinch', stun: 30, kb: [1.3, 2.8], hitstop: 5, reach: 2.8 },
+    weight: 2,
+  },
+  IA3: {
+    name: 'Air Heel Hook', anim: 'it_air_heel', kind: 'air', next: 'IA4', hover: 0.15,
+    startup: 11, active: 5, recovery: 14, cancel: 15, hitCancel: 14,
+    step: { d: 0.6, track: { range: 4.5, max: 2, gap: 0.85, vertical: true } },
+    hit: { box: { cap: ['leftLowerLeg', 'leftFoot'], r: 0.23, ext: 0.12 }, dmg: 45, react: 'flinch', stun: 30, kb: [1.4, 3], hitstop: 6, reach: 2.7 },
+    weight: 2,
+  },
+  IA4: {
+    name: 'Crow Ambush', anim: 'it_air_ambush', kind: 'air', next: 'IA5', hover: 0.15,
+    startup: 17, active: 4, recovery: 15, cancel: 20, hitCancel: 18,
+    step: STILL(7),
+    warp: { at: 3, f: 7, to: 'behind', gap: 0.68, up: -0.12, max: 6 },
+    hit: { box: { cap: ['rightLowerArm', 'rightHand'], r: 0.22, ext: 0.1 }, dmg: 50, react: 'flinch', stun: 30, kb: [1.5, 3.2], hitstop: 6, reach: 2.5 },
+    weight: 2,
+  },
+  IA5: {
+    name: 'Heaven Drop', anim: 'it_air_drop', kind: 'air', next: null, hover: 0.2,
+    startup: 16, active: 5, recovery: 28, cancel: 99, hitCancel: 28,
+    step: STILL(7),
+    // no crows: a rising front flip carries him up over the victim (the warp, visible), head down by 12, 0.55 m short of
+    // it (closer, the fighters' separation push would shove him back)
+    warp: { at: 2, f: 9, to: 'above', up: 0.55, back: 0.55, max: 5 },
+    dive: { at: 21, vy: -24, land: 30 },
+    hit: { box: { cap: ['rightLowerArm', 'rightHand'], r: 0.28, ext: 0.16 }, dmg: 85, react: 'spike', stun: 0, kb: [2.5, -18], hitstop: 9, reach: 3.2 },
+    weight: 4,
+  },
+};
 
 export const ITACHI = {
   ...NARUTO,
@@ -25,6 +171,19 @@ export const ITACHI = {
   // into a streak of brush ink for the dash, crows scatter from where he left, he re-forms at its end (visual only:
   // src/game/itachi.js updateShift, itachifx.js InkStrokes)
   crowShift: true,
+
+  // His own M1 (Naruto's moves stay in the table for bots and tests, unused by his input): from a standstill the
+  // Uchiha Taijutsu string (I1-I6), on the move the Crow Rush (R1-R5), in the air the Crow Heaven string (IA1-IA5).
+  // Paced to be read (~0.4 s from hit to hit, every strike with a wind-up and a follow-through); every hit's stun
+  // covers the gap to the next contact with room to spare (gap = cancel - startup + next startup, after hitstop).
+  light: { stand: 'I1', moving: 'R1', movingSpeed: 5, air: 'IA1' },
+  // every step of his strings re-aims at the target's live position each tick (src/game/combat.js AttackAction):
+  // each strike meets the victim at its own contact distance even while the last hit's push still slides it
+  liveTrack: true,
+  moves: {
+    ...NARUTO.moves,
+    ...ITACHI_MOVES,
+  },
 
   jutsu: {
     shuriken: NARUTO.jutsu.shuriken, // tool 1: the same as everyone's

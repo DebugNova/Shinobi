@@ -23,7 +23,9 @@ Multiplayer third-person anime ninja arena fighter (Shinobi Striker style). Brie
   village with shops, signs, lanterns and stairs to an upper street; forest with giant climbable trees and branch
   platforms; cliffs, ledge and a waterfall; a river with a bridge and stepping stones; the training field with the
   dummy. Toon shading with hatching, screen-space outlines, painted procedural textures, instanced grass, animated
-  water, light shafts, bloom on lanterns and jutsu.
+  water, light shafts, bloom on lanterns and jutsu. Since 2026-09-30 (see "Map art pass 2"): a backdrop (mountain
+  ranges, hill forest, the town beyond the east wall), strata cliffs, a stream with two falls, a south-east street,
+  flagstone streets, a torii gate, props and flora across the map.
 - Movement: run 8 m/s, ninja sprint 12 m/s, skid turn, jump + double jump (front flip), coyote time, jump buffer,
   ground/air dash (invulnerable start), wall run on any climbable surface, hard landings, water running.
 - Animation: procedural gait with exact foot planting, terrain-following feet, lean and bank, ninja-run arms, keyed
@@ -315,6 +317,39 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
 - Tests: chars.mjs (sage and CH=itachi) ALL PASS, with 3 new checks (field shown + focused, no password stays, wrong
   password refused by the server); a raw WebSocket join: no password / "hunny" refused, "HUNNY" welcomed.
 
+## Map art pass 2 (2026-09-30, owner's request with 6 reference shots)
+
+The owner: "improve the maps, the mountains, waterfall, houses, trees and everything; more details, better
+graphics, a lot of stuff across the map, like the reference images; must not affect fps". References: 4 shots of the
+old map + 2 of Shinobi Striker's Leaf village (tall blocks, round towers, pipes, sign boards, grass in a dirt square).
+How each piece is built: docs/visuals.md section 8. What broke on the way: gotchas 72-74.
+
+- **Beyond the walls** (src/world/backdrop.js, drawn only): three mountain ranges fading into the haze, a forest of
+  crowns and cedars on the backdrop hills (rocky where steep), and the rest of the town east of the village on
+  terraces: shops, blocks with water tanks, round towers, a great round hall. The fog now starts at 65 m (was 90).
+- **Cliffs:** layered strata (lit ledges, shadow lines, cracks, bands of colour, moss dripping, wet streaks), a grass
+  sheet on top meeting the plateau, ragged grass fringes over the edges; the east rim is now a masonry wall.
+- **Water:** a stream crosses the ridge and the ledge (wadeable) and falls off both cliffs: two waterfalls with a lip,
+  two layers of streaks, foam rings, mist; reeds along the river. (The old fence at the waterfall's foot is gone.)
+- **Village:** plaster tints, five roof colours, wainscots, window sills and lintels, flower boxes, balconies, side
+  windows, noren curtains, hanging sign boards (14 kanji signs), drainpipes, meter boxes, end tiles, gable vents;
+  flagstone streets; a red torii gate at the bridge path; a new south-east street (two flat-roofed blocks and a round
+  tower with walkable roofs, two houses).
+- **Props + flora:** barrels, stone lanterns, a cart, a tea stall with a parasol, benches, utility poles and wires,
+  banners, cherry trees, bamboo, stumps, boulders, a forest shrine with its torii, straw dummies, targets, a weapons
+  rack, log piles; wildflower patches and bushes (no collider).
+- **Colliders:** 401 -> 509 shapes (hash `1cr8ody:509`: client and server must both be rebuilt/restarted). New ones
+  come last with their own random stream, the stream notches split cliff blocks with the same draws, the training
+  field (the tests' lanes) is untouched.
+- **Tests (dist-test):** mapwalk PASS (ground 162/162, crowns 22/22, roofs 18/18, branches 56/57 as before, no
+  falls/traps/embedding); embed PASS (0 of 680 wall runs inside a collider); mp.mjs ALL PASS; mpcombat ALL PASS (HP 600,
+  0 ms: combo, HP, knockback 0.0 cm, substitution, KO, respawn).
+- **Performance** (perf.mjs, 5 bots, 1080p High, alternating runs against a baseline build of the last commit on
+  :3105): draw calls the same (132-164 vs 132-164), triangles 1.40-1.47 M (was 1.27-1.31; budget 1.5 M), programs 88
+  (was 80; all compiled at load, constant through the run), fps 128 vs 130 averaged over two alternating runs (same 1%
+  lows): within the laptop's run-to-run noise. Unminified CPU profiles: identical JS per frame (10.86 vs 10.92 ms).
+- Not done: lit windows at night (the arena is daytime), the reference's red-pillared hall with the arched bridge.
+
 ## Map pass: trees, houses, stairs (2026-09-28, owner's bug report)
 
 - **Houses: you could end up inside a roof.** Wall-running up a gable end and vaulting landed on the wall's top,
@@ -460,6 +495,33 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
   (reference shots -> phased timeline -> both-screen shots; keyed clips; instanced quad effects with layer weights;
   GPU particles; post grades; one-screen cinematics that borrow and give back; the must-haves: warmed at load, no
   per-frame allocation, same on every screen, free when idle). Updated after every visual change, like gotchas.md.
+
+## Itachi's own M1 strings (2026-09-30, owner's request with 26 Shinobi Striker reference shots)
+
+Owner: "fix the M1s of Itachi, more fluid and slow so we can see the attacks, more movesets and combos for air and
+ground, sword at the end, teleport to continue the combo, perfect hitboxes". Itachi used Naruto's strings; now:
+- **Data** src/shared/itachi.js ITACHI_MOVES (Naruto's moves kept in his table for bots/tests): stand I1-I6 (backfist,
+  spinning heel, kunai draw cut, rising cut, chakra palm launch + leap, Crow Descent: crow warp above + heel drop +
+  dust cloud), moving R1-R5 (flying side kick, aerial hook kick, kunai diagonal, Crow Flank: warp behind + elbow,
+  Crimson Crescent: spin + cut, knockback), air IA1-IA5 (snap kick, spin slash, heel hook, Crow Ambush: warp behind +
+  backfist, Heaven Drop: front flip + upside-down diving punch, spike). Launch branch: M1 through it = I6; let it end in
+  the air, M1 = the air string (10-hit juggle).
+- **Engine** (src/game/combat.js AttackAction, generic): `warp` (warpStep: the crow warp to behind/above the live
+  target, held there until the strike; `max` metres, the server allows that much more attacker drift:
+  server/combat.js), `leap.at` (a later leap), `nextOnHit`, `light.air` (the air starter), `C.liveTrack` (steps re-aim
+  at the live target: gotcha 70), `hit.fx: 'sphere'`.
+- **Clips** src/char/itachim1.js (16, baked for every body). **Effects** movefx.js: PROPS (scroll + kunai), `hide`,
+  `lines`, `cloud`, the chakra sphere, the glint; itachi.js draws M1 warps as the crow shift (denser crows).
+- **Tools**: scripts/debug/clipsheet.mjs, clipbones.mjs, hitreach.mjs; scripts/test/itachicombo.mjs (PASS/FAIL).
+- **Results** (dist-test): itachicombo stand 6/6, run 5/5, juggle 10/10 confirmed, 0 rejected, HP agrees, warps end
+  0.68-0.75 m from the victim facing it, at 0 ms and at 200,40,1 (twice each for the juggle). hitreach: every move
+  >= 0.27 m margin (Naruto's 0.33-0.39). clipflips-live `^it_`: no flips. animcheck CH=itachi: ALL PASS (a 19 deg
+  forearm pop at the flying kick -> hook kick chain in one of two runs, inside the strike exemption). mpcombat (Naruto)
+  ALL PASS at 0 ms and 200,40,1. itachi.mjs ALL PASS (its Tsukuyomi hit now expects I1). perf.mjs not rerun: another
+  session was running headless tests at the same time (gotcha 20); the new objects are 8 kunai + 4 spheres, hidden
+  when idle, compiled at load (programs 87 -> 87 in itachi.mjs).
+- Next: judge the looks with the owner in the live game (pace, crow density at the warps, the cloud's size); a heavy
+  (hold M1) of his own; coat cloth flare on spins (the reference's flying cloak) would need cloth springs on the rig.
 
 ## Known issues / next
 
@@ -663,8 +725,8 @@ at exactly the same time"). Timeline on the server clock from the press (src/gam
   specks), a low camera in front of him; his arms fling wide, head bowed; a flock of crows bursts off his back (pale in
   the negative), feathers drift past the lens; the camera pushes in, then rushes into his face (2.05-2.5 s).
 - 2.47 s, a red flash: **his eyes painted over the view** (a shader, src/gfx/amaterasufx.js): shut, a flutter, opening
-  slowly (3.0-3.6 s); the Sharingan spins up into the Mangekyō with a red shock ring (3.3-3.65 s); veins crawl in, blood
-  wells on the right eye's lower lid and runs down in two streams (3.45-4.3 s), embers rise, black flames lick up the
+  wide (3.0-3.6 s); the Sharingan spins up into the Mangekyō with a red shock ring (3.3-3.65 s); veins crawl in, blood
+  wells on the right eye's lower lid and runs down in three streams (3.45-4.3 s), embers rise, black flames lick up the
   bottom edge; the camera drives into the right pupil (3.9-4.2 s) and **black flames burst out of it** over everything.
 - 4.3 s, under the black: the arena in colour, the camera on a victim (your own body if you were taken); at 4.37 s the
   flames latch onto everyone taken (every screen at the same instant) and spread over the body from the side facing
@@ -676,8 +738,8 @@ at exactly the same time"). Timeline on the server clock from the press (src/gam
   time (another Amaterasu is denied, the gauge kept); it ends if its caster leaves or respawns.
 - The clip `ita_amaterasu` is 312 frames acted for the shots (SPREAD, SINK, STILL, STARE, the release at 262); the
   white hit flash no longer shows on the black-flame ignition.
-- Audio: hooks only, `audio.amaterasuCine?.(phase)` at start / negative / eyes / open / mangekyo / blood / focus /
-  burst / ignite / end (the owner's voice line and the fire sounds come later).
+- Audio: the owner's recording (see "Amaterasu's voice line" below); hooks for more, `audio.amaterasuCine?.(phase)` at
+  start / negative / eyes / open / mangekyo / blood / focus / burst / ignite / end.
 - Tests: itachi.mjs `amaterasu` rewritten (14 checks): the same press time on both screens, the victim's screen joins in
   0.012 s, the negative world and the eyes switch on together on both (0 ms apart), cinema camera + HUD away on both,
   the victim frozen while holding left and dashing, the flames on both screens 4372 ms after the press (focus 4367),
@@ -691,3 +753,72 @@ at exactly the same time"). Timeline on the server clock from the press (src/gam
   within 2 ms of each other across screens, the flames 4376 / 4373 ms after the press); the full suite 45/45 at 0 ms;
   mpcombat ALL PASS.
 - Not yet: the owner's review; the audio. (The model has no blink shapes: the eyes' performance is the painted shot.)
+- **Face repainted (2026-09-29, owner: "the face doesn't look like Itachi, the eyes open too little: wide open like
+  the references")**: his model's face as reference (studio close-up): the forehead protector low over the brows
+  (steel plate, rivets, the Leaf engraved and slashed through), center-parted bangs framing the face with a thin
+  strand across each eye's white, sharp brows pressed down to the nose, long straight tear-trough lines, pale skin
+  (#f5d9c3 tones, the red as light). Eyes wide open: 0.45 as tall as wide (was 0.27), slanted up to the outer corner,
+  the whole iris showing; shut on a gentle arc, a flutter, open wide, snapping wider for a moment as the Mangekyō
+  takes (3.64 s). The bleeding eye's white fully veined, blood welling along the lower lid, three streams
+  (gravity-straight, tapering, a drop at each head). Checked: held frames at 16:9 / 21:9 / 4:3 (amashots.mjs HOLD=1),
+  itachi.mjs amaterasu 14/14 (:3104), 79 programs before and after, the eyes phase 1.7-2.0 ms a frame at 1080p
+  (the same with the effect muted: amaspike.mjs), a scan for reversed smoothstep edges (none).
+
+## Amaterasu's voice line (2026-09-29, owner's request)
+- The owner's amaterasu.mp3 (13.5 s: a low drone to 4.5 s, "Amaterasu" from 4.56 s to ~6.1 s, then black-flame roars,
+  a big one at 8.0 s) trimmed to public/assets/audio/amaterasu.mp3 (10.4 s):
+  `ffmpeg -ss 3.10 -i amaterasu.mp3 -af "afade=t=in:st=0:d=0.03,afade=t=out:st=3.10:d=7.31:curve=tri" -c:a libmp3lame -q:a 2`
+  (the first 3.10 s cut; a 30 ms fade in; after the word the burning fades out slowly, linearly in
+  amplitude over 7.3 s). The word was found by its voicing (pitch 110-140 Hz, energy -8 dB) and the spectrogram, not
+  its loudness: the drone and the fire are as loud as the voice (gotcha 67).
+- Timing (the owner: "Amaterasu" when the eyes FULLY open; then, on hearing it, "the word is late, cut too much: make
+  it a bit early, the initial sound as soon as I hit the ultimate"): the line starts at the press (`AMA.voice` 0; the
+  drone under the fingers and the negative world); the word starts at 1.46 (the negative world, pushing in), its
+  stressed "TE" at 1.94, just before the rush into his face (2.05-2.5); the roar fades out to ~10.4 s. Tuned by ear by the owner:
+  the word at 3.56 was late, 3.16 "a bit early", 3.31 "a little bit late", 3.26, "0.5 seconds early": 2.76, then 1.96 and "at the press", both reverted: the browser had kept playing an old
+  file (the same name, /assets/ cached a day), so those were judged on stale audio. audio.js now fetches its files with
+  `cache: 'no-cache'`. Then, with the cache fixed, "1 sec early": 1.76, "0.3 early": 1.46.
+- Every screen at once: `voiceStep` schedules it on the audio clock from the cinematic's server-clock time, ~150 ms
+  ahead (sample-exact, not on a frame), earlier by the device's output latency, later by a frame of display; a screen
+  that hears of the cast late joins the line where it is (up to 3 s into it, before the word; a 15 ms ramp in when
+  it starts mid-file, no click). A cinematic cut short (caster left,
+  respawn, a newer cast) stops it with a 0.3 s fade; played out, the fire tail fades on by itself.
+- audio.js: `FILES` (fetched at page load, decoded when the context starts at join), `playFile(key, {offset, delay,
+  gain})` (a handle with `stop(fade)`), `latency()`. The game's first recorded sound; everything else is synthesised.
+- Checked (scripts/debug/amavoice.mjs): Chrome's decode lines up with ffmpeg's (cross-correlation lag 0.00 ms: no MP3
+  encoder-delay shift); the caster's screen starts it 5 ms after the press; both screens hear the word at cinematic
+  2.770 s at 2.76 (+ 10 ms display lag; now 1.46, not re-measured), 0.0-0.1 ms apart, at 0 ms and at 200 ms RTT / 40 jitter / 1% loss (the victim's
+  screen heard of the cast 0.3 s late and joined 0.34 s in); played exactly once per screen. itachi.mjs amaterasu 14/14.
+
+## Developer commands (2026-09-29, owner: "it's difficult to kill each other to get ultimate: something like /ultimate")
+- "/" in a match opens a command bar (src/ui/devbar.js; hud.css #devbar): `/ult` (`/ultimate`, `/u`) fills the
+  ultimate gauge, `/cd` resets jutsu cooldowns + chakra, `/sub` fills substitution pips, `/all` all three, `/help`
+  lists them; Enter runs, Esc closes (no pause menu: `input.quietUntil`); typed keys never reach the fighter
+  (Input ignores keys aimed at text fields; held keys let go on opening).
+- Server-side (it owns the gauge, the pips, the cooldowns): `dev{c}` -> `handleDev` -> `dev{c,ok,why}` + `gauge`;
+  the client's answer handler resets its own cooldowns (`jutsu.ready`) and chakra. Allowed only for a player on the
+  server's own machine: `clientAddr(req)` = the socket address, or behind a proxy on this machine the address the
+  proxy saw (Cloudflare's `cf-connecting-ip`, else the LAST X-Forwarded-For entry: an earlier one can be forged);
+  Vite's dev proxy now sends X-Forwarded-For (`xfwd`) so LAN friends via :5174 are not "local". `SHINOBI_DEV=1`:
+  everyone, `0`: nobody. The server's startup banner says which.
+- Checked: scripts/test/devcmd.mjs 17/17 (:3101, no SHINOBI_ULT): a local player served, a proxied one, one forging a
+  loopback entry and one via Cloudflare refused, one via the local Vite proxy served; in a page with real keys: "/"
+  opens, "ult" typed without the T locking on or a step, /ult fills the gauge and R casts Amaterasu, /cd, /sub, an
+  unknown command, Esc without the pause menu. mp.mjs ALL PASS, chars.mjs ALL PASS (title typing unaffected).
+
+## Madara's HUD theme (2026-09-29, owner's request: "just like we did for Itachi")
+- `hud: 'madara'` in src/shared/madara.js; hud.js keeps a THEMES table (uchiha, madara: flames, eye, frame), setKit
+  toggles `#hud.t-<name>`; the layout + animation CSS is shared (`:is(.t-uchiha, .t-madara)`), Madara's colours are the
+  overrides at the end of hud.css. uchiha.js now exports its flame generators (crown, streamer, shards, layer with
+  colour arguments) for src/ui/madara.js.
+- Portrait: a Rinnegan (lilac iris, five concentric rings, ripples running out from the pupil every 3.2 s, a breathing
+  blue rim); while the ultimate is ready the Rinne Sharingan takes over (red iris, nine tomoe on three rings turning,
+  pulsing red rim). Blue-hairline ring; Susanoo flames (near-black indigo, electric-blue rim), taller over the top.
+- Health bar: dark iron plates (lacing lines every 5%, two cord lines), gold top edge / steel-blue lower edge, crimson
+  fill (orange-red pulsing glow under 30%), blue chip trail, blue diamond pips and ultimate arrow.
+- Icons repainted: Q Great Fire Annihilation (a wall of flame layers, Madara in silhouette before it), E Wood Release
+  (seven wooden stakes tearing out of the earth), G Uchiha Return (the gunbai with three red tomoe, wind strokes round
+  it, a shuriken glancing off), R Tengai Shinsei (a cracked meteor with molten fissures, a second one behind, a
+  scorched horizon). Steel-blue conic rims with gold, gold-outlined key caps.
+- Checked: standalone icon sheet at 360 px, in-game close-ups (idle, ult ready, low HP), Itachi's and Naruto's HUDs
+  unchanged. Not yet: the owner's review.

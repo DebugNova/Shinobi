@@ -29,7 +29,7 @@ export const OBITO = {
   card: { tag: 'OBITO', credit: 'Model: “Obito Uchiha (Free Fire)” by AJ Studio · CC BY 4.0' },
 };
 
-// Itachi Uchiha (itachi.js): Naruto's movement and M1 with his own jutsu kit (fireballs, Tsukuyomi, crow escape,
+// Itachi Uchiha (itachi.js): Naruto's movement with his own M1 strings and jutsu kit (fireballs, Tsukuyomi, crow escape,
 // Amaterasu). models/itachi.glb is a display figure (head, closed cloak, shins): the rig config generates the arms,
 // hands and trousers under the cloak, turns the cloak into a coat on the hips + thighs, and merges everything into
 // one material; scaled to the same body size (hips 0.908 m) so the hurtboxes match.

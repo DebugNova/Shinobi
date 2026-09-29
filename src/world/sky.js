@@ -14,7 +14,7 @@ export class Sky {
   constructor(scene, renderer) {
     this.scene = scene;
     scene.background = SKY.horizon.clone();
-    scene.fog = new THREE.Fog(SKY.fog, 90, 420);
+    scene.fog = new THREE.Fog(SKY.fog, 65, 400); // aerial perspective: the backdrop town and hills fade into the haze
     // sun: shadows over the whole arena from one fixed frustum (cached for static geometry later)
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.6);
     sun.position.copy(SUN_DIR).multiplyScalar(160);

@@ -25,6 +25,16 @@ const RIVER_HW = 4.6;
 const PLAZA = { x: 44, z: -1, hx: 17, hz: 13 };
 const FIELD = { x: -26, z: 42, hx: 24, hz: 20 };
 const TERRACE_Y = 4; // the upper street
+/** Stone-paved streets (their surface id is stone: footsteps; the art lays flagstones on them): [x0, z0, x1, z1]. */
+export const PAVED = [
+  [27, -37.4, 72, -28.4], // the upper street
+  [19.5, -2.4, 61.5, 2.4], // the square: the gate to the east houses
+  [45.3, -17, 48.9, 15], // the square: the stairs to the south row
+  [29, 41.5, 71, 46.8], // the south-east street
+];
+const paved = (x, z) => PAVED.some(([x0, z0, x1, z1]) => x >= x0 && x <= x1 && z >= z0 && z <= z1);
+/** The backdrop town's ground east of the rim (terraces rising eastward, a mountain wall at the heightfield's edge). */
+export const CITY_Y = (x, z) => 2.5 + Math.floor(Math.min(Math.max(0, x - 76), 27) / 9) * 1.6 + fbm(x * 0.1, z * 0.1, 2, 47) * 0.15 + Math.max(0, x - 103) ** 1.5 * 0.42;
 const LEDGE_Y = 5; // first cliff ledge
 const RIDGE_Y = 11; // the ridge overlooking the arena
 
@@ -76,6 +86,37 @@ export function riverX(z) {
   return LINE[LINE.length - 1][0];
 }
 
+// ------------------------------------------------------------------ the stream and its two falls
+// A stream rises at the foot of the north rim, crosses the ridge, drops off the ridge cliff (the upper fall) into a
+// pool on the ledge, runs across the ledge and falls off the ledge cliff (the lower fall) into the river's pool.
+// Its channel is carved into the heightfield (a shallow bed: you wade through it; the surface id is water: splashes,
+// ripples), and the cliff blocks under both falls are notched down to the bed so the water pours over a lip.
+// [x, z, half width]
+export const STREAM = [[-9.5, -68.5, 1.5], [-9, -64, 1.8], [-8, -60.5, 2], [-8, -57, 2.2], [-8, -54.4, 3.4], [-7.4, -52.4, 2.6], [-5.6, -50.6, 2.4], [-4, -48.5, 3.2], [-4, -46, 3.4]];
+export const FALLS = [
+  { x0: -10.6, x1: -5.4, row: 'ridge' }, // the upper fall: ridge -> ledge pool
+  { x0: -7.5, x1: -0.5, row: 'ledge' }, // the lower fall: ledge -> river (the old waterfall's place)
+];
+export const STREAM_DEPTH = 0.3; // the bed below the ledge / ridge level; the water stands 0.05 over it
+
+/** Distance to the stream's centreline and its half width there (Infinity when far from it). */
+export function streamAt(x, z) {
+  if (z > -45 || z < -70 || x < -16 || x > 2) return { d: Infinity, hw: 0 };
+  let best = Infinity, hw = 0;
+  for (let i = 0; i < STREAM.length - 1; i++) {
+    const [ax, az, ah] = STREAM[i], [bx, bz, bh] = STREAM[i + 1];
+    const dx = bx - ax, dz = bz - az, l2 = dx * dx + dz * dz;
+    let t = ((x - ax) * dx + (z - az) * dz) / l2;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(ax + dx * t - x, az + dz * t - z);
+    if (d < best) {
+      best = d;
+      hw = ah + (bh - ah) * t;
+    }
+  }
+  return { d: best, hw };
+}
+
 // ------------------------------------------------------------------ terrain
 
 function boxMask(x, z, r, soft) {
@@ -101,9 +142,26 @@ function baseHeight(x, z) {
   if (x >= 26 && z < -27.5) h = TERRACE_Y + fbm(x * 0.2, z * 0.2, 2, 3) * 0.05;
   if (z < -47.5 && x < 26) h = LEDGE_Y + fbm(x * 0.08, z * 0.08, 2, 9) * 0.35;
   if (z < -57.5) h = RIDGE_Y + fbm(x * 0.06, z * 0.06, 2, 13) * 0.6;
-  // backdrop outside the playable area rises into hills
+  // the stream's bed across the ridge and the ledge (shallow, flat, with soft banks)
+  if (z < -45.5 && z > -70 && x < 26) {
+    const { d, hw } = streamAt(x, z);
+    if (d < hw + 1.2) {
+      const bed = (z < -57.5 ? RIDGE_Y : LEDGE_Y) - STREAM_DEPTH;
+      h = bed + (h - bed) * smoothstep(hw - 0.5, hw + 1.2, d);
+    }
+  }
+  // backdrop outside the playable area (never reached: the rim walls; drawn only): forested hills rising to rocky
+  // mountains in the north, and east of the village the rest of the town on low terraces (src/world/backdrop.js puts
+  // its skyline there) with a mountain wall at the heightfield's far edge
   const out = Math.max(Math.max(0, -x - 72), Math.max(0, x - 72), Math.max(0, -z - 70), Math.max(0, z - 72));
-  if (out > 0) h += out * 0.9 + fbm(x * 0.05, z * 0.05, 3, 41) * out * 0.4;
+  if (out > 0) {
+    const ridged = 1 - Math.abs(fbm(x * 0.03, z * 0.03, 4, 43));
+    let hill = h + out * 0.8 + fbm(x * 0.05, z * 0.05, 3, 41) * out * 0.35;
+    if (z < -70) hill += ridged * ridged * Math.max(0, -z - 74) * 0.55; // the north: sharper, higher peaks
+    const town = CITY_Y(x, z);
+    const w = smoothstep(73, 79, x) * (1 - smoothstep(58, 74, Math.abs(z - 2)));
+    h = hill + (town - hill) * w;
+  }
   return h;
 }
 
@@ -124,6 +182,11 @@ function heightAt(x, z) {
 
 function surfAt(x, z, h) {
   if (h < WATER_Y) return SURF.water;
+  if (paved(x, z)) return SURF.stone;
+  if (z < -45.5 && z > -70) {
+    const { d, hw } = streamAt(x, z);
+    if (d < hw - 0.35) return SURF.water;
+  }
   if (boxMask(x, z, PLAZA, 0.01) > 0.5 || (x > 18 && h < 1)) return SURF.dirt;
   if (h > LEDGE_Y - 0.5 && z < -47) return SURF.grass;
   return SURF.grass;
@@ -164,7 +227,8 @@ export function buildMap(seed = MAP_SEED) {
   // ---------------------------------------------------------------- north: cliffs, ledge, ridge, boundary
   // cliff faces are rows of rock blocks (climbable) standing on the step in the heightfield, so the player only
   // ever touches rock, never the steep terrain behind it
-  const cliffRow = (z0, x0, x1, yTop, depth, yBase) => {
+  const notches = [];
+  const cliffRow = (z0, x0, x1, yTop, depth, yBase, notch = null) => {
     let x = x0;
     while (x < x1) {
       const w = Math.min(x1 - x, rng.range(4, 8));
@@ -172,13 +236,26 @@ export function buildMap(seed = MAP_SEED) {
       const face = z0 + 0.5 + rng.range(0, 0.8);
       const d = depth + rng.range(0, 1.2);
       const top = yTop + rng.range(-0.05, 0.02);
-      const s = add(box(x + w / 2, face - d / 2, w / 2 + 0.3, d / 2, yBase - 2, top, 0, { surf: SURF.rock }));
-      props.push({ t: 'cliff', s: { x: s.x, z: s.z, hx: s.hx, hz: s.hz, y0: yBase - 2, y1: top }, seed: rng.int(0, 1e6) });
+      // a block overlapping a fall's notch is split: the part under the water is cut down to the stream's bed (the
+      // same random draws as an unsplit row: nothing else on the map moves)
+      const e0 = x - 0.3, e1 = x + w + 0.3;
+      const pieces = [];
+      if (notch && e1 > notch.x0 && e0 < notch.x1) {
+        if (e0 < notch.x0) pieces.push([e0, notch.x0, top, false]);
+        pieces.push([Math.max(e0, notch.x0), Math.min(e1, notch.x1), yTop - STREAM_DEPTH + 0.02, true]);
+        if (e1 > notch.x1) pieces.push([notch.x1, e1, top, false]);
+      } else pieces.push([e0, e1, top, false]);
+      const seed = rng.int(0, 1e6);
+      for (const [a, b, t, cut] of pieces) {
+        const s = add(box((a + b) / 2, face - d / 2, (b - a) / 2, d / 2, yBase - 2, t, 0, { surf: SURF.rock }));
+        props.push({ t: 'cliff', s: { x: s.x, z: s.z, hx: s.hx, hz: s.hz, y0: yBase - 2, y1: t }, seed, notch: cut || undefined });
+        if (cut) notches.push({ row: notch.row, x0: a, x1: b, face, back: face - d, top: t });
+      }
       x += w;
     }
   };
-  cliffRow(-47.5, -72, 26, LEDGE_Y, 2.2, 0);
-  cliffRow(-57.5, -72, 26, RIDGE_Y, 2.4, LEDGE_Y);
+  cliffRow(-47.5, -72, 26, LEDGE_Y, 2.2, 0, FALLS[1]);
+  cliffRow(-57.5, -72, 26, RIDGE_Y, 2.4, LEDGE_Y, FALLS[0]);
   cliffRow(-57.5, 26, 72, RIDGE_Y, 2.4, TERRACE_Y); // behind the upper street
   // the upper street's retaining wall (plaza level -> terrace), with a gap for the stone stairs. The stairs fill the
   // whole slot between the ramen shop (east wall x 44.5) and the next house (west wall x 49.75): steps in the middle,
@@ -327,7 +404,14 @@ export function buildMap(seed = MAP_SEED) {
       add(cyl(x, z, r, -1.8, WATER_Y + rng.range(0.18, 0.3), { surf: SURF.stone, climb: false }));
       props.push({ t: 'stone', x, z, r, top: shapes[shapes.length - 1].y1 });
     }
-    props.push({ t: 'waterfall', x: -4, z: -46.6, w: 7, top: LEDGE_Y, bottom: WATER_Y });
+    // the falls: over the notched blocks' faces (their front edge: the most southern notch face of the row)
+    for (const F of FALLS) {
+      const ns = notches.filter((n) => n.row === F.row);
+      const face = Math.max(...ns.map((n) => n.face));
+      const upper = F.row === 'ridge';
+      props.push({ t: 'waterfall', x: (F.x0 + F.x1) / 2, z: face, w: F.x1 - F.x0 - 0.6, top: (upper ? RIDGE_Y : LEDGE_Y) - STREAM_DEPTH + 0.05, bottom: upper ? LEDGE_Y - STREAM_DEPTH + 0.05 : WATER_Y, upper });
+    }
+    props.push({ t: 'stream', pts: STREAM, ridge: RIDGE_Y - STREAM_DEPTH + 0.05, ledge: LEDGE_Y - STREAM_DEPTH + 0.05, split: -57.5 + 0.5 });
     props.push({ t: 'river', line: riverLine(0.05), hw: RIVER_HW, y: WATER_Y });
   }
 
@@ -453,7 +537,6 @@ export function buildMap(seed = MAP_SEED) {
   fence(-68, -24, -56, -18);
   fence(-34, -46, -22, -45);
   fence(-66, 30, -56, 32);
-  fence(-8, -44, -2, -46.5);
 
   // ---------------------------------------------------------------- training field (south-west)
   const posts = [[-30, 36], [-26, 36], [-22, 36]];
@@ -468,6 +551,137 @@ export function buildMap(seed = MAP_SEED) {
     props.push({ t: 'memorial', x, z, g, yaw: 0.3 });
   }
   props.push({ t: 'target', tree: trees.findIndex((t) => Math.hypot(t.x + 56, t.z - 40) < 1), y: 2.2 });
+
+  // ---------------------------------------------------------------- the south-east street, the gate, props
+  // Added after everything above and with its own random stream, so nothing placed before moves. The training field
+  // (x -52..-14, z 20..62: the tests' lanes) stays clear.
+  const rp = mulberry32(seed ^ 0x2b7e1516);
+  // flat-roofed blocks and a round tower: walkable roofs behind a parapet, a water tank and a stair hut on top
+  const block = (x, z, w, d, floors, faceDir, variant, o = {}) => {
+    const base = Math.min(gy(x - w / 2, z - d / 2), gy(x + w / 2, z + d / 2), gy(x, z), gy(x - w / 2, z + d / 2), gy(x + w / 2, z - d / 2));
+    const top = base + floors * 3.1 + 0.3;
+    const [fx, fz] = { n: [0, -1], s: [0, 1], e: [1, 0], w: [-1, 0] }[faceDir];
+    add(box(x, z, w / 2, d / 2, base - 1, top, 0, { surf: SURF.plaster }));
+    const P = 0.7, T = 0.25; // parapet height, thickness
+    const parapets = [
+      { x, z: z - d / 2 + T / 2, hx: w / 2, hz: T / 2, h: P }, { x, z: z + d / 2 - T / 2, hx: w / 2, hz: T / 2, h: P },
+      { x: x - w / 2 + T / 2, z, hx: T / 2, hz: d / 2 - T, h: P }, { x: x + w / 2 - T / 2, z, hx: T / 2, hz: d / 2 - T, h: P },
+    ];
+    for (const pp of parapets) add(box(pp.x, pp.z, pp.hx, pp.hz, top - 0.1, top + P, 0, { surf: SURF.stone, climb: false }));
+    const tank = o.tank ? { x: x + o.tank[0], z: z + o.tank[1], y0: top, r: 1.1, h: 1.8, legs: 1.1 } : null;
+    if (tank) add(cyl(tank.x, tank.z, tank.r, top - 0.1, top + tank.legs + tank.h + 0.3, { surf: SURF.metal, climb: false }));
+    const hut = o.hut ? { x: x + o.hut[0], z: z + o.hut[1], y0: top, hx: 1.3, hz: 1.1, h: 2.4 } : null;
+    if (hut) add(box(hut.x, hut.z, hut.hx, hut.hz, top - 0.1, top + hut.h, 0, { surf: SURF.plaster }));
+    const ns = faceDir === 'n' || faceDir === 's';
+    props.push({ t: 'block', x, z, w, d, yaw: 0, base, top, floors, variant, parapets, tank, hut, face: [fx, fz], lx: ns ? [1, 0] : [0, 1], fd: ns ? d / 2 : w / 2, fw: ns ? w : d, sign: o.sign });
+  };
+  const tower = (x, z, r, floors, variant) => {
+    const base = gy(x, z) - 0.2, top = base + floors * 3.1;
+    add(cyl(x, z, r, base - 1, top, { surf: SURF.plaster }));
+    // the parapet ring as a ring of short boxes (standing on the roof's edge)
+    for (let k = 0; k < 14; k++) {
+      const a = (k / 14) * 6.283185307179586;
+      const [c, sn] = [dcos(a), dsin(a)];
+      add(boxDir(x + c * (r - 0.12), z + sn * (r - 0.12), 0.24, (r * 3.1416) / 14 + 0.05, top - 0.1, top + 0.8, c, sn, { surf: SURF.stone, climb: false }));
+    }
+    const tank = { x: x + 1.2, z: z - 0.8, y0: top, r: 1.0, h: 1.7, legs: 1.0 };
+    add(cyl(tank.x, tank.z, tank.r, top - 0.1, top + tank.legs + tank.h + 0.3, { surf: SURF.metal, climb: false }));
+    props.push({ t: 'block', round: true, x, z, r, base, top, floors, variant, tank });
+  };
+  block(38, 52, 12, 9, 4, 'n', 1, { tank: [3.2, 1.5], hut: [-3.5, 1.8], sign: 6 });
+  tower(52, 55, 4.5, 6, 2);
+  block(64, 52, 9, 12, 3, 'w', 3, { tank: [1.5, -3], sign: 9 });
+  house(40, 64.5, 10, 7.5, 2, 'n', { awning: 'yellow', variant: 16 });
+  house(60.5, 65.5, 9, 7, 2, 'n', { awning: 'red', variant: 17 });
+
+  // the village gate: a red torii where the path from the bridge comes through the low wall (you can stand on its
+  // top beam), with stone lanterns either side
+  {
+    const x = 21, g = gy(x, 0), H = 5.2, half = 3.2;
+    for (const sz of [-1, 1]) add(cyl(x, sz * half, 0.3, g - 0.5, g + H, { surf: SURF.wood, climb: true }));
+    add(box(x, 0, 0.35, 4.4, g + H, g + H + 0.45, 0, { surf: SURF.wood, climb: false })); // kasagi (top beam)
+    add(box(x, 0, 0.2, half + 0.3, g + H - 1.15, g + H - 0.9, 0, { surf: SURF.wood, climb: false })); // nuki (tie beam)
+    props.push({ t: 'torii', x, z: 0, g, H, half, big: true });
+  }
+
+  // small props, each with its collider (kind picks the art in src/world/props.js)
+  const prop = (kind, x, z, o = {}) => {
+    const g = gy(x, z), yaw = o.yaw ?? rp() * 6.283;
+    const p = { t: 'prop', kind, x, z, g, yaw, ...o };
+    if (kind === 'barrel') add(cyl(x, z, 0.42, g - 0.3, g + 1.0, { surf: SURF.wood, climb: false }));
+    else if (kind === 'lantern') add(cyl(x, z, 0.42, g - 0.3, g + 2.1, { surf: SURF.stone, climb: false }));
+    else if (kind === 'bench') add(box(x, z, 0.95, 0.24, g - 0.3, g + 0.48, yaw, { surf: SURF.wood, climb: false }));
+    else if (kind === 'cart') add(box(x, z, 1.15, 0.7, g - 0.3, g + 1.05, yaw, { surf: SURF.wood, climb: false }));
+    else if (kind === 'stall') add(box(x, z, 0.85, 0.45, g - 0.3, g + 0.9, yaw, { surf: SURF.wood, climb: false }));
+    else if (kind === 'pole') add(cyl(x, z, 0.16, g - 0.5, g + 7.5, { surf: SURF.wood, climb: false }));
+    else if (kind === 'banner') add(cyl(x, z, 0.07, g - 0.3, g + 4.2, { surf: SURF.wood, climb: false }));
+    else if (kind === 'stump') add(cyl(x, z, 0.62, g - 0.4, g + 0.7, { surf: SURF.bark, climb: false }));
+    else if (kind === 'dummy') add(cyl(x, z, 0.24, g - 0.3, g + 1.75, { surf: SURF.wood, climb: false }));
+    else if (kind === 'targetStand') add(box(x, z, 0.65, 0.15, g - 0.3, g + 1.9, yaw, { surf: SURF.wood, climb: false }));
+    else if (kind === 'logpile') add(box(x, z, 1.4, 0.8, g - 0.3, g + 1.0, yaw, { surf: SURF.bark, climb: false }));
+    else if (kind === 'rack') add(box(x, z, 0.9, 0.2, g - 0.3, g + 1.7, yaw, { surf: SURF.wood, climb: false }));
+    else if (kind === 'sakura') add(cyl(x, z, 0.32, g - 0.5, g + 3.2, { r1: 0.24, surf: SURF.bark, climb: false }));
+    else if (kind === 'bamboo') add(cyl(x, z, 0.9, g - 0.5, g + 3.0, { surf: SURF.wood, climb: false }));
+    else if (kind === 'boulder') add(cyl(x, z, o.r, g - 1, g + o.h, { surf: SURF.rock, climb: true }));
+    else if (kind === 'shrine') add(box(x, z, 0.85, 0.75, g - 0.3, g + 2.3, yaw, { surf: SURF.wood }));
+    props.push(p);
+  };
+  // village square: the gate's lanterns, a cart and barrels by the shops, benches, a tea stall, banners, a cherry tree
+  for (const sz of [-1, 1]) prop('lantern', 23.2, sz * 5.4, { yaw: 0 });
+  prop('cart', 34.5, -13.2, { yaw: 0.15 });
+  for (const [x, z] of [[38.6, -15.6], [39.5, -15.9], [52.6, 13.3], [53.5, 13.7], [62.6, -9.2], [48.2, -15.7]]) prop('barrel', x, z);
+  prop('bench', 47.2, -11.8, { yaw: 0 });
+  prop('bench', 35.5, 11.2, { yaw: 0 });
+  prop('bench', 60.2, 2.5, { yaw: Math.PI / 2 });
+  prop('stall', 50.5, 5.5, { yaw: 0.1 });
+  prop('sakura', 53, -5.5);
+  for (const [x, z, c, yaw] of [[28.2, -10, 0, 1.5708], [28.2, 9, 1, 1.5708], [61.2, -13.5, 2, 1.5708], [61.2, 11.5, 3, 1.5708], [42, -15.8, 1, 0]]) prop('banner', x, z, { color: c, yaw });
+  // utility poles along the square's edges, wires strung between them (drawn only)
+  const poles = [[26.2, -15.5], [26.2, 14.5], [41.8, 15.2], [60.8, 15.8], [63.2, -15], [44, -16.2]];
+  for (const [x, z] of poles) prop('pole', x, z, { yaw: 0 });
+  props.push({ t: 'wires', poles: [[0, 1], [1, 2], [2, 3], [4, 5], [5, 0]].map(([a, b]) => [poles[a], poles[b]]) });
+  // the upper street
+  prop('barrel', 40.2, -35.4);
+  prop('barrel', 41, -35.1);
+  prop('bench', 52, -35.8, { yaw: 0 });
+  prop('lantern', 31.5, -33.5, { yaw: 0 });
+  prop('lantern', 70, -33.5, { yaw: 0 });
+  // the south-east street
+  prop('sakura', 47.5, 44.5);
+  prop('bench', 45.5, 46.5, { yaw: 0 });
+  prop('lantern', 30.5, 45.5, { yaw: 0 });
+  prop('barrel', 58.5, 46.2);
+  prop('barrel', 58.9, 47);
+  prop('cart', 69, 42.5, { yaw: 1.4 });
+  // cherry trees along the river's east bank
+  prop('sakura', 14, -9);
+  prop('sakura', 15.5, 12);
+  prop('sakura', 11, 32);
+  // the forest: a small shrine with its torii, stumps, more boulders
+  {
+    const x = -45, z = -27;
+    prop('shrine', x, z, { yaw: 0 });
+    const g = gy(x, z + 3.2);
+    for (const sx of [-1, 1]) add(cyl(x + sx * 1.05, z + 3.2, 0.13, g - 0.3, g + 2.8, { surf: SURF.wood, climb: false }));
+    add(box(x, z + 3.2, 1.55, 0.16, g + 2.8, g + 3.05, 0, { surf: SURF.wood, climb: false }));
+    props.push({ t: 'torii', x, z: z + 3.2, g, H: 2.8, half: 1.05, along: 'x' });
+    for (const sx of [-1, 1]) prop('lantern', x + sx * 1.9, z + 5.2, { yaw: 0, small: true });
+  }
+  for (const [x, z] of [[-34, -28.5], [-18.5, -4], [-55.5, 15.5], [-27, 14], [-62, -35]]) prop('stump', x, z);
+  prop('boulder', -64, 6, { r: 1.5, h: 1.9 });
+  prop('boulder', -22, -44.2, { r: 1.2, h: 1.3 });
+  prop('boulder', -10.2, -40.2, { r: 1.1, h: 0.9 });
+  prop('boulder', 3.2, -41.5, { r: 1.0, h: 0.8 });
+  // the training field's east side: straw dummies, a target on a stand, a weapons rack, a log pile
+  prop('dummy', -10, 30);
+  prop('dummy', -8, 33.5);
+  prop('dummy', -11.5, 36.5);
+  prop('targetStand', -6, 55.5, { yaw: 2.6 });
+  prop('targetStand', -10.5, 58.5, { yaw: 2.9 });
+  prop('rack', -13.5, 42, { yaw: Math.PI / 2 });
+  prop('logpile', -13, 62.5, { yaw: 0.3 });
+  // bamboo along the south wall
+  for (const [x, z] of [[6, 68.2], [-22, 68.8], [30, 69.5], [-62, 67.5], [8.5, 67]]) prop('bamboo', x, z);
 
   const world = new CollisionWorld({ hf, shapes, waterY: WATER_Y, bounds: BOUNDS });
 
