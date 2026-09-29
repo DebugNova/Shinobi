@@ -1,4 +1,4 @@
-[9:10:12 pm] map built in 376 ms (401 colliders, hash 1j3yo5h:401)
+[5:26:34 pm] map built in 253 ms (401 colliders, hash 1j3yo5h:401)
 
   SHINOBI ARENA server running
 
@@ -6,85 +6,494 @@
   Friends (LAN):   http://192.168.1.2:3104
   Over the internet: npm run share  (prints a https link)
 
-[9:13:54 pm] + Itachi joined (#1, 1 in room)
-[9:13:54 pm] + Target joined (#2, 2 in room)
-[9:13:54 pm]   match: live (300s)
-[9:13:57 pm]   Target resynced after a jump of 98.5 m
-[9:13:57 pm]   Itachi resynced after a jump of 69.9 m
-[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 0
-[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 1
-[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 2
-[9:13:58 pm]   Itachi cast phoenixFire #1185001 phase 3
-[9:14:07 pm]   Itachi cast phoenixFire #1185002 phase 0
-[9:14:07 pm]   Itachi cast phoenixFire #1185002 phase 1
-[9:14:08 pm]   Itachi cast phoenixFire #1185002 phase 2
-[9:14:08 pm]   Itachi cast phoenixFire #1185002 phase 3
-[9:14:13 pm]   Itachi cast amaterasu #1185003 phase 0
-[9:14:13 pm]   Itachi cast amaterasu #1185003 phase 1
-[9:14:25 pm]   Itachi cast tsukuyomi #1185004 phase 0
-[9:14:26 pm]   Itachi cast tsukuyomi #1185004 phase 1
-[9:14:41 pm]   Target resynced after a jump of 15.3 m
-[9:14:42 pm]   Itachi cast tsukuyomi #1185005 phase 0
-[9:14:43 pm]   Itachi cast tsukuyomi #1185005 phase 1
-[9:14:51 pm]   Target resynced after a jump of 13.8 m
-[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 0
-[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 1
-[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 2
-[9:14:52 pm]   Itachi cast phoenixFire #1185007 phase 3
-[9:14:54 pm] - Itachi left (1 in room)
-[9:16:05 pm] - Target left (0 in room)
-[9:16:05 pm]   match: warmup
-[9:16:29 pm] + Itachi joined (#3, 1 in room)
-[9:16:29 pm] + Target joined (#4, 2 in room)
-[9:16:29 pm]   match: live (300s)
-[9:16:35 pm]   Target resynced after a jump of 22.4 m
-[9:16:35 pm]   Itachi resynced after a jump of 136.7 m
-[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 0
-[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 1
-[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 2
-[9:16:36 pm]   Itachi cast phoenixFire #1334001 phase 3
-[9:16:45 pm]   Itachi cast phoenixFire #1334002 phase 0
-[9:16:45 pm]   Itachi cast phoenixFire #1334002 phase 1
-[9:16:46 pm]   Itachi cast phoenixFire #1334002 phase 2
-[9:16:46 pm]   Itachi cast phoenixFire #1334002 phase 3
-[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
-[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
-[9:16:46 pm]   hit rejected (Itachi -> 4 phoenixFire:last): dodged
-[9:16:48 pm] - Itachi left (1 in room)
-[9:18:42 pm] - Target left (0 in room)
-[9:18:42 pm]   match: warmup
-[9:24:14 pm] + Itachi joined (#5, 1 in room)
-[9:24:14 pm] + Target joined (#6, 2 in room)
-[9:24:14 pm]   match: live (300s)
-[9:24:17 pm]   Target resynced after a jump of 22.2 m
-[9:24:17 pm]   Itachi resynced after a jump of 136.7 m
-[9:24:18 pm]   Itachi cast phoenixFire #863001 phase 0
-[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 1
-[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 2
-[9:24:19 pm]   Itachi cast phoenixFire #863001 phase 3
-[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 0
-[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 1
-[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 2
-[9:24:28 pm]   Itachi cast phoenixFire #863002 phase 3
-[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 0
-[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 1
-[9:24:37 pm]   Itachi cast phoenixFire #863003 phase 2
-[9:24:38 pm]   Itachi cast phoenixFire #863003 phase 3
-[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:shot): dodged
-[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:shot): dodged
-[9:24:38 pm]   hit rejected (Itachi -> 6 phoenixFire:last): dodged
-[9:24:43 pm]   Itachi cast amaterasu #863004 phase 0
-[9:24:43 pm]   Itachi cast amaterasu #863004 phase 1
-[9:24:55 pm]   Itachi cast tsukuyomi #863005 phase 0
-[9:24:56 pm]   Itachi cast tsukuyomi #863005 phase 1
-[9:25:11 pm]   Target resynced after a jump of 15.3 m
-[9:25:12 pm]   Itachi cast tsukuyomi #863006 phase 0
-[9:25:13 pm]   Itachi cast tsukuyomi #863006 phase 1
-[9:25:21 pm]   Target resynced after a jump of 14.0 m
-[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 0
-[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 1
-[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 2
-[9:25:22 pm]   Itachi cast phoenixFire #863008 phase 3
-[9:25:23 pm] - Itachi left (1 in room)
-[9:26:25 pm] - Target left (0 in room)
-[9:26:25 pm]   match: warmup
+[5:26:47 pm] + Itachi joined (#1, 1 in room)
+[5:26:48 pm] + Target joined (#2, 2 in room)
+[5:26:48 pm]   match: live (300s)
+[5:26:52 pm]   Itachi resynced after a jump of 136.7 m
+[5:26:52 pm]   Target resynced after a jump of 22.0 m
+[5:26:53 pm]   Itachi's amaterasu: the arena holds still 19908-24708
+[5:26:53 pm]   Itachi cast amaterasu #600001 phase 0
+[5:26:54 pm]   Itachi's amaterasu takes [2], flames at 24075
+[5:27:05 pm] - Itachi left (1 in room)
+[5:27:05 pm] - Target left (0 in room)
+[5:27:05 pm]   match: warmup
+[5:27:33 pm] + Itachi joined (#3, 1 in room)
+[5:27:33 pm] + Target joined (#4, 2 in room)
+[5:27:33 pm]   match: live (300s)
+[5:27:37 pm]   Itachi resynced after a jump of 69.9 m
+[5:27:37 pm]   Target resynced after a jump of 98.5 m
+[5:27:38 pm]   Itachi cast phoenixFire #622001 phase 0
+[5:27:38 pm]   Itachi cast phoenixFire #622001 phase 1
+[5:27:38 pm]   Itachi cast phoenixFire #622001 phase 2
+[5:27:38 pm]   Itachi cast phoenixFire #622001 phase 3
+[5:27:47 pm]   Itachi cast phoenixFire #622002 phase 0
+[5:27:47 pm]   Itachi cast phoenixFire #622002 phase 1
+[5:27:47 pm]   Itachi cast phoenixFire #622002 phase 2
+[5:27:48 pm]   Itachi cast phoenixFire #622002 phase 3
+[5:27:56 pm]   Itachi cast phoenixFire #622003 phase 0
+[5:27:56 pm]   Itachi cast phoenixFire #622003 phase 1
+[5:27:57 pm]   Itachi cast phoenixFire #622003 phase 2
+[5:27:57 pm]   Itachi cast phoenixFire #622003 phase 3
+[5:27:57 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
+[5:27:57 pm]   hit rejected (Itachi -> 4 phoenixFire:shot): dodged
+[5:27:57 pm]   hit rejected (Itachi -> 4 phoenixFire:last): dodged
+[5:28:02 pm]   Itachi's amaterasu: the arena holds still 88283-93083
+[5:28:02 pm]   Itachi cast amaterasu #622004 phase 0
+[5:28:02 pm]   Itachi's amaterasu takes [4], flames at 92450
+[5:28:16 pm]   Itachi cast tsukuyomi #622005 phase 0
+[5:28:17 pm]   Itachi cast tsukuyomi #622005 phase 1
+[5:28:32 pm]   Target resynced after a jump of 15.3 m
+[5:28:33 pm]   Itachi cast tsukuyomi #622006 phase 0
+[5:28:33 pm]   Itachi cast tsukuyomi #622006 phase 1
+[5:28:40 pm]   Itachi resynced after a jump of 21.8 m
+[5:28:46 pm]   Itachi cast phoenixFire #622008 phase 0
+[5:28:47 pm]   Itachi cast phoenixFire #622008 phase 1
+[5:28:47 pm]   Itachi cast phoenixFire #622008 phase 2
+[5:28:47 pm]   Itachi cast phoenixFire #622008 phase 3
+[5:28:48 pm] - Itachi left (1 in room)
+[5:28:49 pm] - Target left (0 in room)
+[5:28:49 pm]   match: warmup
+[5:30:17 pm] + Attacker joined (#5, 1 in room)
+[5:30:17 pm] + Victim joined (#6, 2 in room)
+[5:30:17 pm]   match: live (300s)
+[5:30:20 pm]   Victim resynced after a jump of 54.0 m
+[5:30:20 pm]   Attacker resynced after a jump of 96.5 m
+[5:30:47 pm] - Attacker left (1 in room)
+[5:30:47 pm] - Victim left (0 in room)
+[5:30:47 pm]   match: warmup
+[5:31:15 pm] + Perf joined (#7, 1 in room)
+[5:31:17 pm]   Perf resynced after a jump of 103.6 m
+[5:31:22 pm]   Perf cast phoenixFire #775001 phase 0
+[5:31:22 pm]   Perf cast phoenixFire #775001 phase 1
+[5:31:22 pm]   Perf cast phoenixFire #775001 phase 2
+[5:31:23 pm]   Perf cast phoenixFire #775001 phase 3
+[5:31:26 pm]   Perf cast tsukuyomi #775002 phase 0
+[5:31:26 pm]   Perf cast tsukuyomi #775002 phase 1
+[5:31:30 pm]   Perf's amaterasu: the arena holds still 296793-301593
+[5:31:30 pm]   Perf cast amaterasu #775003 phase 0
+[5:31:31 pm]   Perf's amaterasu takes [0], flames at 300960
+[5:31:43 pm]   Perf resynced after a jump of 22.0 m
+[5:31:43 pm]   Perf's amaterasu: the arena holds still 309564-314364
+[5:31:43 pm]   Perf cast amaterasu #775005 phase 0
+[5:31:43 pm]   Perf's amaterasu takes [0], flames at 313731
+[5:31:47 pm] - Perf left (0 in room)
+[5:32:22 pm] + Perf joined (#8, 1 in room)
+[5:32:25 pm]   Perf resynced after a jump of 75.2 m
+[5:32:29 pm]   Perf cast phoenixFire #659001 phase 0
+[5:32:29 pm]   Perf cast phoenixFire #659001 phase 1
+[5:32:29 pm]   Perf cast phoenixFire #659001 phase 2
+[5:32:30 pm]   Perf cast phoenixFire #659001 phase 3
+[5:32:33 pm]   Perf cast tsukuyomi #659002 phase 0
+[5:32:33 pm]   Perf cast tsukuyomi #659002 phase 1
+[5:32:37 pm]   Perf's amaterasu: the arena holds still 363887-368687
+[5:32:37 pm]   Perf cast amaterasu #659003 phase 0
+[5:32:38 pm]   Perf's amaterasu takes [0], flames at 368054
+[5:32:50 pm]   Perf resynced after a jump of 22.0 m
+[5:32:50 pm]   Perf's amaterasu: the arena holds still 376594-381394
+[5:32:50 pm]   Perf cast amaterasu #659005 phase 0
+[5:32:50 pm]   Perf's amaterasu takes [0], flames at 380761
+[5:32:54 pm] - Perf left (0 in room)
+[5:33:24 pm] + Perf joined (#9, 1 in room)
+[5:33:27 pm]   Perf resynced after a jump of 80.0 m
+[5:33:28 pm]   Perf's amaterasu: the arena holds still 414859-419659
+[5:33:28 pm]   Perf cast amaterasu #881001 phase 0
+[5:33:30 pm]   Perf's amaterasu takes [], flames at 419026
+[5:33:38 pm]   Perf's amaterasu: the arena holds still 424618-429418
+[5:33:38 pm]   Perf cast amaterasu #881002 phase 0
+[5:33:38 pm]   Perf's amaterasu takes [], flames at 428785
+[5:33:48 pm]   Perf's amaterasu: the arena holds still 434003-438803
+[5:33:48 pm]   Perf cast amaterasu #881003 phase 0
+[5:33:48 pm]   Perf's amaterasu takes [], flames at 438170
+[5:33:55 pm] - Perf left (0 in room)
+[5:34:42 pm] + Perf joined (#10, 1 in room)
+[5:34:47 pm]   Perf resynced after a jump of 24.2 m
+[5:34:48 pm]   Perf's amaterasu: the arena holds still 494339-499139
+[5:34:48 pm]   Perf cast amaterasu #1092001 phase 0
+[5:34:48 pm]   Perf's amaterasu takes [], flames at 498506
+[5:34:57 pm]   Perf's amaterasu: the arena holds still 503375-508175
+[5:34:57 pm]   Perf cast amaterasu #1092002 phase 0
+[5:34:57 pm]   Perf's amaterasu takes [], flames at 507542
+[5:35:08 pm]   Perf's amaterasu: the arena holds still 513986-518786
+[5:35:08 pm]   Perf cast amaterasu #1092003 phase 0
+[5:35:08 pm]   Perf's amaterasu takes [], flames at 518153
+[5:35:17 pm]   Perf's amaterasu: the arena holds still 523274-528074
+[5:35:17 pm]   Perf cast amaterasu #1092004 phase 0
+[5:35:17 pm]   Perf's amaterasu takes [], flames at 527441
+[5:35:27 pm]   Perf's amaterasu: the arena holds still 533836-538636
+[5:35:27 pm]   Perf cast amaterasu #1092005 phase 0
+[5:35:28 pm]   Perf's amaterasu takes [], flames at 538003
+[5:35:37 pm]   Perf's amaterasu: the arena holds still 543134-547934
+[5:35:37 pm]   Perf cast amaterasu #1092006 phase 0
+[5:35:37 pm]   Perf's amaterasu takes [], flames at 547301
+[5:35:44 pm] - Perf left (0 in room)
+[5:36:29 pm] + Perf joined (#11, 1 in room)
+[5:36:32 pm]   Perf resynced after a jump of 69.9 m
+[5:36:33 pm]   Perf's amaterasu: the arena holds still 599590-604390
+[5:36:33 pm]   Perf cast amaterasu #910001 phase 0
+[5:36:33 pm]   Perf's amaterasu takes [], flames at 603757
+[5:36:42 pm]   Perf's amaterasu: the arena holds still 608380-613180
+[5:36:42 pm]   Perf cast amaterasu #910002 phase 0
+[5:36:42 pm]   Perf's amaterasu takes [], flames at 612547
+[5:36:49 pm] - Perf left (0 in room)
+[5:37:27 pm] + Perf joined (#12, 1 in room)
+[5:37:31 pm] - Perf left (0 in room)
+[5:37:57 pm] + Perf joined (#13, 1 in room)
+[5:38:00 pm]   Perf resynced after a jump of 107.3 m
+[5:38:02 pm]   Perf's amaterasu: the arena holds still 688104-692904
+[5:38:02 pm]   Perf cast amaterasu #1062001 phase 0
+[5:38:02 pm]   Perf's amaterasu takes [], flames at 692271
+[5:38:10 pm]   Perf's amaterasu: the arena holds still 696623-701423
+[5:38:10 pm]   Perf cast amaterasu #1062002 phase 0
+[5:38:10 pm]   Perf's amaterasu takes [], flames at 700790
+[5:38:17 pm] - Perf left (0 in room)
+[5:38:43 pm] + Perf joined (#14, 1 in room)
+[5:38:47 pm]   Perf resynced after a jump of 69.9 m
+[5:38:48 pm]   Perf's amaterasu: the arena holds still 734583-739383
+[5:38:48 pm]   Perf cast amaterasu #1492001 phase 0
+[5:38:48 pm]   Perf's amaterasu takes [], flames at 738750
+[5:38:57 pm]   Perf's amaterasu: the arena holds still 743106-747906
+[5:38:57 pm]   Perf cast amaterasu #1492002 phase 0
+[5:38:57 pm]   Perf's amaterasu takes [], flames at 747273
+[5:39:04 pm] - Perf left (0 in room)
+[5:39:40 pm] + Perf joined (#15, 1 in room)
+[5:39:43 pm]   Perf resynced after a jump of 111.4 m
+[5:39:44 pm]   Perf's amaterasu: the arena holds still 790577-795377
+[5:39:44 pm]   Perf cast amaterasu #929001 phase 0
+[5:39:45 pm]   Perf's amaterasu takes [], flames at 794744
+[5:39:53 pm]   Perf's amaterasu: the arena holds still 799091-803891
+[5:39:53 pm]   Perf cast amaterasu #929002 phase 0
+[5:39:53 pm]   Perf's amaterasu takes [], flames at 803258
+[5:40:00 pm] - Perf left (0 in room)
+[5:40:16 pm] + Perf joined (#16, 1 in room)
+[5:40:20 pm]   Perf resynced after a jump of 24.2 m
+[5:40:21 pm]   Perf's amaterasu: the arena holds still 827219-832019
+[5:40:21 pm]   Perf cast amaterasu #1488001 phase 0
+[5:40:22 pm]   Perf's amaterasu takes [], flames at 831386
+[5:40:29 pm]   Perf's amaterasu: the arena holds still 835755-840555
+[5:40:29 pm]   Perf cast amaterasu #1488002 phase 0
+[5:40:29 pm]   Perf's amaterasu takes [], flames at 839922
+[5:40:36 pm] - Perf left (0 in room)
+[5:40:59 pm] + Perf joined (#17, 1 in room)
+[5:41:02 pm]   Perf resynced after a jump of 136.7 m
+[5:41:04 pm]   Perf's amaterasu: the arena holds still 870078-874878
+[5:41:04 pm]   Perf cast amaterasu #658001 phase 0
+[5:41:04 pm]   Perf's amaterasu takes [], flames at 874245
+[5:41:12 pm]   Perf's amaterasu: the arena holds still 878612-883412
+[5:41:12 pm]   Perf cast amaterasu #658002 phase 0
+[5:41:12 pm]   Perf's amaterasu takes [], flames at 882779
+[5:41:19 pm] - Perf left (0 in room)
+[5:41:57 pm] + Perf joined (#18, 1 in room)
+[5:42:00 pm]   Perf resynced after a jump of 69.9 m
+[5:42:01 pm]   Perf's amaterasu: the arena holds still 927703-932503
+[5:42:01 pm]   Perf cast amaterasu #1133001 phase 0
+[5:42:01 pm]   Perf's amaterasu takes [], flames at 931870
+[5:42:10 pm]   Perf's amaterasu: the arena holds still 936214-941014
+[5:42:10 pm]   Perf cast amaterasu #1133002 phase 0
+[5:42:10 pm]   Perf's amaterasu takes [], flames at 940381
+[5:42:17 pm] - Perf left (0 in room)
+[5:43:08 pm] + Perf joined (#19, 1 in room)
+[5:43:12 pm]   Perf resynced after a jump of 107.3 m
+[5:43:13 pm]   Perf's amaterasu: the arena holds still 999213-1004013
+[5:43:13 pm]   Perf cast amaterasu #1032001 phase 0
+[5:43:13 pm]   Perf's amaterasu takes [], flames at 1003380
+[5:43:21 pm]   Perf's amaterasu: the arena holds still 1007726-1012526
+[5:43:21 pm]   Perf cast amaterasu #1032002 phase 0
+[5:43:21 pm]   Perf's amaterasu takes [], flames at 1011893
+[5:43:28 pm] - Perf left (0 in room)
+[5:43:40 pm] + Perf joined (#20, 1 in room)
+[5:43:44 pm]   Perf resynced after a jump of 80.0 m
+[5:43:45 pm]   Perf's amaterasu: the arena holds still 1031925-1036725
+[5:43:45 pm]   Perf cast amaterasu #684001 phase 0
+[5:43:46 pm]   Perf's amaterasu takes [], flames at 1036092
+[5:43:54 pm]   Perf's amaterasu: the arena holds still 1040862-1045662
+[5:43:54 pm]   Perf cast amaterasu #684002 phase 0
+[5:43:55 pm]   Perf's amaterasu takes [], flames at 1045029
+[5:44:01 pm] - Perf left (0 in room)
+[5:44:14 pm] + Perf joined (#21, 1 in room)
+[5:44:17 pm]   Perf resynced after a jump of 136.7 m
+[5:44:18 pm]   Perf's amaterasu: the arena holds still 1064796-1069596
+[5:44:18 pm]   Perf cast amaterasu #1380001 phase 0
+[5:44:18 pm]   Perf's amaterasu takes [], flames at 1068963
+[5:44:27 pm]   Perf's amaterasu: the arena holds still 1073319-1078119
+[5:44:27 pm]   Perf cast amaterasu #1380002 phase 0
+[5:44:27 pm]   Perf's amaterasu takes [], flames at 1077486
+[5:44:34 pm] - Perf left (0 in room)
+[5:45:35 pm] + Perf joined (#22, 1 in room)
+[5:45:38 pm]   Perf resynced after a jump of 111.4 m
+[5:45:39 pm]   Perf's amaterasu: the arena holds still 1145922-1150722
+[5:45:39 pm]   Perf cast amaterasu #764001 phase 0
+[5:45:40 pm]   Perf's amaterasu takes [], flames at 1150089
+[5:45:48 pm]   Perf's amaterasu: the arena holds still 1154452-1159252
+[5:45:48 pm]   Perf cast amaterasu #764002 phase 0
+[5:45:48 pm]   Perf's amaterasu takes [], flames at 1158619
+[5:45:55 pm] - Perf left (0 in room)
+[5:46:06 pm] + Perf joined (#23, 1 in room)
+[5:46:09 pm]   Perf resynced after a jump of 69.9 m
+[5:46:11 pm]   Perf's amaterasu: the arena holds still 1176995-1181795
+[5:46:11 pm]   Perf cast amaterasu #532001 phase 0
+[5:46:11 pm]   Perf's amaterasu takes [], flames at 1181162
+[5:46:19 pm]   Perf's amaterasu: the arena holds still 1185534-1190334
+[5:46:19 pm]   Perf cast amaterasu #532002 phase 0
+[5:46:19 pm]   Perf's amaterasu takes [], flames at 1189701
+[5:46:26 pm] - Perf left (0 in room)
+[5:46:46 pm] + Perf joined (#24, 1 in room)
+[5:46:50 pm]   Perf resynced after a jump of 69.9 m
+[5:46:52 pm]   Perf's amaterasu: the arena holds still 1217998-1222798
+[5:46:52 pm]   Perf cast amaterasu #1111001 phase 0
+[5:46:52 pm]   Perf's amaterasu takes [], flames at 1222165
+[5:47:01 pm]   Perf's amaterasu: the arena holds still 1227007-1231807
+[5:47:01 pm]   Perf cast amaterasu #1111002 phase 0
+[5:47:01 pm]   Perf's amaterasu takes [], flames at 1231174
+[5:47:08 pm] - Perf left (0 in room)
+[5:50:02 pm] + Perf joined (#25, 1 in room)
+[5:50:06 pm]   Perf resynced after a jump of 80.0 m
+[5:50:07 pm]   Perf's amaterasu: the arena holds still 1413350-1418150
+[5:50:07 pm]   Perf cast amaterasu #700001 phase 0
+[5:50:07 pm]   Perf's amaterasu takes [], flames at 1417517
+[5:50:15 pm]   Perf's amaterasu: the arena holds still 1421887-1426687
+[5:50:15 pm]   Perf cast amaterasu #700002 phase 0
+[5:50:17 pm]   Perf's amaterasu takes [], flames at 1426054
+[5:50:22 pm] - Perf left (0 in room)
+[5:50:54 pm] + Perf joined (#26, 1 in room)
+[5:50:58 pm]   Perf resynced after a jump of 24.2 m
+[5:50:59 pm]   Perf's amaterasu: the arena holds still 1465373-1470173
+[5:50:59 pm]   Perf cast amaterasu #1033001 phase 0
+[5:50:59 pm]   Perf's amaterasu takes [], flames at 1469540
+[5:51:07 pm]   Perf's amaterasu: the arena holds still 1473896-1478696
+[5:51:07 pm]   Perf cast amaterasu #1033002 phase 0
+[5:51:08 pm]   Perf's amaterasu takes [], flames at 1478063
+[5:51:14 pm] - Perf left (0 in room)
+[5:51:28 pm] + Perf joined (#27, 1 in room)
+[5:51:31 pm]   Perf resynced after a jump of 80.0 m
+[5:51:33 pm]   Perf's amaterasu: the arena holds still 1499121-1503921
+[5:51:33 pm]   Perf cast amaterasu #895001 phase 0
+[5:51:34 pm]   Perf's amaterasu takes [], flames at 1503288
+[5:51:41 pm]   Perf's amaterasu: the arena holds still 1507646-1512446
+[5:51:41 pm]   Perf cast amaterasu #895002 phase 0
+[5:51:42 pm]   Perf's amaterasu takes [], flames at 1511813
+[5:51:48 pm] - Perf left (0 in room)
+[5:51:57 pm] + Perf joined (#28, 1 in room)
+[5:52:00 pm]   Perf resynced after a jump of 24.2 m
+[5:52:01 pm]   Perf's amaterasu: the arena holds still 1527524-1532324
+[5:52:01 pm]   Perf cast amaterasu #992001 phase 0
+[5:52:01 pm]   Perf's amaterasu takes [], flames at 1531691
+[5:52:10 pm]   Perf's amaterasu: the arena holds still 1536061-1540861
+[5:52:10 pm]   Perf cast amaterasu #992002 phase 0
+[5:52:11 pm]   Perf's amaterasu takes [], flames at 1540228
+[5:52:17 pm] - Perf left (0 in room)
+[5:53:16 pm] + Perf joined (#29, 1 in room)
+[5:53:20 pm]   Perf resynced after a jump of 107.3 m
+[5:53:21 pm]   Perf's amaterasu: the arena holds still 1607201-1612001
+[5:53:21 pm]   Perf cast amaterasu #1036001 phase 0
+[5:53:22 pm]   Perf's amaterasu takes [], flames at 1611368
+[5:53:29 pm]   Perf's amaterasu: the arena holds still 1615742-1620542
+[5:53:29 pm]   Perf cast amaterasu #1036002 phase 0
+[5:53:29 pm]   Perf's amaterasu takes [], flames at 1619909
+[5:53:36 pm] - Perf left (0 in room)
+[5:54:12 pm] + Perf joined (#30, 1 in room)
+[5:54:15 pm]   Perf resynced after a jump of 80.0 m
+[5:54:16 pm]   Perf's amaterasu: the arena holds still 1662771-1667571
+[5:54:16 pm]   Perf cast amaterasu #574001 phase 0
+[5:54:18 pm]   Perf's amaterasu takes [], flames at 1666938
+[5:54:25 pm]   Perf's amaterasu: the arena holds still 1671319-1676119
+[5:54:25 pm]   Perf cast amaterasu #574002 phase 0
+[5:54:25 pm]   Perf's amaterasu takes [], flames at 1675486
+[5:54:32 pm] - Perf left (0 in room)
+[5:55:08 pm] + Perf joined (#31, 1 in room)
+[5:55:11 pm]   Perf resynced after a jump of 136.7 m
+[5:55:13 pm]   Perf's amaterasu: the arena holds still 1719102-1723902
+[5:55:13 pm]   Perf cast amaterasu #1359001 phase 0
+[5:55:14 pm]   Perf's amaterasu takes [], flames at 1723269
+[5:55:21 pm]   Perf's amaterasu: the arena holds still 1727625-1732425
+[5:55:21 pm]   Perf cast amaterasu #1359002 phase 0
+[5:55:21 pm]   Perf's amaterasu takes [], flames at 1731792
+[5:55:28 pm] - Perf left (0 in room)
+[5:55:57 pm] + Perf joined (#32, 1 in room)
+[5:56:00 pm]   Perf resynced after a jump of 24.2 m
+[5:56:02 pm]   Perf's amaterasu: the arena holds still 1768145-1772945
+[5:56:02 pm]   Perf cast amaterasu #723001 phase 0
+[5:56:10 pm]   Perf's amaterasu: the arena holds still 1776701-1781501
+[5:56:10 pm]   Perf cast amaterasu #723002 phase 0
+[5:56:17 pm] - Perf left (0 in room)
+[5:56:27 pm] + Perf joined (#33, 1 in room)
+[5:56:30 pm]   Perf resynced after a jump of 136.7 m
+[5:56:31 pm]   Perf's amaterasu: the arena holds still 1797610-1802410
+[5:56:31 pm]   Perf cast amaterasu #1482001 phase 0
+[5:56:40 pm]   Perf's amaterasu: the arena holds still 1806151-1810951
+[5:56:40 pm]   Perf cast amaterasu #1482002 phase 0
+[5:56:47 pm] - Perf left (0 in room)
+[5:56:56 pm] + Perf joined (#34, 1 in room)
+[5:56:59 pm]   Perf resynced after a jump of 80.0 m
+[5:57:00 pm]   Perf's amaterasu: the arena holds still 1826600-1831400
+[5:57:00 pm]   Perf cast amaterasu #835001 phase 0
+[5:57:00 pm]   Perf's amaterasu takes [], flames at 1830767
+[5:57:09 pm]   Perf's amaterasu: the arena holds still 1835118-1839918
+[5:57:09 pm]   Perf cast amaterasu #835002 phase 0
+[5:57:09 pm]   Perf's amaterasu takes [], flames at 1839285
+[5:57:16 pm] - Perf left (0 in room)
+[5:57:25 pm] + Perf joined (#35, 1 in room)
+[5:57:28 pm]   Perf resynced after a jump of 107.3 m
+[5:57:30 pm]   Perf's amaterasu: the arena holds still 1855997-1860797
+[5:57:30 pm]   Perf cast amaterasu #579001 phase 0
+[5:57:31 pm]   Perf's amaterasu takes [], flames at 1860164
+[5:57:38 pm]   Perf's amaterasu: the arena holds still 1864563-1869363
+[5:57:38 pm]   Perf cast amaterasu #579002 phase 0
+[5:57:38 pm]   Perf's amaterasu takes [], flames at 1868730
+[5:57:45 pm] - Perf left (0 in room)
+[5:58:20 pm] + Perf joined (#36, 1 in room)
+[5:58:24 pm]   Perf resynced after a jump of 80.0 m
+[5:58:25 pm]   Perf's amaterasu: the arena holds still 1911312-1916112
+[5:58:25 pm]   Perf cast amaterasu #704001 phase 0
+[5:58:25 pm]   Perf's amaterasu takes [], flames at 1915479
+[5:58:33 pm]   Perf's amaterasu: the arena holds still 1919822-1924622
+[5:58:33 pm]   Perf cast amaterasu #704002 phase 0
+[5:58:34 pm]   Perf's amaterasu takes [], flames at 1923989
+[5:58:40 pm] - Perf left (0 in room)
+[5:58:49 pm] + Perf joined (#37, 1 in room)
+[5:58:52 pm]   Perf resynced after a jump of 80.0 m
+[5:58:53 pm]   Perf's amaterasu: the arena holds still 1939836-1944636
+[5:58:53 pm]   Perf cast amaterasu #727001 phase 0
+[5:58:54 pm]   Perf's amaterasu takes [], flames at 1944003
+[5:59:02 pm]   Perf's amaterasu: the arena holds still 1948367-1953167
+[5:59:02 pm]   Perf cast amaterasu #727002 phase 0
+[5:59:02 pm]   Perf's amaterasu takes [], flames at 1952534
+[5:59:09 pm] - Perf left (0 in room)
+[5:59:41 pm] + Perf joined (#38, 1 in room)
+[5:59:44 pm]   Perf resynced after a jump of 24.2 m
+[5:59:45 pm]   Perf's amaterasu: the arena holds still 1991824-1996624
+[5:59:45 pm]   Perf cast amaterasu #690001 phase 0
+[5:59:46 pm]   Perf's amaterasu takes [], flames at 1995991
+[6:00:16 pm] - Perf left (0 in room)
+[6:01:00 pm] + Perf joined (#39, 1 in room)
+[6:01:04 pm]   Perf resynced after a jump of 24.2 m
+[6:01:05 pm]   Perf's amaterasu: the arena holds still 2071122-2075922
+[6:01:05 pm]   Perf cast amaterasu #1052001 phase 0
+[6:01:05 pm]   Perf's amaterasu takes [], flames at 2075289
+[6:01:13 pm]   Perf's amaterasu: the arena holds still 2079706-2084506
+[6:01:13 pm]   Perf cast amaterasu #1052002 phase 0
+[6:01:14 pm]   Perf's amaterasu takes [], flames at 2083873
+[6:01:20 pm] - Perf left (0 in room)
+[6:01:29 pm] + Perf joined (#40, 1 in room)
+[6:01:32 pm]   Perf resynced after a jump of 136.7 m
+[6:01:33 pm]   Perf's amaterasu: the arena holds still 2099643-2104443
+[6:01:33 pm]   Perf cast amaterasu #1199001 phase 0
+[6:01:34 pm]   Perf's amaterasu takes [], flames at 2103810
+[6:01:42 pm]   Perf's amaterasu: the arena holds still 2108166-2112966
+[6:01:42 pm]   Perf cast amaterasu #1199002 phase 0
+[6:01:43 pm]   Perf's amaterasu takes [], flames at 2112333
+[6:01:49 pm] - Perf left (0 in room)
+[6:01:57 pm] + Perf joined (#41, 1 in room)
+[6:02:01 pm]   Perf resynced after a jump of 80.0 m
+[6:02:02 pm]   Perf's amaterasu: the arena holds still 2128206-2133006
+[6:02:02 pm]   Perf cast amaterasu #570001 phase 0
+[6:02:03 pm]   Perf's amaterasu takes [], flames at 2132373
+[6:02:10 pm]   Perf's amaterasu: the arena holds still 2136720-2141520
+[6:02:10 pm]   Perf cast amaterasu #570002 phase 0
+[6:02:11 pm]   Perf's amaterasu takes [], flames at 2140887
+[6:02:17 pm] - Perf left (0 in room)
+[6:10:19 pm] + Perf joined (#42, 1 in room)
+[6:10:22 pm]   Perf resynced after a jump of 69.9 m
+[6:10:23 pm]   Perf's amaterasu: the arena holds still 2629789-2634589
+[6:10:23 pm]   Perf cast amaterasu #1286001 phase 0
+[6:10:24 pm]   Perf's amaterasu takes [], flames at 2633956
+[6:10:32 pm]   Perf's amaterasu: the arena holds still 2638308-2643108
+[6:10:32 pm]   Perf cast amaterasu #1286002 phase 0
+[6:10:32 pm]   Perf's amaterasu takes [], flames at 2642475
+[6:10:39 pm] - Perf left (0 in room)
+[6:10:48 pm] + Perf joined (#43, 1 in room)
+[6:10:51 pm]   Perf resynced after a jump of 69.9 m
+[6:10:52 pm]   Perf's amaterasu: the arena holds still 2658768-2663568
+[6:10:52 pm]   Perf cast amaterasu #615001 phase 0
+[6:10:53 pm]   Perf's amaterasu takes [], flames at 2662935
+[6:11:01 pm]   Perf's amaterasu: the arena holds still 2667287-2672087
+[6:11:01 pm]   Perf cast amaterasu #615002 phase 0
+[6:11:01 pm]   Perf's amaterasu takes [], flames at 2671454
+[6:11:08 pm] - Perf left (0 in room)
+[6:11:17 pm] + Perf joined (#44, 1 in room)
+[6:11:20 pm]   Perf resynced after a jump of 107.3 m
+[6:11:21 pm]   Perf's amaterasu: the arena holds still 2687630-2692430
+[6:11:21 pm]   Perf cast amaterasu #796001 phase 0
+[6:11:21 pm]   Perf's amaterasu takes [], flames at 2691797
+[6:11:30 pm]   Perf's amaterasu: the arena holds still 2696107-2700907
+[6:11:30 pm]   Perf cast amaterasu #796002 phase 0
+[6:11:30 pm]   Perf's amaterasu takes [], flames at 2700274
+[6:11:37 pm] - Perf left (0 in room)
+[6:11:59 pm] + Perf joined (#45, 1 in room)
+[6:12:03 pm]   Perf resynced after a jump of 111.4 m
+[6:12:04 pm]   Perf's amaterasu: the arena holds still 2730378-2735178
+[6:12:04 pm]   Perf cast amaterasu #1017001 phase 0
+[6:12:04 pm]   Perf's amaterasu takes [], flames at 2734545
+[6:12:12 pm]   Perf's amaterasu: the arena holds still 2738891-2743691
+[6:12:12 pm]   Perf cast amaterasu #1017002 phase 0
+[6:12:13 pm]   Perf's amaterasu takes [], flames at 2743058
+[6:12:19 pm] - Perf left (0 in room)
+[6:12:28 pm] + Perf joined (#46, 1 in room)
+[6:12:31 pm]   Perf resynced after a jump of 111.4 m
+[6:12:32 pm]   Perf's amaterasu: the arena holds still 2758663-2763463
+[6:12:32 pm]   Perf cast amaterasu #736001 phase 0
+[6:12:32 pm]   Perf's amaterasu takes [], flames at 2762830
+[6:12:41 pm]   Perf's amaterasu: the arena holds still 2767155-2771955
+[6:12:41 pm]   Perf cast amaterasu #736002 phase 0
+[6:12:41 pm]   Perf's amaterasu takes [], flames at 2771322
+[6:12:48 pm] - Perf left (0 in room)
+[6:12:56 pm] + Perf joined (#47, 1 in room)
+[6:12:59 pm]   Perf resynced after a jump of 111.4 m
+[6:13:01 pm]   Perf's amaterasu: the arena holds still 2786982-2791782
+[6:13:01 pm]   Perf cast amaterasu #1134001 phase 0
+[6:13:01 pm]   Perf's amaterasu takes [], flames at 2791149
+[6:13:09 pm]   Perf's amaterasu: the arena holds still 2795509-2800309
+[6:13:09 pm]   Perf cast amaterasu #1134002 phase 0
+[6:13:09 pm]   Perf's amaterasu takes [], flames at 2799676
+[6:13:16 pm] - Perf left (0 in room)
+[6:13:36 pm] + Perf joined (#48, 1 in room)
+[6:13:41 pm]   Perf resynced after a jump of 136.7 m
+[6:13:42 pm]   Perf's amaterasu: the arena holds still 2827989-2832789
+[6:13:42 pm]   Perf cast amaterasu #1083001 phase 0
+[6:13:42 pm]   Perf's amaterasu takes [], flames at 2832156
+[6:13:51 pm]   Perf's amaterasu: the arena holds still 2837024-2841824
+[6:13:51 pm]   Perf cast amaterasu #1083002 phase 0
+[6:13:51 pm]   Perf's amaterasu takes [], flames at 2841191
+[6:14:01 pm]   Perf's amaterasu: the arena holds still 2847565-2852365
+[6:14:01 pm]   Perf cast amaterasu #1083003 phase 0
+[6:14:01 pm]   Perf's amaterasu takes [], flames at 2851732
+[6:14:10 pm]   Perf's amaterasu: the arena holds still 2856600-2861400
+[6:14:10 pm]   Perf cast amaterasu #1083004 phase 0
+[6:14:10 pm]   Perf's amaterasu takes [], flames at 2860767
+[6:14:21 pm]   Perf's amaterasu: the arena holds still 2867142-2871942
+[6:14:21 pm]   Perf cast amaterasu #1083005 phase 0
+[6:14:21 pm]   Perf's amaterasu takes [], flames at 2871309
+[6:14:30 pm]   Perf's amaterasu: the arena holds still 2876176-2880976
+[6:14:30 pm]   Perf cast amaterasu #1083006 phase 0
+[6:14:30 pm]   Perf's amaterasu takes [], flames at 2880343
+[6:14:38 pm] - Perf left (0 in room)
+[6:15:48 pm] + Target joined (#49, 1 in room)
+[6:15:48 pm] + Itachi joined (#50, 2 in room)
+[6:15:48 pm]   match: live (300s)
+[6:15:53 pm]   Itachi resynced after a jump of 111.4 m
+[6:15:53 pm]   Target resynced after a jump of 68.3 m
+[6:15:54 pm]   Itachi's amaterasu: the arena holds still 2960351-2965151
+[6:15:54 pm]   Itachi cast amaterasu #925001 phase 0
+[6:15:54 pm]   Itachi's amaterasu takes [49], flames at 2964518
+[6:16:05 pm] - Itachi left (1 in room)
+[6:18:00 pm] - Target left (0 in room)
+[6:18:00 pm]   match: warmup
+[6:18:09 pm]   refused itachi (wrong password)
+[6:18:09 pm] + Nova joined (#51, 1 in room)
+[6:18:18 pm] + Naruto joined (#52, 2 in room)
+[6:18:18 pm]   match: live (300s)
+[6:18:19 pm]   Nova resynced after a jump of 88.8 m
+[6:18:19 pm]   Naruto resynced after a jump of 92.5 m
+[6:18:20 pm] - Nova the Sage left (1 in room)
+[6:18:22 pm] - Naruto left (0 in room)
+[6:18:22 pm]   match: warmup
+[6:18:42 pm] + Itachi joined (#53, 1 in room)
+[6:18:42 pm] + Target joined (#54, 2 in room)
+[6:18:42 pm]   match: live (300s)
+[6:18:45 pm]   Target resynced after a jump of 130.9 m
+[6:18:45 pm]   Itachi resynced after a jump of 24.2 m
+[6:18:46 pm]   Itachi's amaterasu: the arena holds still 3132510-3137310
+[6:18:46 pm]   Itachi cast amaterasu #1031001 phase 0
+[6:18:46 pm]   Itachi's amaterasu takes [54], flames at 3136677
+[6:18:50 pm] - Itachi left (1 in room)
+[6:18:50 pm] - Target left (0 in room)
+[6:18:50 pm]   match: warmup

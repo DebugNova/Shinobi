@@ -21,7 +21,8 @@ const S = [
   ['sprint + turns', `T(-44, 40, -Math.PI / 2); g.hold(['up']); await s(1500); g.hold(['up', 'left']); await s(500); g.hold(['up']); await s(600); g.hold(['up', 'right']); await s(500); g.hold([]); await s(900);`],
   ['reverse (skid 180)', `T(-40, 40, -Math.PI / 2); g.hold(['up']); await s(1400); g.hold(['down']); await s(1200); g.hold([]); await s(800);`],
   ['walk-speed nudges', `T(-44, 44, 0); for (let i = 0; i < 4; i++) { g.hold(['up']); await s(160); g.hold([]); await s(420); }`],
-  ['strafe (lock-on)', `g.teleport(-26, 45, 0); await s(300); g.ctrl.lockTarget = g.pickLock(0); g.hold(['left']); await s(1600); g.hold(['right']); await s(1200); g.hold(['down']); await s(900); g.hold([]); g.ctrl.lockTarget = null; await s(700);`],
+  // locked on, the fighter runs and sprints as without (faces its travel), and turns to the target once it stands
+  ['lock-on run + sprint', `g.teleport(-26, 45, 0); await s(300); g.ctrl.lockTarget = g.pickLock(0); g.hold(['left']); await s(1600); g.hold(['right']); await s(1200); g.hold(['down']); await s(900); g.hold([]); await s(1000); g.ctrl.lockTarget = null; await s(500);`],
   ['jump + double jump', `T(-40, 40, 0); await s(300); g.input.press('jump'); await s(380); g.input.press('jump'); await s(1500);`],
   ['run + jump + land', `T(-40, 40, -Math.PI / 2); g.hold(['up']); await s(900); g.input.press('jump'); await s(1200); g.hold([]); await s(900);`],
   ['dashes', `T(-40, 40, 0); await s(300); g.hold(['up']); g.input.press('dash'); await s(80); g.hold([]); await s(700); g.hold(['left']); g.input.press('dash'); await s(80); g.hold([]); await s(900);`],

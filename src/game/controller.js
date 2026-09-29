@@ -62,7 +62,7 @@ export class Controller {
     this.landT = 9;
     this.hardLand = false;
     this.chakra = this.C.stats.chakra;
-    this.lockTarget = null; // a fighter we are locked on to (strafing)
+    this.lockTarget = null; // a fighter we are locked on to (the camera frames it, attacks aim at it)
     // combat action (attack, jutsu, reaction...) owning the fighter; a reset (spawn, teleport) ends any
     if (this.action?.netState === 5) this.onGuardEnd?.();
     this.action = null;
@@ -251,18 +251,13 @@ export class Controller {
     const wish = this.wish;
     const locked = this.lockTarget && !this.lockTarget.dead;
     if (b.ground) {
-      // run -> ninja sprint after sprintAfter seconds of running flat out (not while locked on)
-      if (wish > 0.75 && !locked) this.runT += dt;
+      // run -> ninja sprint after sprintAfter seconds of running flat out (locked on or not: lock-on only steers the
+      // camera and what attacks aim at, never how the fighter moves)
+      if (wish > 0.75) this.runT += dt;
       else this.runT = 0;
       if (this.runT < 0.05 || wish < 0.5) this.sprint = false;
       if (this.runT >= M.sprintAfter) this.sprint = true;
-      let target = wish * (this.sprint ? M.sprint : M.run) * (this.st === ST.land ? 0.25 : 1);
-      if (locked && wish > 0.01) {
-        // strafing is slower than running at the target, backpedalling slower still
-        const L = this.lockTarget, want = Math.atan2(-this.wishX, -this.wishZ);
-        const off = Math.abs(wrap(want - Math.atan2(-(L.x - b.x), -(L.z - b.z))));
-        target *= off < 0.8 ? 1 : off < 2.2 ? 0.85 : 0.7;
-      }
+      const target = wish * (this.sprint ? M.sprint : M.run) * (this.st === ST.land ? 0.25 : 1);
       let spd = Math.hypot(b.vx, b.vz);
       let dir = spd > 0.05 ? Math.atan2(-b.vx, -b.vz) : this.moveYaw;
       if (wish > 0.01) {
@@ -308,16 +303,20 @@ export class Controller {
       if (s > 0.3) this.moveYaw = Math.atan2(-b.vx, -b.vz);
     }
 
-    // facing: toward the lock-on target (strafing) or the travel direction
+    // facing: the travel direction, locked on or not (strafing at the target locked the legs to a walk-like
+    // sidestep/backpedal and no sprint: the owner wants the same run everywhere). Standing still while locked on
+    // (no input, the skid over) turns to face the target in the fighting stance.
     let face = this.moveYaw;
-    if (locked) {
+    const spdH = Math.hypot(b.vx, b.vz);
+    const faceLock = locked && wish < 0.01 && !this.skid && spdH < 3;
+    if (faceLock) {
       const L = this.lockTarget;
       face = Math.atan2(-(L.x - b.x), -(L.z - b.z));
     }
-    const moving = Math.hypot(b.vx, b.vz) > 0.4 || locked;
-    // (capped at 14 rad/s: a 180-degree change of mind, e.g. letting go of the lock-on while backpedalling, started
-    // at ~50 rad/s and the body snapped round)
-    const turn = wrap(face - this.yaw) * (1 - Math.exp(-dt * (locked ? 14 : b.ground ? 16 : 6)));
+    const moving = spdH > 0.4 || faceLock;
+    // (capped at 14 rad/s: a 180-degree change of mind, e.g. stopping to face the target behind, would start at
+    // ~50 rad/s and the body snapped round)
+    const turn = wrap(face - this.yaw) * (1 - Math.exp(-dt * (b.ground ? 16 : 6)));
     if (moving) this.yaw += clamp(turn, -14 * dt, 14 * dt);
 
     const wasGround = b.ground;
@@ -379,8 +378,8 @@ export class Controller {
     b.vy = this.dashAir ? 0 : b.vy;
     this.sprint = false;
     this.emit('dash', { d: [Math.round(dx * 100) / 100, Math.round(dz * 100) / 100], air: this.dashAir });
-    // facing: dashes turn you toward the direction (a backstep keeps the facing)
-    if (!this.dashBack && !this.lockTarget) this.yaw = Math.atan2(-dx, -dz);
+    // facing: dashes turn you toward the direction, locked on or not (a backstep keeps the facing)
+    if (!this.dashBack) this.yaw = Math.atan2(-dx, -dz);
     this.moveYaw = Math.atan2(-dx, -dz);
   }
 

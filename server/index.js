@@ -68,6 +68,11 @@ const players = new Map();
 const ghosts = new Map(); // token -> { slot, name, k, d, a, score, until }
 let nextId = 1;
 const match = { phase: 'warmup', endsAt: 0, n: 0, results: null };
+// An ultimate's cinematic (Itachi's Amaterasu): { id, i, at, from, to } (server ms). From `from` to `to` the whole arena
+// holds still: every screen plays the same cinematic on this clock, no input moves anyone, no hit lands (the cinematic's
+// own ignition aside) and burns wait. One at a time: another is refused while one runs.
+let cinema = null;
+const cinemaAt = (t) => !!cinema && t >= cinema.from && t <= cinema.to;
 
 // The training dummy: a fighter-shaped log on the training field. Hits wobble it; it shows damage and combos.
 const dummy = {
@@ -186,6 +191,9 @@ function spawnPlayer(p, sp, announce = true) {
   p.respawnAt = 0;
   p.burn = null;
   p.escape = null;
+  p.cine = null;
+  // (its caster respawned, e.g. a match starting: a cinematic ends; every screen drops it on his spawn)
+  if (cinema?.id === p.id) cinema.to = Math.min(cinema.to, now());
   if (ULT_FULL) p.ult = 100;
   p.react = null;
   p.combo = null;
@@ -276,6 +284,8 @@ function handleAct(p, msg) {
         if (t - last < J.cd * 1000 - 600) return send(p, { t: 'deny', k: msg.k, m, i: msg.i | 0 });
         p.casts.set(m, t);
       }
+      // (an ultimate's cinematic while another plays: refused, the gauge kept)
+      if (J.cinema && !msg.n && cinema && t < cinema.to + 150) return send(p, { t: 'deny', k: msg.k, m, i: msg.i | 0 });
       if (J.ult && !msg.n) {
         if (p.ult < 99.5) return send(p, { t: 'deny', k: msg.k, m, i: msg.i | 0 });
         p.ult = ULT_FULL ? 100 : 0;
@@ -306,6 +316,18 @@ function handleAct(p, msg) {
         const act = msg.n ? prev : { m, at: out.at, k: msg.k, life: (J.life || 4) * 1000 };
         if (msg.n) combat.castPhase(p, act, out);
         p.acts.set(out.i, act);
+        if (J.cinema && !msg.n) {
+          // the cinematic: everyone's screen plays it from out.at; he is untouchable from the press to its end
+          const F = 1000 / 60;
+          cinema = { id: p.id, i: out.i, at: out.at, from: out.at + J.cinema[0] * F, to: out.at + J.cinema[1] * F };
+          p.cine = [out.at, cinema.to];
+          if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s ${m}: the arena holds still ${Math.round(cinema.from)}-${Math.round(cinema.to)}`);
+        }
+        // (its victims are taken at the pick and told to everyone, the caster included: see gazeHits)
+        if (J.cinema && msg.n === 1) {
+          if (out.o && out.d) gazeHits(p, J, m, out, act);
+          return;
+        }
         // Itachi's gazes (Tsukuyomi, Amaterasu): who they take is decided here, at the gaze's time
         if (msg.n === 1 && (J.gaze !== undefined || J.focus !== undefined) && out.o && out.d) gazeHits(p, J, m, out);
         // the meteor lands on the server's clock whatever happens to its caster's client
@@ -382,6 +404,8 @@ function handleAct(p, msg) {
 function handleHit(p, msg) {
   const allowed = match.phase !== 'results';
   const val = combat.validate(p, msg, { players, dummy, allowed });
+  // (inside an ultimate's cinematic nothing lands: every screen was watching it)
+  if (val.ok && cinemaAt(val.at)) Object.assign(val, { ok: false, why: 'cinema' });
   if (!val.ok) {
     if (process.env.SHINOBI_DEBUG) log(`  hit rejected (${p.name} -> ${msg.v} ${msg.m}): ${val.why}`);
     send(p, { t: 'hitx', v: msg.v, i: msg.i, k: msg.k | 0, why: val.why });
@@ -399,6 +423,9 @@ function handleHit(p, msg) {
 /** A validated hit: the result, HP, gauges, the broadcast, a KO. */
 function applyHit(p, val, msg) {
   const v = val.v;
+  // (a server-applied hit inside an ultimate's cinematic (a meteor, a barrier's answer) is lost like any other; the
+  // cinematic's own ignition and burn are its point)
+  if (val.srv && cinemaAt(val.at) && !(cinema.id === p.id && msg.i === cinema.i)) return;
   const out = combat.apply(p, val, msg);
   const res = out.res;
   delete out.res;
@@ -522,13 +549,16 @@ function serverHit(att, v, spec, m, i, k, at, p, src, key) {
  * taken. Each victim is judged where its own screen had it (its states arrive ~half its ping later, like the meteor).
  * Tsukuyomi dazes; Amaterasu ignites, then burns (burnStep) until the flames have taken their share of max HP.
  */
-function gazeHits(p, J, m, out) {
-  if (match.phase === 'results') return;
+function gazeHits(p, J, m, out, act = null) {
+  // (a cinematic's pick always reaches every screen, empty or not: they wait for it to know whom the flames take)
+  const tell = () => J.cinema && broadcast(out);
+  if (J.cinema) out.v = [];
+  if (match.phase === 'results') return tell();
   const T = out.at, o = out.o, d = out.d;
   const c = combat.posAt(p, T, {});
   if (Math.hypot(o[0] - c.x, o[2] - c.z) > 2.5 || o[1] - c.y < 0.3 || o[1] - c.y > 2.6) {
     if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s ${m}: eyes too far from the body`);
-    return;
+    return tell();
   }
   const hid = m === 'tsukuyomi' ? `${m}:main` : `${m}:ignite`, spec = hitSpec(p.ch, hid);
   for (const v of [...players.values(), dummy]) {
@@ -540,17 +570,40 @@ function gazeHits(p, J, m, out) {
       if (process.env.SHINOBI_DEBUG) log(`  ${m} spared ${v.name}: ${why}`);
       continue;
     }
-    if (serverHit(p, v, spec, hid, out.i, 0, T, [vp.x, vp.y, vp.z], o, `${p.id}:${out.i}:0:${v.id}`) && J.burn && v.alive) {
-      // the flames' share: frac of max HP, the ignition included (a new ignition starts the count again)
-      const max = v.dummy ? 1000 : maxHp(charOf(v.ch));
-      v.burn = { att: p.id, m, i: out.i, left: Math.round(max * J.burn.frac) - spec.dmg, next: T + J.burn.every * (1000 / 60), every: J.burn.every * (1000 / 60), k: 0 };
-    }
+    if (J.cinema) out.v.push(v.id);
+    else if (serverHit(p, v, spec, hid, out.i, 0, T, [vp.x, vp.y, vp.z], o, `${p.id}:${out.i}:0:${v.id}`) && J.burn && v.alive) ignite(p, v, J, m, out.i, spec, T);
   }
+  if (!J.cinema) return;
+  // the cinematic: every screen learns now whom the flames take and when (e); the server lights them on its own clock
+  // at the focus, whatever becomes of the caster's client meanwhile
+  const TF = act.at + J.focus * (1000 / 60);
+  out.e = Math.round(TF);
+  tell();
+  if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s ${m} takes [${out.v.join(', ')}], flames at ${out.e}`);
+  const ids = out.v.slice();
+  setTimeout(() => {
+    // (cut short: its caster respawned or left before the flames)
+    if (!players.has(p.id) || match.phase === 'results' || !(cinema?.id === p.id && cinema.i === out.i && cinema.to >= TF - 1)) return;
+    for (const id of ids) {
+      const v = id === 0 ? dummy : players.get(id);
+      if (!v || !v.alive) continue;
+      const vp = combat.posAt(v, TF, {});
+      if (serverHit(p, v, spec, hid, out.i, 0, TF, [vp.x, vp.y, vp.z], o, `${p.id}:${out.i}:0:${v.id}`) && v.alive) ignite(p, v, J, m, out.i, spec, TF);
+    }
+  }, Math.max(0, TF - now()));
+}
+
+/** Amaterasu's flames take hold on v at T: they burn frac of max HP, the ignition included (a new one starts the count again). */
+function ignite(p, v, J, m, i, spec, T) {
+  const max = v.dummy ? 1000 : maxHp(charOf(v.ch));
+  v.burn = { att: p.id, m, i, left: Math.round(max * J.burn.frac) - spec.dmg, next: T + J.burn.every * (1000 / 60), every: J.burn.every * (1000 / 60), k: 0 };
 }
 
 /** Amaterasu burning on v: every tick due by t (server-applied, unblockable, through any invulnerability or barrier). */
 function burnStep(v, t) {
   const b = v.burn;
+  // (another ultimate's cinematic: the flames wait for its end)
+  if (cinemaAt(b.next) && !(cinema.id === b.att && cinema.i === b.i)) b.next = cinema.to + 1;
   while (v.burn === b && t >= b.next) {
     const att = players.get(b.att);
     if (!att || !v.alive || match.phase === 'results' || b.left <= 0) {
@@ -779,6 +832,8 @@ function onClose(ws) {
   const p = players.get(ws.playerId);
   if (!p) return;
   players.delete(p.id);
+  // (its caster gone, a cinematic ends: every screen drops it on his leave)
+  if (cinema?.id === p.id) cinema.to = Math.min(cinema.to, now());
   if (p.token) ghosts.set(p.token, { name: p.name, slot: p.slot, k: p.k, d: p.d, a: p.a, score: p.score, ult: p.ult, until: now() + NET.ghostMs });
   broadcast({ t: 'leave', id: p.id });
   log(`- ${p.name} left (${players.size} in room)`);

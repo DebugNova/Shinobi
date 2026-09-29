@@ -200,3 +200,41 @@ index and other notes refer to it).
     its path needs a stable sign for its lean (from the path's right side: s.y is ~0 seen from behind and flickered),
     and an effect's timeline belongs on the frame clock, not the server's (in slow motion the escape's ink comet,
     timed on the server clock, was over before the crows had left).
+58. **Don't draw over what the model already paints, and check a ripped model's colours in the game's light:** Itachi's
+    idle Sharingan billboards (EyeMarks at glow 0.25, always on) sat over the model's own painted Sharingan and read
+    as translucent eyeballs bulging off his face; they now show only while the Mangekyō blazes. His source skin
+    (#9e8878, fine on a grey modelview background) came out dark brown under the toon bands and the grade: repaint it
+    in the rig config (`colors`) and judge it in an in-game close-up next to the others. The shade colour counts as
+    much as the base: MToon multiplies the shaded side by `shadeColorFactor` ([0.78, 0.62, 0.66] by default: brown on
+    skin), and a face under hair and a high collar is mostly shade (Itachi: #eed0b8 too dark, #fde9da + [0.9, 0.8, 0.82] too fair, #f5d9c3 +
+    [0.86, 0.74, 0.76] right).
+59. **Lock-on must not change how a fighter moves:** it strafed (body held facing the target, legs sidestepping or
+    backpedalling, 15% / 30% slower, and the sprint timer blocked), so moving left/right while locked on read as a
+    walk next to the free ninja sprint (the owner: "walks like a stupid fellow"). It also hid a bug: a dash's carry into
+    the sprint (`runT = sprintAfter`) was reset the next tick while locked. Now Controller.stepMove runs, sprints,
+    faces and dashes the same locked or not; the lock only turns a fighter standing still (no input, skid over,
+    < 3 m/s) toward the target, and the camera, attacks, guard and aimed jutsu use it as before. Check with animcheck's
+    "lock-on run + sprint" scenario and a filmstrip from the game camera (the case the owner showed).
+60. **Screenshots of a real-time cinematic land late; review looks with its clock held:** a headless screenshot with
+    two browsers on one GPU takes ~150 ms, so a dense list of shots drifted 0.2-0.5 s behind their labels (a "leak"
+    through Amaterasu's black cover chased for a while was just the burn-away's first hole, filmed late). Look at
+    frames with the clock held (`scripts/debug/amashots.mjs` HOLD=1: `cine.hold`), and prove timing with per-frame
+    samples inside the pages (itachi.mjs `amaterasu` records every drawn frame: the same frame on both screens to
+    0 ms, the flames 4372 ms after the press on both).
+61. **A window that refuses hits must not drop ones already counted:** the server's cinematic window refused
+    Amaterasu's first burn tick after burnStep had already taken it off the share (250 of 300 burnt). The window
+    exempts its own cast entirely; other burns are paused (their next tick moved past the window, nothing counted).
+62. **In a painted shader check every smoothstep's edges and every mask's side:** seven reversed edges (gotcha 42:
+    undefined on ANGLE) and a "beside the nose" band written as two "left of" terms painted a dark rectangle across
+    half the face. Find reversed edges with a scan (numeric first two arguments, a >= b) and write `1.0 -
+    smoothstep(b, a, x)`.
+63. **Headless vsync-off runs flood the GPU queue: judge hitches with vsync on:** Amaterasu's press showed a 1-2 s
+    frame in 5 of 6 casts (the main thread in `CommandBufferProxyImpl::WaitForGetOffset`, inside the shadow pass);
+    bisected through the cinematic, the effect, the clip, the gaze, the server and the HUD, none of them alone
+    removed it, and with vsync on (as players run it) 0 of 6 casts had even a 100 ms frame, the whole cinematic
+    locked at 144 fps. The page submits 300+ frames a second, and any extra GPU-process work (a DOM raster) waits
+    behind them. `scripts/debug/amaspike.mjs` VSYNC=1 for hitches; vsync-off numbers only compare costs back to back.
+64. **postprocessing's EffectPass sorts its effects by their attributes:** an effect that reads depth (the ink outline,
+    Amaterasu's) runs before bloom, tone mapping and the grades whatever order the pass was given (the constructor's
+    list is only the order among equals). Amaterasu's painting is therefore tone mapped (Neutral) and graded like
+    the scene: judged as it looks in the game, not as written.

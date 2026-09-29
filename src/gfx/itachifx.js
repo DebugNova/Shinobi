@@ -449,15 +449,15 @@ export class Feathers {
     this.dirty = [FEATHERS, 0];
   }
 
-  /** n feathers from around (x, y, z) (spread metres), thrown out at up to `speed` m/s. */
-  puff(x, y, z, n, spread = 0.3, speed = 2.5) {
+  /** n feathers from around (x, y, z) (spread metres), thrown out at up to `speed` m/s; `size` scales them. */
+  puff(x, y, z, n, spread = 0.3, speed = 2.5, size = 1) {
     for (let k = 0; k < n; k++) {
       const i = this.next;
       this.next = (this.next + 1) % FEATHERS;
       const a = Math.random() * 6.283, u = Math.random() * 2 - 1, s = Math.sqrt(1 - u * u), sp = speed * (0.3 + Math.random() * 0.7);
       this.aPos.array.set([x + (Math.random() - 0.5) * spread, y + (Math.random() - 0.5) * spread, z + (Math.random() - 0.5) * spread, this.time], i * 4);
       this.aVel.array.set([Math.cos(a) * s * sp, u * sp * 0.6 + 0.8, Math.sin(a) * s * sp, 1.6 + Math.random() * 1.6], i * 4);
-      this.aSeed.array.set([Math.random(), 0.09 + Math.random() * 0.07], i * 2);
+      this.aSeed.array.set([Math.random(), (0.09 + Math.random() * 0.07) * size], i * 2);
       this.dirty[0] = Math.min(this.dirty[0], i);
       this.dirty[1] = Math.max(this.dirty[1], i + 1);
     }
@@ -561,9 +561,9 @@ export class InkStrokes {
           float ink = body * smoothstep(dry - 0.08, dry + 0.03, fib + (1.0 - av) * 0.3);
           float a = ink * vStr.z;
           if (a < 0.02) discard;
-          // near-black indigo, bleeding to crimson only at the torn fringes and in the driest strands; a cold sheen on the fibres
-          float fringe = clamp(smoothstep(0.8, 1.0, av / max(edge, 0.05)) + (1.0 - tail) * 0.12 + age * 0.2, 0.0, 1.0);
-          vec3 col = mix(vec3(0.007, 0.007, 0.02), vec3(0.13, 0.008, 0.026), fringe * 0.55);
+          // purple-black, bleeding to crimson at the torn fringes, the dry strands and toward the tail (where the stroke began); a cold sheen on the fibres
+          float fringe = clamp(smoothstep(0.8, 1.0, av / max(edge, 0.05)) + (1.0 - smoothstep(0.0, 0.6, tail)) * 0.5 + age * 0.2, 0.0, 1.0);
+          vec3 col = mix(vec3(0.014, 0.007, 0.03), vec3(0.16, 0.01, 0.03), fringe * 0.65);
           col += vec3(0.035, 0.045, 0.1) * smoothstep(0.72, 0.95, fib) * (1.0 - fringe);
           gl_FragColor = vec4(col, a);
           #include <fog_fragment>
@@ -632,14 +632,6 @@ export class InkStrokes {
     P[o + 3] = t;
     P[o + 4] = s;
     S.n = n + 1;
-  }
-
-  /** A straight stroke from (x0, y0, z0) to (x1, y1, z1), all wet (a blot that moves with its brush: redrawn each frame). */
-  line(S, x0, y0, z0, x1, y1, z1) {
-    if (!S?.live) return;
-    S.n = 0;
-    this.push(S, x0, y0, z0);
-    this.push(S, x1, y1, z1);
   }
 
   /** The brush lifts: the strand dries out and is gone, all of it within `fade` s (its fresh head would linger by the body). */

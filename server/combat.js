@@ -29,6 +29,7 @@ export class Combat {
     p.guard = false;
     p.counter = null; // Madara's wind barrier (Uchiha Return): { m, i, at, w: [start, end] ms, nr, last } (index.js)
     p.escape = null; // Itachi's Crow Clone Escape: [start, end] ms, invulnerable (index.js)
+    p.cine = null; // Itachi's Amaterasu: [the press, its cinematic's end] ms, invulnerable (index.js)
     p.burn = null; // Amaterasu burning on this fighter: { att, i, left, next, k, every } (index.js)
   }
 
@@ -93,6 +94,7 @@ export class Combat {
     if (t >= p.dashAt && t <= p.dashAt + C.move.dash.invuln * 1000) return 'dash';
     if (t >= p.subAt && t <= p.subAt + C.react.sub.invuln * 1000) return 'sub';
     if (p.escape && t >= p.escape[0] && t <= p.escape[1]) return 'crow';
+    if (p.cine && t >= p.cine[0] && t <= p.cine[1]) return 'cinema'; // (his Amaterasu's cinematic: index.js)
     const r = p.react;
     if (r && r.land && t >= r.land && t <= r.end) return 'down';
     return null;

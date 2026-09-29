@@ -123,20 +123,61 @@ if (ONLY.includes('amaterasu')) {
   await place(10);
   await clearLogs();
   const hp0 = await hpOf();
+  // every drawn frame on each screen: the cinematic's clock, its layers, the camera, the flames on B, B's body
+  const SAMPLE = `window.__cs = []; (function f() { const g = __game, c = g.jutsu.itachi.cine, U = g.post.amaterasu.uniforms, b = g.jutsu.itachi.burning.get(${idB});
+    window.__cs.push({ now: g.net.serverNow(), t: c.time(), at: c.S?.at ?? null, fz: c.frozen(g.net.serverNow()), cam: c.cam, neg: U.get('uNeg').value, eye: U.get('uEye').value, lit: b?.lit ?? null, hud: g.hud.root.classList.contains('cine'), p: [g.ctrl.body.x, g.ctrl.body.z] });
+    if (window.__cs.length < 2400) requestAnimationFrame(f); })(); 0`;
+  const progs0 = await Promise.all([A.p, B.p].map((p) => p.evaluate(() => __game.renderer.info.programs.length)));
+  await A.p.evaluate(SAMPLE);
+  await B.p.evaluate(SAMPLE);
   await A.p.evaluate(() => { __game.gauge.u = 100; });
   await cast('ult', 'amaterasu', 0);
-  await sleep(1400);
-  const burnB = await B.p.evaluate((id) => __game.jutsu.itachi.burning.has(id), idB), burnA = await A.p.evaluate((id) => __game.jutsu.itachi.burning.has(id), idB);
-  // it burns through a dash
-  await B.p.evaluate(() => { __game.hold(['left']); __game.input.press('dash'); });
-  await sleep(400);
+  // B tries to get away and to fight back the whole time: nothing may move it inside the cinematic
+  await sleep(700);
+  await B.p.evaluate(() => { __game.hold(['left']); __game.input.press('dash'); __game.input.press('attack'); });
+  await sleep(1500);
+  await B.p.evaluate(() => { __game.input.press('dash'); __game.input.press('jutsu1'); });
+  await sleep(2400);
   await B.p.evaluate(() => __game.hold([]));
-  await sleep(6500);
+  await sleep(1400);
+  const [sa, sb] = await Promise.all([A.p, B.p].map((p) => p.evaluate(() => window.__cs)));
+  const J = { focus: 262 / 60, end: 300 / 60 };
+  const on = (s) => s.filter((x) => x.at !== null);
+  const at0 = on(sa)[0]?.at, at1 = on(sb)[0]?.at;
+  check('amaterasu: the cinematic plays on both screens from the same press time (server clock)', at0 !== undefined && at0 === at1, `A ${at0}, B ${at1}`);
+  check('amaterasu: the victim\'s screen joins it at once (within 0.5 s of the press)', on(sb)[0]?.t < 0.5, `B's first frame at ${on(sb)[0]?.t?.toFixed(3)} s`);
+  // the layers switch on the same server-clock instant on both screens (to a frame at 60 fps and the clock sync)
+  const when = (s, k) => s.find((x) => x[k] > 0.5)?.now ?? NaN;
+  const dNeg = Math.abs(when(sa, 'neg') - when(sb, 'neg')), dEye = Math.abs(when(sa, 'eye') - when(sb, 'eye'));
+  check('amaterasu: the negative world and the close-up switch on together on both screens (<= 40 ms apart)', dNeg <= 40 && dEye <= 40, `negative ${dNeg.toFixed(0)} ms, eyes ${dEye.toFixed(0)} ms`);
+  check('amaterasu: both screens film it with the cinematic camera, the HUD away', sa.some((x) => x.cam && x.hud) && sb.some((x) => x.cam && x.hud));
+  // the freeze: B's body doesn't move inside the window (it held left and dashed)
+  // (up to the flames: their stagger's knockback moves it, rightly)
+  const fzB = sb.filter((x) => x.fz && x.now < on(sb)[0].at + J.focus * 1000), p0 = fzB[0]?.p, moved = fzB.reduce((m, x) => Math.max(m, Math.hypot(x.p[0] - p0[0], x.p[1] - p0[1])), 0);
+  if (process.env.DETAIL) console.log('  B while frozen', fzB.filter((x, i) => i % 20 === 0).map((x) => (x.now - at0).toFixed(0) + ':' + x.p.map((v) => v.toFixed(2)).join(',')).join(' '));
+  check('amaterasu: the arena holds still: the victim can\'t move, dash or attack during it', fzB.length > 60 && moved < 0.02, `${fzB.length} frozen frames, moved ${moved.toFixed(2)} m`);
+  // the flames latch on at the same instant on both screens, at the focus
+  const litA = sa.find((x) => x.lit)?.lit, litB = sb.find((x) => x.lit)?.lit;
+  const focusAt = at0 + J.focus * 1000;
+  check('amaterasu: the flames latch onto B at the focus on both screens at once (<= 40 ms)', Math.abs(litA - litB) <= 40 && Math.abs(litA - focusAt) <= 40, `A ${(litA - at0).toFixed(0)} ms, B ${(litB - at0).toFixed(0)} ms after the press (focus ${(J.focus * 1000).toFixed(0)})`);
+  // all given back
+  const endA = sa.at(-1), endB = sb.at(-1);
+  check('amaterasu: everything given back after it (camera, HUD, post)', [endA, endB].every((x) => x.at === null && !x.cam && !x.hud && x.neg === 0 && x.eye === 0), JSON.stringify({ a: [endA.at, endA.cam, endA.hud], b: [endB.at, endB.cam, endB.hud] }));
+  const progs1 = await Promise.all([A.p, B.p].map((p) => p.evaluate(() => __game.renderer.info.programs.length)));
+  check('amaterasu: no shader compiled for it mid-fight', progs1[0] === progs0[0] && progs1[1] === progs0[1], `A ${progs0[0]} -> ${progs1[0]}, B ${progs0[1]} -> ${progs1[1]}`);
+  // it burns through a dash (after the cinematic: B can move again)
+  const pb0 = await posB();
+  await B.p.evaluate(() => { __game.hold(['left']); __game.input.press('dash'); });
+  await sleep(500);
+  await B.p.evaluate(() => __game.hold([]));
+  const pb1 = await posB();
+  check('amaterasu: the victim moves again once it is over', Math.hypot(pb1[0] - pb0[0], pb1[2] - pb0[2]) > 1, `${Math.hypot(pb1[0] - pb0[0], pb1[2] - pb0[2]).toFixed(1)} m`);
+  await sleep(3500);
   const ha = await onA('amaterasu'), hb = await onB('amaterasu');
   const total = ha.reduce((s, h) => s + h.d, 0);
   const hp1 = await hpOf();
-  console.log('  A saw', ha.map((h) => `${h.m.split(':')[1]}:${h.d}`).join(' '));
-  check('amaterasu: B ignites (on both screens: the black flames)', ha[0]?.m === 'amaterasu:ignite' && burnA && burnB, `${ha[0]?.m}, flames ${burnA}/${burnB}`);
+  console.log('  A saw', ha.map((h) => `${h.m.split(':')[1]}:${h.d}`).join(' '), '| rejected', JSON.stringify(await hx()));
+  check('amaterasu: B ignites (on both screens: the black flames)', ha[0]?.m === 'amaterasu:ignite' && !!litA && !!litB, `${ha[0]?.m}`);
   // (B needs more than half its HP left to see the whole share; with less the flames KO it)
   check('amaterasu: it burns exactly 50% of max HP, through a dash', hp0.bSelf > 300 ? total === 300 && hp1.bSelf === hp0.bSelf - 300 : total >= hp0.bSelf, `${total} damage in ${ha.length} hits (B started at ${hp0.bSelf})`);
   check('amaterasu: the victim takes the same on its own screen, HP agrees', hb.length === ha.length && hp1.bSelf === hp1.aSeesB, `B ${hp0.bSelf} -> ${hp1.bSelf}, A sees ${hp1.aSeesB}`);

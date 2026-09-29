@@ -15,7 +15,7 @@
 //   weights at their centre. A-pose models: `apose` lifts the arms into a T-pose first (see unpose()).
 //
 // For display figures (a head, a closed cloak and feet, no limbs under it: models/itachi.rig.json) there are more
-// steps, all optional: `shift` moves the source (feet to y = 0), `drop` leaves out hidden materials, `simplify`
+// steps, all optional: `colors` repaints a source material, `shift` moves the source (feet to y = 0), `drop` leaves out hidden materials, `simplify`
 // thins over-dense flat-coloured pieces (meshoptimizer), `reshape` pulls vertices in to an envelope (a cloak's fused
 // sleeves), `parts` adds generated tubes (arms, hands, legs) weighted like any mesh, `islands.noArm` keeps a garment
 // off the arm bones, and `atlas` merges every material into one textured MToon material and one primitive (flat
@@ -34,6 +34,13 @@ const cfgDir = path.dirname(path.resolve(cfgPath));
 const C = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
 const src = readGlb(path.resolve(cfgDir, C.source));
 const outFile = path.resolve(cfgDir, C.out);
+// `colors`: { material: '#rrggbb' } replaces a source material's base colour (sRGB, as a paint picker shows it)
+for (const [mi, hex] of Object.entries(C.colors || {})) {
+  if (mi === '_') continue;
+  const lin = [1, 3, 5].map((k) => parseInt(hex.slice(k, k + 2), 16) / 255).map((c) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  const pbr = (src.json.materials[+mi].pbrMetallicRoughness ||= {});
+  pbr.baseColorFactor = [...lin, pbr.baseColorFactor?.[3] ?? 1];
+}
 
 // ------------------------------------------------------------------ math
 const smooth = (a, b, x) => {

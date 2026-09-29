@@ -6,6 +6,7 @@ import { EffectComposer, RenderPass, EffectPass, BloomEffect, ToneMappingEffect,
 import { OutlineEffect } from './outline.js';
 import { HazeEffect } from './haze.js';
 import { GenjutsuEffect } from './itachifx.js';
+import { AmaterasuEffect } from './amaterasufx.js';
 
 export class Post {
   constructor(renderer, scene, camera) {
@@ -22,8 +23,9 @@ export class Post {
     this.haze = new HazeEffect(); // heat shimmer over fire (High+; bends UVs, so it goes first)
     this.hazeOn = true;
     this.genjutsu = new GenjutsuEffect(); // Tsukuyomi's red-and-black world on its victim's screen (0 = off)
+    this.amaterasu = new AmaterasuEffect(); // Amaterasu's cinematic: the negative world, the painted eyes, the black flames (0 = off)
     this.camera = camera;
-    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc, this.genjutsu));
+    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc, this.genjutsu, this.amaterasu));
     this.composer.addPass(new EffectPass(camera, this.smaa));
     this.grade = { bright: 0, sat: 0 };
     this.setSize(innerWidth, innerHeight);
@@ -42,6 +44,7 @@ export class Post {
     G.sat = 0;
     this.haze.apply(this.camera, dt, this.hazeOn);
     this.genjutsu.apply(dt);
+    this.amaterasu.apply(dt);
     this.composer.render(dt);
   }
 }

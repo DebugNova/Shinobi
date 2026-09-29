@@ -41,7 +41,7 @@ Without the VPS: run `npm run share` in a second terminal. It prints a `https://
 | Shuriken | 1 | LT + X |
 | Jutsu (Naruto: Rasengan / Shadow Clone Rush; Madara: fire / wood / gunbai; Itachi: fireballs / Tsukuyomi / crows, see below) | Q / E / G | LT + Y / LT + B / LT + A |
 | Ultimate (Naruto: Rasenshuriken; Madara: Tengai Shinsei; Itachi: Amaterasu) | R | LT + RT |
-| Lock on (wheel switches target) | T or middle mouse | RB |
+| Lock on (the camera follows the target; you still run and sprint freely, and face it when you stop; wheel switches target) | T or middle mouse | RB |
 | Zoom in / out | mouse wheel (when not locked on) | |
 | Scoreboard / menu | Tab / Esc | View / Menu |
 | Performance overlay | F3 | |
@@ -117,8 +117,13 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
 
 ### Itachi's jutsu
 
-Itachi moves and fights like Naruto (same M1 strings, heavy, shuriken) but has his own jutsu. His Sharingan glows
-all the time; through Tsukuyomi and Amaterasu it turns into the spinning Mangekyō.
+Itachi moves and fights like Naruto (same M1 strings, heavy, shuriken) but has his own jutsu. Through Tsukuyomi and
+Amaterasu his Sharingan blazes into the spinning Mangekyō.
+
+Playing as Itachi, your HUD changes too: your portrait is a Sharingan (its three tomoe turn, and it becomes the
+Mangekyō when your ultimate is ready), with black flames streaming off it along a red-framed gold health bar that
+pulses red when you're low. His skill icons have crimson metal rims, look dimmed while they recharge, and flash
+with a ring when they're ready again.
 
 - **Q: Fire Style: Phoenix Sage Fire** (30 chakra, 9 s). A seal, two fingers to his lips, and he blows three
   fireballs one after another. They leave spread out and curve in on the target (lock-on target or whoever you look
@@ -141,15 +146,21 @@ all the time; through Tsukuyomi and Amaterasu it turns into the spinning Mangeky
   a streak of black brush ink flies off in an arc, and he re-forms **14-22 m away** at the **safest spot nearby** (the
   one farthest from enemies and out of their sight), where the ink and the crows gather, crouched and facing the
   nearest enemy. Nothing can touch him from the press until he has re-formed (0.6 s).
-- **His dash (Shift) is a crow shift**: for the length of the dash his body turns into torn strokes of black brush
-  ink smeared along his path, with aqua chakra sparks, white speed lines and falling feathers, while a few crows
+- **His dash (Shift) is a crow shift**: for the length of the dash his body vanishes into one slim, ragged streak of
+  brush ink (purple-black, fading to crimson at its tail), with aqua chakra sparks, white speed lines and falling
+  feathers, while a few crows
   scatter from where he left. He takes shape again out of the ink at its end. His **substitution** bursts into crows
   and ink too (the log still drops). Only the look is his: the dash moves exactly like everyone's.
-- **R: Amaterasu** (ultimate). He raises two fingers to his right eye, the world dims, and the eye opens on
-  **everyone in front of him** (up to 30 m, in his line of sight): they burst into black flames. The flames can't be
-  put out (not by dashing, substitution or a barrier) and keep burning until they have burnt **half of the victim's
-  maximum health** (the ignition included), a tick every 0.3 s (~5.5 s). Your only answer is not to be in front of
-  him when his eye opens: get behind cover or dash at that moment.
+- **R: Amaterasu** (ultimate): a **5-second cinematic on everyone's screen at the same moment**. He raises two
+  fingers to his right eye; the world flips into a dark teal negative, his arms fling wide and a flock of crows bursts
+  off his back; the camera rushes into his face; his eyes, shut, fill the screen and slowly open, the Sharingan spins
+  into the Mangekyō, veins crawl in and blood runs down from his right eye; the camera drives into the pupil and black
+  flames burst out over the view; they burn away onto **everyone he was facing** (up to 30 m, in his line of sight,
+  decided 0.2 s after the press), who are now ablaze. **While it plays the whole arena holds still**: nobody can
+  move, attack or be hit, and burns wait. The flames can't be put out (not by dashing, substitution or a barrier)
+  and keep burning until they have burnt **half of the victim's maximum health** (the ignition included), a tick
+  every 0.3 s. Your only answer is not to be in front of him when he presses it. (One cinematic at a time: another
+  Itachi's Amaterasu is refused while one plays, his gauge kept. Its voice line and sounds come later.)
 
 ### The map
 
@@ -199,7 +210,7 @@ Naruto's jutsu, while Madara and Itachi have their own (see "Madara's jutsu" and
   (https://sketchfab.com/3d-models/itachi-uchiha-sharingan-akatsuki-amaterasu-867dfc95e96a49878837f80428918ca9),
   licensed CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). The download is a display figure (head, closed
   cloak and shins only): for this game it got generated arms (Akatsuki sleeves with the red lining, hands with his
-  purple nails) and dark trousers under the cloak, a skeleton, skin weights with the cloak opening at its front slit
+  purple nails) and dark trousers under the cloak, a fairer skin tone, a skeleton, skin weights with the cloak opening at its front slit
   over the legs, toon shading in one material, and the stand-in's body size; the credit is also on his character card
   and in the VRM's meta. For now he fights with Naruto's moves and jutsu.
 
@@ -211,7 +222,7 @@ Naruto's jutsu, while Madara and Itachi have their own (see "Madara's jutsu" and
 `models/obito.rig.json`; `TPOSE=out.glb npm run rig -- ...` writes the lifted mesh to measure the rest of the config
 on). Long hair or ribbons become spring chains (`chains`), armour plates over a coat `plates`. A model with no limbs
 under its clothes (a display figure) gets generated arms, hands and legs (`parts`, see `models/itachi.rig.json`),
-and `atlas` merges many materials into one (one draw per fighter). Then register it in
+`colors` repaints a material (e.g. a fairer skin), and `atlas` merges many materials into one (one draw per fighter). Then register it in
 `src/shared/characters.js`. Check the result with `node scripts/debug/modelview.mjs <file.vrm> out.png front,left
 "bones,pose=run"`.
 

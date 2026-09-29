@@ -54,7 +54,7 @@ export const ST = {
 // Flag bits in the state upload (st[9]).
 export const FLAG = {
   sprint: 1,
-  lock: 2, // locked on (strafing)
+  lock: 2, // locked on
   invuln: 4,
   dead: 8, // set by the server
   water: 16,

@@ -30,6 +30,7 @@ import { Combat } from './game/combat.js';
 import { Dummy, Logs } from './game/dummy.js';
 import { FX } from './gfx/fx.js';
 import { Jutsu } from './game/jutsu.js';
+import { FROZEN_INPUT } from './game/amaterasu.js';
 import { MoveFX } from './gfx/movefx.js';
 import { GUNBAI, loadGunbai } from './gfx/madarafx.js';
 import { Audio } from './game/audio.js';
@@ -492,7 +493,10 @@ class Game {
   wireNet() {
     const n = this.net;
     n.on('join', (m) => this.addRemote(m.player));
-    n.on('leave', (m) => this.removeRemote(m.id));
+    n.on('leave', (m) => {
+      this.jutsu.itachi.cine.drop(m.id); // (its caster gone: an Amaterasu cinematic ends)
+      this.removeRemote(m.id);
+    });
     n.on('snap', (m) => {
       for (const p of m.ps) {
         if (p[0] === n.id) continue;
@@ -503,6 +507,7 @@ class Game {
       }
     });
     n.on('spawn', (m) => {
+      this.jutsu.itachi.cine.drop(m.id); // (its caster respawned, e.g. a match starting: the cinematic ends)
       if (m.id === n.id) {
         n.seq = m.seq;
         this.hp = m.hp;
@@ -716,7 +721,9 @@ class Game {
     const n = this.net, c = this.ctrl, input = this.input;
     // mouse look (every frame, not per sim step: no latency)
     const [ly, lp] = input.look(dt);
-    this.cam.look(ly, lp);
+    // (an ultimate's cinematic holds the whole arena still: no input moves anyone, on any screen)
+    const frozen = this.jutsu.itachi.cine.frozen(n.serverNow());
+    if (!frozen) this.cam.look(ly, lp);
     const others = this._others ||= [];
     others.length = 0;
     for (const r of this.remotes.values()) if (r.fighter && !r.fighter.dead) others.push({ x: r.fighter.pos.x, y: r.fighter.pos.y, z: r.fighter.pos.z, r: 0.34 });
@@ -724,7 +731,7 @@ class Game {
     // fixed-step simulation
     this.acc = Math.min(this.acc + dt, 0.25);
     while (this.acc >= SIM.dt) {
-      c.step(input, this.cam.yaw, others, n.serverNow() / 1000);
+      c.step(frozen ? FROZEN_INPUT : input, this.cam.yaw, others, n.serverNow() / 1000);
       this.stepUp += c.stepUp;
       for (const e of c.events) this.onEvent(e);
       c.events.length = 0;
@@ -774,9 +781,11 @@ class Game {
     this.cam.lock = c.lockTarget;
     // (inside Tsukuyomi's world the view is the genjutsu's: its camera, the real fighters hidden)
     const tw = this.jutsu.itachi.world, inWorld = tw.late(this.camera);
+    // (Amaterasu's cinematic films with its own camera on every screen)
+    const cine = this.jutsu.itachi.cine, inCine = cine.late(this.camera);
     this.sky.update(dt, this.camera);
     this._focus ||= new THREE.Vector3();
-    updateToon(this.sky.sun, this.camera, inWorld ? tw.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
+    updateToon(this.sky.sun, this.camera, inCine ? cine.focus : inWorld ? tw.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
     this.art.update(dt, this.fx);
     if (this.debug) {
       const hurts = (this._hurts ||= []);
@@ -864,7 +873,10 @@ class Game {
       // our own substitution, confirmed: adopt the new state sequence
       if (m.k === 'sub') this.net.seq = m.sq;
       // a phase of our own cast that comes from the server (Madara's counter firing)
-      else if (m.k === 'jutsu') this.jutsu.madara.onOwn(m);
+      else if (m.k === 'jutsu') {
+        this.jutsu.madara.onOwn(m);
+        this.jutsu.itachi.onOwn(m);
+      }
       return;
     }
     const r = this.remotes.get(m.id);

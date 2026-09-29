@@ -570,6 +570,8 @@ export class Combat {
   landHit(act, t, point) {
     const g = this.game, n = g.net, ctrl = g.ctrl, b = ctrl.body;
     const at = n.serverNow();
+    // (inside an ultimate's cinematic nothing lands: the server refuses it the same way)
+    if (g.jutsu?.itachi.cine.frozen(at)) return;
     const e = t.entry;
     const inReact = !t.dummy && e.react && at < e.react.end;
     const vt = t.dummy || inReact ? at : n.renderTime();
@@ -674,7 +676,8 @@ export class Combat {
     // a small jump between what was drawn and the hit's start point eases over (never snaps)
     if (Math.hypot(...r.off) > 3) r.off = [0, 0, 0];
     e.react = r;
-    f?.flash();
+    // (Amaterasu's ignition doesn't flash white: its black flames are the feedback)
+    if (!/^amaterasu:/.test(String(h.m ?? ''))) f?.flash();
   }
 
   /** Remote fighter view during a reaction (drawn at the present: juggles connect at any ping). */
@@ -754,7 +757,7 @@ export class Combat {
 
   onHitr(m) {
     const g = this.game;
-    const h = { a: m.a, v: m.v, r: m.r, t0: m.t0, p: m.p, kb: m.kb, st: m.st, hs: m.hs, land: m.l, end: m.e, n: m.n, ko: !!m.ko, dz: m.dz || 0, key: `${m.i}:${m.v}:${m.k || 0}`, blocked: m.b };
+    const h = { m: m.m, a: m.a, v: m.v, r: m.r, t0: m.t0, p: m.p, kb: m.kb, st: m.st, hs: m.hs, land: m.l, end: m.e, n: m.n, ko: !!m.ko, dz: m.dz || 0, key: `${m.i}:${m.v}:${m.k || 0}`, blocked: m.b };
     // Itachi's kit: the Tsukuyomi mark, the black flames (every victim, the dummy included)
     g.jutsu?.itachi.onHitr(m);
     const black = /^amaterasu:/.test(m.m);
@@ -810,7 +813,7 @@ export class Combat {
         ctrl.prevZ = b.z = fp.z;
         if (Math.hypot(...g.visOff) > 3) g.visOff = [0, 0, 0];
       }
-      g.player.flash();
+      if (!black) g.player.flash();
       // (light ticks: hitstop 2 gave a weight of 0, and an infinite pitch in audio.impact)
       const w = Math.max(0.3, Math.min(4, 1 + (m.hs - 4) / 2 + (AIRBORNE.has(m.r) ? 1 : 0)));
       g.cam.addTrauma(0.15 + w * 0.08);

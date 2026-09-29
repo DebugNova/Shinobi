@@ -17,6 +17,7 @@ export const ITACHI = {
   locked: true, // the title screen asks for a password; the server checks it (server/index.js LOCKED)
   card: { tag: 'AKATSUKI', face: 0.07, credit: 'Model: “Itachi Uchiha Sharingan Akatsuki Amaterasu” by angelolamonaca · CC BY 4.0' },
   kit: { jutsu1: 'phoenixFire', jutsu2: 'tsukuyomi', jutsu3: 'crowEscape', ult: 'amaterasu' },
+  hud: 'uchiha', // his HUD: Sharingan portrait, black flames, red-framed bar and icons (src/ui/uchiha.js)
   // (card.face: his collar hides everything below the eyes; eye: the eyes' place from the head bone, metres, in the
   // fighter's frame: up, forward, apart. The Mangekyō glows there through his casts)
   eyes: { up: 0.072, fwd: 0.085, apart: 0.032 },
@@ -73,8 +74,14 @@ export const ITACHI = {
 
     amaterasu: {
       name: 'Amaterasu', key: 'R', ult: true, icon: 'amaterasu',
-      // the fingers to the right eye 0-12, the focus 12-30, the flames at `focus` (phase n:1), recovery to `total`
-      focus: 30, total: 54, life: 14,
+      // A cinematic on EVERY screen, on the server clock from the press (src/game/amaterasu.js: timeline AMA): the
+      // fingers to the right eye, the world turning negative, the crows, the camera rushing into his face, his eyes
+      // opening in close-up, the Mangekyō, the blood, black flames bursting out of the pupil; back in the arena the
+      // flames latch onto everyone he took. `cinema` [from, to] (frames): the whole arena holds still (no input on any
+      // screen, no hit lands anywhere, burns pause), he is untouchable from the press to its end.
+      // `pick` (phase n:1: his eyes + facing): the server takes the cone then and tells every screen who (`v`);
+      // `focus`: the server ignites them (its own clock: the flames land on every screen at once); recovery to `total`.
+      cinema: [12, 300], pick: 12, focus: 262, total: 312, life: 14,
       range: 30, cone: 34, height: 8,
       // the black flames burn until they have taken `frac` of the victim's max HP (the ignition counts), a tick
       // every `every` frames; they can't be put out (not by a dash, a substitution or a barrier)

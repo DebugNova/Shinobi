@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { PALETTE, MATCH } from '../shared/config.js';
 import { charOf } from '../shared/characters.js';
 import { renderPortrait } from './portrait.js';
+import { ITACHI_ICONS, sharingan, uchihaFlames, FRAME } from './uchiha.js';
 import { gpuInfo, diagnose } from '../gfx/perfcheck.js';
 
 const _v = new THREE.Vector3();
@@ -53,11 +54,7 @@ const ICONS = {
   stakes: `<defs><radialGradient id="gw" cx=".45" cy=".35"><stop offset="0" stop-color="#a9d98a"/><stop offset="1" stop-color="#1f3d1c"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gw)"/><path d="M8 76 Q50 68 92 76 L92 100 L8 100Z" fill="#4a3120"/><g stroke="#24160c" stroke-width="3" stroke-linejoin="round"><path d="M22 78 L34 40 L40 78Z" fill="#9a6a3e"/><path d="M42 78 L58 14 L64 78Z" fill="#b07a48"/><path d="M66 78 L78 46 L82 78Z" fill="#8a5c34"/></g><path d="M34 40 L36 50 L31 50Z M58 14 L60 26 L55 26Z M78 46 L79 54 L76 54Z" fill="#f3e2c0"/>`,
   gunbai: `<defs><radialGradient id="gg" cx=".4" cy=".35"><stop offset="0" stop-color="#e0525a"/><stop offset="1" stop-color="#43090f"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gg)"/><rect x="46" y="58" width="8" height="36" rx="3" fill="#2a1a14" stroke="#0d0706" stroke-width="2"/><ellipse cx="50" cy="38" rx="27" ry="30" fill="#2a1a14"/><ellipse cx="50" cy="38" rx="21" ry="24" fill="#f1e6cc"/><path d="M50 14v48M29 38h42" stroke="#b9a37a" stroke-width="2.5"/><path d="M54 90c6 2 8 6 6 10" stroke="#c9c9d2" stroke-width="3" fill="none" stroke-dasharray="3 2"/>`,
   meteor: `<defs><radialGradient id="gm" cx=".5" cy=".4"><stop offset="0" stop-color="#6a4a8a"/><stop offset="1" stop-color="#140a22"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gm)"/><path d="M8 12 L52 48 L40 60Z" fill="#ff9a2a" opacity=".85"/><path d="M18 14 L54 46 L46 54Z" fill="#ffe28a"/><path d="M44 50c2-12 14-18 26-14 12 4 16 16 12 28-4 12-18 16-28 12-10-4-12-14-10-26z" fill="#4b3a36" stroke="#120a08" stroke-width="3"/><path d="M50 70c6 4 16 4 22-2" stroke="#ff6a1a" stroke-width="3" fill="none"/><circle cx="62" cy="50" r="5" fill="#2c211e"/><circle cx="72" cy="60" r="3" fill="#2c211e"/>`,
-  // Itachi's kit
-  fireballs: `<defs><radialGradient id="gb" cx=".5" cy=".5"><stop offset="0" stop-color="#ffe9a8"/><stop offset=".45" stop-color="#ff8a1c"/><stop offset="1" stop-color="#8a1d06"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="#2a0c08"/><g stroke="#1a0604" stroke-width="2.5"><circle cx="30" cy="66" r="13" fill="url(#gb)"/><circle cx="62" cy="58" r="16" fill="url(#gb)"/><circle cx="72" cy="28" r="10" fill="url(#gb)"/></g><path d="M8 80c8-4 12-10 14-14M36 88c10-6 16-14 18-20M78 46c4-2 8-6 10-10" stroke="#ffcf6a" stroke-width="3" fill="none" opacity=".8"/>`,
-  tsukuyomi: `<defs><radialGradient id="gt" cx=".5" cy=".5"><stop offset="0" stop-color="#ff3a3a"/><stop offset=".75" stop-color="#b3060c"/><stop offset="1" stop-color="#3a0004"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="#120204"/><circle cx="50" cy="50" r="34" fill="url(#gt)" stroke="#050000" stroke-width="4"/><path d="M52.6,54.7L52.6,57.7L51.5,60.7L49.4,63.5L46.3,65.8L42.4,67.3L37.8,67.8L32.8,67.2L27.7,65.3L29.0,67.0L37.3,70.7L45.5,71.1L52.5,68.7L57.3,64.4L59.8,59.3L59.9,54.4L58.1,50.6L55.2,48.6ZM44.6,49.9L42.1,48.4L40.0,46.0L38.6,42.7L38.2,38.9L38.8,34.8L40.6,30.5L43.7,26.5L47.9,23.1L45.8,23.3L38.4,28.7L33.9,35.6L32.5,42.8L33.8,49.1L37.1,53.8L41.3,56.3L45.4,56.7L48.6,55.2ZM52.8,45.4L55.3,43.9L58.5,43.3L62.0,43.8L65.5,45.3L68.8,47.9L71.5,51.6L73.5,56.3L74.4,61.6L75.2,59.7L74.3,50.6L70.5,43.3L65.0,38.5L58.8,36.4L53.2,36.9L48.9,39.3L46.5,42.7L46.2,46.2Z" fill="#0a0000"/><circle cx="50" cy="50" r="6.5" fill="#0a0000"/>`,
-  crows: `<circle cx="50" cy="50" r="50" fill="#3a3f5c"/><circle cx="72" cy="30" r="12" fill="#b3060c" opacity=".8"/><g fill="#08090d"><path d="M50 58c-10-10-24-12-36-6 10 0 18 4 24 10-8 2-12 6-14 12 8-6 16-8 26-6 8 2 16 0 22-6-6 0-10-2-12-6 6-4 14-6 24-4-12-6-26-4-34 6z"/><path d="M30 30c-4-4-10-5-15-2 4 0 7 2 10 4-3 1-5 3-6 5 4-2 7-3 11-2 4 1 7 0 10-3-3 0-5-1-6-3 3-2 7-3 11-2-5-3-11-2-15 3z"/><path d="M76 72c-3-3-8-4-12-2 3 0 6 2 8 3-2 1-4 2-5 4 3-2 6-2 9-1 3 1 6 0 8-2-2 0-4-1-5-2 3-2 6-2 9-1-4-3-9-2-12 1z"/></g>`,
-  amaterasu: `<defs><radialGradient id="ga" cx=".5" cy=".7"><stop offset="0" stop-color="#5a0a2a"/><stop offset="1" stop-color="#0a0006"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#ga)"/><path d="M50 8c8 16 24 22 24 42 0 18-10 34-24 36-16-2-28-14-26-32 1-12 9-18 12-28 2 10 6 14 10 14-2-12 0-22 4-32z" fill="#050305" stroke="#d0105a" stroke-width="3"/><path d="M52 40c4 10 12 16 11 28-1 10-7 16-13 16s-13-6-12-16c1-7 5-10 7-15 2 5 4 7 6 7-1-8 0-14 1-20z" fill="#140812" stroke="#7a0a3a" stroke-width="2"/>`,
+  ...ITACHI_ICONS, // Itachi's kit (uchiha.js)
   log: `<circle cx="50" cy="50" r="50" fill="#6a4a2e"/><rect x="24" y="30" width="52" height="40" rx="18" fill="#b07a48" stroke="#3a2412" stroke-width="3"/><ellipse cx="30" cy="50" rx="8" ry="18" fill="#d9a877" stroke="#3a2412" stroke-width="3"/>`,
 };
 
@@ -77,10 +74,12 @@ export class HUD {
       <div class="h-combo" id="h-combo"><b>0</b><i>HITS</i></div>
       <div class="h-dmg" id="h-dmg"></div>
       <div class="h-lock" id="h-lock"><i></i><i></i><i></i><i></i></div>
-      <div class="h-me">
+      <div class="h-me" id="h-me">
+        <div class="h-theme" id="h-theme"></div>
         <div class="h-port">
-          <svg viewBox="0 0 120 120" class="h-port-frame"><path d="${brushRing(60, 60, 50, 14, 2)}" fill="#0d0908" fill-rule="evenodd"/></svg>
+          <svg viewBox="0 0 120 120" class="h-port-frame" id="h-frame"></svg>
           <div class="h-port-img" id="h-port"></div>
+          <div class="h-eye" id="h-eye"></div>
           <svg viewBox="0 0 120 120" class="h-chakra"><circle cx="60" cy="60" r="46" id="h-chakra" pathLength="100"/></svg>
         </div>
         <div class="h-hpwrap">
@@ -102,6 +101,7 @@ export class HUD {
       hp: $(this.root, '#h-hpb'), chip: $(this.root, '#h-chip'), chakra: $(this.root, '#h-chakra'), arrow: $(this.root, '#h-arrow'),
       subs: $(this.root, '#h-subs'), pips: $(this.root, '#h-pips'), feed: $(this.root, '#h-feed'), board: $(this.root, '#h-board'),
       results: $(this.root, '#h-results'), dead: $(this.root, '#h-dead'), deadT: $(this.root, '#h-dead-t'), port: $(this.root, '#h-port'),
+      me: $(this.root, '#h-me'), theme: $(this.root, '#h-theme'), eye: $(this.root, '#h-eye'), frame: $(this.root, '#h-frame'),
     };
     this.setKit(charOf());
     this.toastEl = $(this.root, '#toast');
@@ -135,8 +135,15 @@ export class HUD {
     this.plates.classList.toggle('cine', on);
   }
 
-  /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G (kits with a third jutsu), R. */
+  /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G (kits with a third jutsu), R; and the
+   *  character's HUD theme (C.hud: 'uchiha' = Sharingan portrait, black flames, red-framed bar and icons). */
   setKit(C) {
+    const uchiha = C.hud === 'uchiha';
+    this.theme = C.hud || '';
+    this.root.classList.toggle('t-uchiha', uchiha);
+    this.el.theme.innerHTML = uchiha ? uchihaFlames() : '';
+    this.el.eye.innerHTML = uchiha ? sharingan() : '';
+    this.el.frame.innerHTML = uchiha ? FRAME : `<path d="${brushRing(60, 60, 50, 14, 2)}" fill="#0d0908" fill-rule="evenodd"/>`;
     const K = C.kit, J = C.jutsu;
     const row = [['tool', 'scroll', ''], ['shuriken', 'shuriken', '1'], [K.jutsu1, 'Q'], [K.jutsu2, 'E'], [K.jutsu3, 'G']]
       .filter(([id]) => id)
@@ -144,7 +151,7 @@ export class HUD {
     row.push(['ult', J[K.ult]?.icon || K.ult, 'R']);
     const el = $(this.root, '#h-skills');
     el.innerHTML = `<div class="h-pips" id="h-pips"><i></i><i></i><i></i></div>${row
-      .map(([id, ico, key]) => `<div class="h-skill ${id === 'ult' ? 'ult' : ''}" data-s="${id}"><svg viewBox="0 0 100 100">${ICONS[ico] || ICONS.scroll}</svg><div class="h-cd"></div><b></b>${key ? `<kbd>${key}</kbd>` : ''}</div>`)
+      .map(([id, ico, key]) => `<div class="h-skill ${id === 'ult' ? 'ult' : ''}" data-s="${id}"><svg viewBox="0 0 100 100">${ICONS[ico] || ICONS.scroll}</svg><div class="h-cd"></div><i class="h-burst"></i><b></b>${key ? `<kbd>${key}</kbd>` : ''}</div>`)
       .join('')}`;
     this.el.pips = $(this.root, '#h-pips');
     this.skills = Object.fromEntries([...el.querySelectorAll('.h-skill')].map((e) => [e.dataset.s, e]));
@@ -153,6 +160,7 @@ export class HUD {
   /** A face portrait of the fighter model, rendered once into the portrait circle. face: metres to raise the view
    *  above the head bone (card.face: Itachi's collar hides everything below his eyes). */
   portrait(renderer, vrm, shadows, face = 0) {
+    if (this.theme === 'uchiha') return; // the Sharingan stands in for the face
     try {
       const url = renderPortrait(renderer, vrm.scene, shadows, {
         w: 256, h: 256, fov: 22,
@@ -413,6 +421,9 @@ export class HUD {
     this.style(this.el.chakra, 'strokeDasharray', `${((c.chakra / C.stats.chakra) * 100).toFixed(1)} 100`);
     const ultReady = (g.gauge?.u || 0) >= 99.5;
     this.el.arrow.classList.toggle('on', ultReady);
+    if (this.el.me._u !== ultReady) this.el.me.classList.toggle('ult', (this.el.me._u = ultReady));
+    const low = this.hpV < 0.3 && hpF > 0;
+    if (this.el.me._l !== low) this.el.me.classList.toggle('low', (this.el.me._l = low));
     this.pipsTo(this.el.subs, g.gauge?.sp ?? 3);
     this.pipsTo(this.el.pips, c.tools ?? C.stats.toolCharges);
     // skill cooldowns (sweeps)
@@ -421,7 +432,16 @@ export class HUD {
       const cd = k === 'ult' ? 1 - (g.gauge?.u || 0) / 100 : cds[k] || 0; // fraction remaining
       const left = k === 'ult' ? 0 : g.jutsu?.cooldownLeft?.(k) || 0;
       this.style(el, '--cd', cd.toFixed(3));
-      el.classList.toggle('ready', cd <= 0.001);
+      const ready = cd <= 0.001;
+      if (el._r !== ready) {
+        // off cooldown: a pop and a ring bursting out (Web Animations on transform/opacity: no layout, compositor)
+        if (ready && el._r === false) {
+          el.animate([{ transform: 'scale(1.14)' }, { transform: 'scale(1)' }], { duration: 280, easing: 'cubic-bezier(.2,1.6,.4,1)' });
+          el.children[2].animate([{ opacity: 0.95, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(1.5)' }], { duration: 480, easing: 'ease-out' });
+        }
+        el._r = ready;
+        el.classList.toggle('ready', ready);
+      }
       const txt = left > 0.05 ? Math.ceil(left) : '';
       if (el._t !== txt) {
         el._t = txt;

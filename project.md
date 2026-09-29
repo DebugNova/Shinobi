@@ -53,8 +53,11 @@ Multiplayer third-person anime ninja arena fighter (Shinobi Striker style). Brie
   the focus lag tightens in proportion so the fighter keeps its framing when sprinting zoomed in. Chrome notches,
   Firefox lines and trackpad deltas normalised. Locked on, the wheel still switches targets. Test:
   scripts/test/zoom.mjs. (A first version narrowed the FOV instead; the owner wanted a real move toward the body.)
-- Lock-on strafing: the legs run toward the travel direction while the chest keeps facing the target; backpedal
-  beyond ~115 degrees; strafing is 15% and backpedalling 30% slower than running. Brackets frame the whole target.
+- Lock-on: the camera frames the target and attacks, guards and aimed jutsu turn to it; movement is exactly the
+  free movement (run 8 m/s, ninja sprint 12 m/s, facing the travel direction, dashes turn you); standing still
+  (no input, skid over, < 3 m/s) turns you to face the target in the fighting stance. Brackets frame the whole target.
+  (It used to strafe: facing the target, 15% / 30% slower sidesteps and backpedals, no sprint: the owner called it
+  walking "like a stupid fellow", 2026-09-29.)
 - Climbing: wall run up any trunk into a branch and you mantle onto it (every branch reachable).
 - Boot screen key art (three in-game shots, scripts/tools/keyart.mjs).
 - Debug: F3 performance overlay, F4 hurtboxes / hitboxes / rewound positions, F6 collider greybox.
@@ -234,8 +237,8 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
   socket keeps order). Invulnerable 0.6 s from the press (`p.escape`, FLAG.invuln). Hidden from frame 5 until the
   crows have gathered (form 26; a late screen still gets >= 0.25 s of gathering). Crows: instanced low-poly birds,
   two-joint flapping wings in the vertex shader, banking; feathers fall on the GPU.
-- **R Amaterasu** (ult): fingers to the right eye, the focus (the world dims and desaturates near him), the eye opens
-  at frame 30 (n:1): the server takes the cone (30 m, 34°, ±8 m, line of sight): `amaterasu:ignite` (40, stagger)
+- **R Amaterasu** (ult): since 2026-09-29 a cinematic on every screen (see "Amaterasu's cinematic" below; before it,
+  the eye opened at frame 30, now the pick is at frame 12 and the flames at 262): the server takes the cone (30 m, 34°, ±8 m, line of sight): `amaterasu:ignite` (40, stagger)
   then `v.burn`: server ticks every 18 frames (25, react none, through invulnerability, substitution and barriers)
   until the flames have taken 50% of max HP (the ignition counted; the last tick is the remainder). A KO or respawn
   puts them out. Black flames: Billows with `black` (ink-black, crimson-violet rims, tall tongues: `stretchK`),
@@ -270,14 +273,21 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
   behind), so from the side it stands up like a body-high smear and from behind two opposite leans cross like brush
   strokes. Fragment: bristle fibres pinned to the arc length (they don't swim as it grows), a ragged torn edge, a round
   tip at the head, a dry-brush tail, fibres fraying at the edges; each point dries `life` s after it was laid
-  (indigo-black, crimson only at the fringes). `release(S, fade)`: the rest dries within `fade` s (its fresh head
-  lingered by the body), added on top of the age: no pop. `line()`: a straight stroke redrawn each frame.
+  (purple-black, crimson at the fringes and bleeding in toward the tail, per-strand alpha). `release(S, fade)`: the
+  rest dries within `fade` s (its fresh head lingered by the body), added on top of the age: no pop.
 - **The dash** (src/game/itachi.js `updateShift`, every Itachi on every screen, from the drawn view: `view.st ===
-  ST.dash`, so it matches the body exactly, remotes included): hidden while dashing; four strands following the body
-  (SHIFT_STRANDS) + two upright camera-facing blots where he is (BLOTS: a vertical path, so the strip turns about it:
-  the body as ink seen from behind); at the start crows out to the sides and up, feathers, an ink splash, aqua sparks,
-  a wing flutter (`audio.crowShift`); on the way ink puffs, aqua sparks (fx kind 6), white speed lines (kind 2),
-  feathers (`inkWake`); at the end the brush lifts and he takes shape in ink drawn in round him (`inkForm`).
+  ST.dash`, so it matches the body exactly, remotes included): hidden while dashing; SHIFT_STRANDS following the body;
+  at the start crows out to the sides and up, feathers, an ink splash, aqua sparks, a wing flutter
+  (`audio.crowShift`); on the way aqua sparks (fx kind 6), white speed lines (kind 2), feathers (`inkWake`); at the
+  end the brush lifts and he takes shape in ink drawn in round him (`inkForm`).
+- **Toned down (2026-09-29, owner's review with a screenshot: "the black thing is too much, overexaggerated", pointing
+  at the reference's single slim streak):** the dash was four strands up to 1.4 m wide (0.2-1.7 m high) + two upright
+  camera-facing ink blots where he was + ~25 dark ink puffs; now **one slim streak** (half width 0.3 at 0.8 m: hips,
+  alpha 0.88, dries in 0.36 s) + a thin dry flick above it (0.09 at 1.22 m), no blots (a slim one left read as a stray
+  stick), dark puffs x0.15 on the way, x0.3 at the start, x0.35 at the re-forming (`ink` share arg of
+  inkWake/inkSplash/inkForm). Crows, feathers, sparks, speed lines unchanged; G's comet and the substitution unchanged
+  (bold on purpose). Colour: purple-black bleeding to crimson toward the tail like the reference. itachi.mjs
+  crow+shift 11/11 at 0 ms and at 200,40,1; mpcombat CH=itachi ALL PASS. Shots: shots/shift/lite_left2, lite_fwd.
 - **G:** the burst adds an ink splash; `crowGather` launches `inkComet`: three strands flying from where he vanished to
   the spot on an arc (up to 3 m high), fast off the mark and easing in as the crows arrive, sub-stepped every 0.5 m
   (a smooth arc at any frame rate), on its own frame clock (on the server clock it outran everything in slow motion);
@@ -458,9 +468,9 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
   second (before the fog); a victim caught in the air gets a floating cross; real hits landed on the victim during it
   are not shown on its own screen (HP still drops, the HUD returns with the right value). Tested with the stand-in as
   the victim (no naruto.vrm yet): re-check the bound pose on the real model (the crossbar follows the wrists).
-- animcheck.mjs: one rare residual spike (13-19 deg on a foot, about 1 run in 3): releasing lock-on mid-backpedal
-  while both feet are in the air and the body turns 180 degrees. Since the gait's swing-follow fix (2026-09-27
-  evening) Sage and Obito passed every run so far.
+- animcheck.mjs: the old rare lock-on-release foot spike (releasing lock-on mid-backpedal) can't happen any more:
+  lock-on no longer backpedals (2026-09-29). The strafe/backpedal code in gait.js stays for velocity that isn't
+  along the facing (turning into a run, knockback slides).
 - M1 strings: the scroll is a prop drawn in the right fist; Sage's model keeps its own scroll on its back while the
   prop is out (the back scroll is baked into the mesh, rigid on the spine: hiding it would need a rig change). The
   Scroll Rush's air half (S4/S5) is aimed at the target S3 launched: after a whiffed S3 the leap and the slam still play
@@ -600,3 +610,84 @@ it is identical on every screen (the tests measure 0.0 cm differences) and a lat
 
 - Characters with their own movesets (Sasuke; Obito has his body already, next his own data file + keyed clips, like
   Madara's kit), team modes, bots, more maps.
+
+## Itachi's HUD theme (2026-09-29, owner's request, from a Shinobi Striker screenshot)
+- A character's data can carry `hud: 'uchiha'` (Itachi has it); HUD.setKit applies the theme (`#hud.t-uchiha`) and
+  its art from src/ui/uchiha.js; other characters keep the ink-brush HUD, unchanged.
+- Portrait: a Sharingan medallion instead of the face render (iris gradient + fibres, three tomoe turning; the Mangekyō
+  fades in and turns the other way while the ultimate is ready, with a pulsing red rim), a black ring with crimson
+  hairlines, the chakra arc on the ring. Black flames with a crimson rim stream off it above and below the bar (four
+  layers: sway, flicker, two of drifting torn-off shards).
+- Health bar: crimson metal frame, dark trough with 10% ticks and gloss, gold fill (red-orange + pulsing red glow
+  under 30%), red chip trail; diamond substitution/tool pips; a red ultimate arrow.
+- Skill icons repainted for his kit (Phoenix Sage Fire's fireball volley, Tsukuyomi's bound figure on the cross
+  before the Mangekyō moon, crows against the moon (the big one with a red eye), Amaterasu's black flames under
+  the Mangekyō) with crimson conic rims, gloss, desaturated while cooling; every character's icons now pop with a
+  ring burst when a cooldown ends.
+- Checked in shots (normal, ult ready, low HP; Naruto's HUD unchanged). Not yet: the owner's review.
+
+## Itachi's eyes + fair skin (2026-09-29, owner's request with a screenshot)
+- **Eyes:** the "translucent eyeballs in front of his eyes" were the game's idle Sharingan billboards (EyeMarks, a faint
+  mark at glow 0.25 over each eye, always on); the model has its own painted Sharingan under them. The marks now show
+  only while the Mangekyō blazes (Tsukuyomi frames 12-44, Amaterasu 14-54, same peak brightness as before);
+  src/game/itachi.js `updateItachi` skips them at glow 0.
+- **Skin:** the source's Skin material (face, ears, toes, the generated hands) was a grey tan (#9e8878) that read dark
+  brown in the toon light; new rig.mjs option `colors` ({ material: '#rrggbb' }, sRGB, applied to the source before
+  the atlas paints its palette cells) sets it in models/itachi.rig.json: #eed0b8 first, still too dark in the owner's
+  game, then #fde9da + shade [0.9, 0.8, 0.82] ("a bit too fair"), so in between: #f5d9c3 + a lighter shade colour
+  for his material, mtoon.shade [0.86, 0.74, 0.76] (the default
+  [0.78, 0.62, 0.66] turned his face brown in the shadow of his hair and collar); itachi.vrm rebuilt (Sage, Madara,
+  Obito rebuild byte-identical). The cloak stays black (it is the Akatsuki cloak).
+- Checked: in-game close-ups (face, eyes at 2x, body); itachi.mjs 36/36 at 0 ms (:3104), 79 programs before/after.
+
+## Lock-on moves like free movement (2026-09-29, owner's request with two screenshots)
+
+Locked on (T), moving left/right only side-stepped at walking pace facing the target; unlocked, the same input gave
+the ninja sprint. Now lock-on never changes movement, for every character (all share Controller.stepMove):
+- the sprint timer runs locked on too (it was blocked; a dash's "carry into the sprint" was also cancelled the next
+  tick), full run/sprint speed (the 15%/30% strafe/backpedal penalties are gone);
+- facing = the travel direction (the gait's normal run and ninja-run arms); dashes turn you toward their direction;
+- standing still locked on (no input, skid over, < 3 m/s) turns you to the target at the normal turn rate (idle
+  corrective steps + fighting stance); attacks, guard and aimed jutsu turn to the target themselves as before.
+- Remotes need nothing: they draw from the synced yaw + velocity (FLAG.lock only adds the idle stance).
+Tests: animcheck ALL PASS (scenario "lock-on run + sprint": 0.00 cm slide, no pops), a trace (locked, hold left:
+8 m/s, then 12 m/s sprint with ninja arms 1.00, facing within 5 degrees of travel; stop: faces the target), film
+strips (shots/lockrun/: Naruto and Itachi), mapwalk PASS, mp.mjs ALL PASS.
+
+## Amaterasu's cinematic (2026-09-29, owner's request, from Shinobi Striker reference shots + two fan paintings)
+
+Itachi's R is now a 5 s cinematic that plays **on every screen at the same moment** (the owner: "visible to everyone,
+at exactly the same time"). Timeline on the server clock from the press (src/game/amaterasu.js `AMA`):
+- 0-0.5 s, in the arena: two fingers to his right eye, the view darkening and draining round him; HUD away, letterbox in.
+- 0.5 s, a cold flash: the **negative world** (light and dark swapped onto teal, the arena past him sunk into smoke, ink
+  specks), a low camera in front of him; his arms fling wide, head bowed; a flock of crows bursts off his back (pale in
+  the negative), feathers drift past the lens; the camera pushes in, then rushes into his face (2.05-2.5 s).
+- 2.47 s, a red flash: **his eyes painted over the view** (a shader, src/gfx/amaterasufx.js): shut, a flutter, opening
+  slowly (3.0-3.6 s); the Sharingan spins up into the Mangekyō with a red shock ring (3.3-3.65 s); veins crawl in, blood
+  wells on the right eye's lower lid and runs down in two streams (3.45-4.3 s), embers rise, black flames lick up the
+  bottom edge; the camera drives into the right pupil (3.9-4.2 s) and **black flames burst out of it** over everything.
+- 4.3 s, under the black: the arena in colour, the camera on a victim (your own body if you were taken); at 4.37 s the
+  flames latch onto everyone taken (every screen at the same instant) and spread over the body from the side facing
+  him; the black burns away in holes with crimson edges (4.42-4.9 s). 5.0 s: a cut back to the game camera, HUD back.
+- **Sync:** who burns is decided at the pick (n:1, frame 12; `a{m:amaterasu,n:1,v:[ids],e}` to everyone incl. the
+  caster) and the server ignites them on its own clock at `e`; each screen lights the flames itself at `e`.
+- **The arena holds still** from frame 12 to 300 on every screen and the server: no input (FROZEN_INPUT), no hit sent
+  or accepted (`hitx why:cinema`), other burns paused; he is untouchable from the press (`p.cine`). One cinematic at a
+  time (another Amaterasu is denied, the gauge kept); it ends if its caster leaves or respawns.
+- The clip `ita_amaterasu` is 312 frames acted for the shots (SPREAD, SINK, STILL, STARE, the release at 262); the
+  white hit flash no longer shows on the black-flame ignition.
+- Audio: hooks only, `audio.amaterasuCine?.(phase)` at start / negative / eyes / open / mangekyo / blood / focus /
+  burst / ignite / end (the owner's voice line and the fire sounds come later).
+- Tests: itachi.mjs `amaterasu` rewritten (14 checks): the same press time on both screens, the victim's screen joins in
+  0.012 s, the negative world and the eyes switch on together on both (0 ms apart), cinema camera + HUD away on both,
+  the victim frozen while holding left and dashing, the flames on both screens 4372 ms after the press (focus 4367),
+  all given back, 79 programs before and after, the victim moves again, exactly 300 of 600 burnt, HP agrees. Review:
+  `scripts/debug/amashots.mjs` (shots/ama*: both screens at the same timeline times; HOLD=1 for exact frames).
+- Performance (scripts/debug/amaspike.mjs, 1080p High, vsync on as players run it): locked at 144 fps (6.9 ms) through the
+  negative world, the painted eyes and the return, the same as idle and as with the effect muted; 0 programs compiled
+  (79 before and after). One 27-35 ms frame at the press of a page's first cast. (Headless vsync-off runs showed 1-2 s
+  frames at the press that no bisect could pin on the cinematic and that vsync never shows: gotcha 63.)
+- Also at 200 ms RTT / 40 jitter / 1% loss (:3102): itachi.mjs amaterasu,tsukuyomi,crow 32/32 (the layers switch on
+  within 2 ms of each other across screens, the flames 4376 / 4373 ms after the press); the full suite 45/45 at 0 ms;
+  mpcombat ALL PASS.
+- Not yet: the owner's review; the audio. (The model has no blink shapes: the eyes' performance is the painted shot.)

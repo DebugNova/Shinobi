@@ -85,10 +85,13 @@ const crow = {
   ],
 };
 
-// Amaterasu (54 f): two fingers of the right hand rise to the right eye (the target is the wrist: the fingertips reach
-// the eye with it at the chin), the head tilting into them (0-12); the focus,
-// the body gathered, the left arm back (12-30); at 30 the hand snaps away and the eye opens on them (the flames), held,
-// then the recovery (36-54)
+// Amaterasu (312 f), acted for its cinematic (src/game/amaterasu.js AMA: every screen films it at the same time).
+// Two fingers of the right hand rise to the right eye (the target is the wrist: the fingertips reach the eye with it at
+// the chin), the head tilting into them, eyes shut (0-24); as the world turns negative the arms fling wide, head bowed,
+// the crows bursting off his back (30-100, the front shot); the arms sink (100-140) and the head comes up level as the
+// camera rushes into his face (126-150); unseen through the painted close-up of his eyes, then the fingers to the eye
+// again (235-255), and at `focus` (262) the hand snaps away and the eye opens on them (the flames), held while the
+// flames take hold, then the recovery (300-312)
 const EYE = {
   h: [0, -0.05, 0], hips: [0, -10, 0], spine: [4, -4, 0], chest: [3, -2, 0], neck: [4, -8, -6], head: [6, -8, -8], ...CALM,
   rh: P(-0.07, 1.33, 0.27, { pole: [-1, -0.8, -0.2], wrist: [10, -20, -20], fingers: [0, 0, 1, 1], thumb: 0.8 }),
@@ -99,15 +102,38 @@ const OPEN = {
   h: [0, -0.07, 0.04], hips: [2, -8, 0], spine: [-4, 0, 0], chest: [-5, 0, 0], neck: [-6, 0, 0], head: [-8, 0, 0], ...CALM,
   rh: P(-0.36, 1.2, 0.36, { pole: [-1, -0.6, 0], open: 0.8, spread: 6 }), lh: P(0.3, 0.92, -0.14, { pole: [1, 0, -0.6], open: 0.4 }),
 };
+// arms flung wide, palms out, the chest open and the head bowed (the reference's first shot); then sinking to the front
+const SPREAD = {
+  h: [0, -0.03, 0], hips: [-2, -4, 0], spine: [-5, 0, 0], chest: [-7, 0, 0], upperChest: [-3, 0, 0], neck: [12, 0, 0], head: [16, 0, 0], ...CALM,
+  lh: P(0.66, 1.3, 0.16, { pole: [0, -1, -0.5], open: 1, spread: 12 }), rh: P(-0.66, 1.3, 0.16, { pole: [0, -1, -0.5], open: 1, spread: 12 }),
+};
+const SINK = {
+  ...SPREAD, spine: [-2, 0, 0], chest: [-3, 0, 0], upperChest: [-1, 0, 0], neck: [10, 0, 0], head: [12, 0, 0],
+  lh: P(0.38, 0.98, 0.3, { pole: [1, -0.4, -0.3], open: 0.8, spread: 8 }), rh: P(-0.38, 0.98, 0.3, { pole: [-1, -0.4, -0.3], open: 0.8, spread: 8 }),
+};
+const STILL = {
+  h: [0, -0.02, 0], hips: [0, -6, 0], spine: [1, 0, 0], chest: [0, 0, 0], neck: [-2, 0, 0], head: [-3, 0, 0], ...CALM,
+  lh: P(0.24, 0.86, 0.06, { pole: [1, 0.1, -0.3], open: 0.35 }), rh: P(-0.24, 0.86, 0.05, { pole: [-1, 0.1, -0.3], open: 0.35 }),
+};
+// the classic gaze: head level, two fingers at the right eye
+const STARE = { ...EYE, h: [0, -0.04, 0], spine: [2, -4, 0], chest: [1, -2, 0], neck: [0, -6, -4], head: [-2, -6, -5] };
 const amaterasu = {
   keys: [
     [0, {}],
     [12, EYE, 'out'],
     [22, { ...FOCUS, rh: P(-0.07, 1.32, 0.28, { pole: [-1, -0.8, -0.2], wrist: [10, -20, -20], fingers: [0, 0, 1, 1], thumb: 0.8 }) }, 'io'],
     [28, FOCUS, 'io'],
-    [30, OPEN, 'snap'],
-    [36, { ...OPEN, h: [0, -0.06, 0.03], head: [-7, 0, 0] }, 'out'],
-    [54, {}, 'io'],
+    [40, SPREAD, 'out'],
+    [96, { ...SPREAD, h: [0, -0.02, 0], chest: [-8, 0, 0], lh: P(0.68, 1.34, 0.12, { pole: [0, -1, -0.5], open: 1, spread: 12 }), rh: P(-0.68, 1.34, 0.12, { pole: [0, -1, -0.5], open: 1, spread: 12 }) }, 'io'],
+    [122, SINK, 'io'],
+    [146, STILL, 'io'],
+    [232, { ...STILL, h: [0, -0.025, 0], head: [-4, 0, 0] }, 'io'],
+    [250, STARE, 'io'],
+    [258, { ...STARE, head: [-3, -6, -5] }, 'io'],
+    [262, OPEN, 'snap'],
+    [270, { ...OPEN, h: [0, -0.06, 0.03], head: [-7, 0, 0] }, 'out'],
+    [298, { ...OPEN, h: [0, -0.05, 0.02], head: [-6, 0, 0] }, 'io'],
+    [312, {}, 'io'],
   ],
 };
 

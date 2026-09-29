@@ -16,6 +16,7 @@ import { Billows } from '../gfx/madarafx.js';
 import { EyeMarks, Crows, Feathers, InkStrokes } from '../gfx/itachifx.js';
 import { SealFx } from '../gfx/tsukuyomifx.js';
 import { TsukuyomiWorld } from './tsukuyomi.js';
+import { AmaterasuCinema } from './amaterasu.js';
 import { segSeg } from './hurtbox.js';
 
 const F = 1 / 60;
@@ -30,14 +31,12 @@ const QUALITY = { low: 0.4, medium: 0.7, high: 1, ultra: 1.3 };
 const CAST_CLIPS = new Set(['ita_fire', 'ita_fire_air', 'ita_tsukuyomi', 'ita_tsukuyomi_air', 'ita_crow', 'ita_amaterasu', 'ita_amaterasu_air']);
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _c1 = new THREE.Vector3(), _c2 = new THREE.Vector3(), _q = new THREE.Quaternion();
 const _prev = new THREE.Vector3(), _dir = new THREE.Vector3(), _nrm = new THREE.Vector3(), _ink = new THREE.Vector3(), _gnd = {};
-// the crow shift's ink: [half width (m), lean, life (s), height above the feet (m)] per strand. A wide body-high smear
-// and a narrower one leaning the other way (from behind they cross like two brush strokes), a thin flick at the
-// shoulders, one low by the legs. The escape's flight: the same, a little bolder.
-const SHIFT_STRANDS = [[0.7, 0.5, 0.5, 0.95], [0.46, -0.6, 0.42, 1.0], [0.17, 0.15, 0.34, 1.5], [0.22, -0.25, 0.3, 0.42]];
-const COMET_STRANDS = [[0.62, 0.5, 0.6, 1.0], [0.4, -0.6, 0.5, 1.05], [0.16, 0.2, 0.42, 1.5]];
-// the body as ink while he dashes: upright strokes facing the camera (a vertical path: the strip turns about it),
-// [half width, lean (its sign: which way it faces), life, lean back (m the top trails the feet)]
-const BLOTS = [[0.32, 1, 0.34, 0.35], [0.19, -1, 0.28, 0.6]];
+// the crow shift's ink: [half width (m), lean, life (s), height above the feet (m), alpha] per strand. The dash: one
+// slim streak at the hips and a thin dry flick above it (the owner's reference: a single ragged stroke, not a mass of
+// black; the first version, body-high strands + upright ink blots where he was, read as overdone). The escape's
+// flight: bolder, it crosses 20 m.
+const SHIFT_STRANDS = [[0.3, 0.45, 0.36, 0.8, 0.88], [0.09, -0.5, 0.26, 1.22, 0.8]];
+const COMET_STRANDS = [[0.62, 0.5, 0.6, 1.0, 1], [0.4, -0.6, 0.5, 1.05, 1], [0.16, 0.2, 0.42, 1.5, 1]];
 const INK = [0.03, 0.024, 0.06]; // ink puffs (normal-blended toon discs)
 const AQUA = [0.35, 1.9, 1.6]; // chakra sparks (HDR: the bloom takes them)
 
@@ -68,7 +67,9 @@ class Cast {
       ctrl.body.vy = Math.max(0, ctrl.body.vy * 0.2);
     }
     ctrl.sprint = false;
-    g.net.act('jutsu', { m, i: this.inst, f: this.air ? 1 : 0, tg: this.target?.id });
+    // (the press on the shared clock: Amaterasu's cinematic runs from it on every screen)
+    this.at = Math.round(g.net.serverNow());
+    g.net.act('jutsu', { m, i: this.inst, f: this.air ? 1 : 0, tg: this.target?.id, at: this.at });
     g.lastFight = performance.now();
   }
 
@@ -107,25 +108,57 @@ class FireAction extends Cast {
   }
 }
 
-/** E and R: the eyes meet the enemies' at `at` (Tsukuyomi's gaze, Amaterasu's focus): phase n:1 with the eyes and facing. */
+/** E: the eyes meet the enemies' at `gaze` (Tsukuyomi): phase n:1 with the eyes and facing. */
 class GazeAction extends Cast {
   constructor(K, ctrl, m) {
     super(K, ctrl, m, ctrl.C.jutsu[m].range + 2);
-    this.at = m === 'tsukuyomi' ? this.D.gaze : this.D.focus;
-    this.clip = m === 'tsukuyomi' ? 'ita_tsukuyomi' : 'ita_amaterasu';
+    this.gazeF = this.D.gaze;
     this.done = false;
-    if (m === 'amaterasu') K.game.audio?.ult?.();
-    else K.game.audio?.handsign?.();
+    K.game.audio?.handsign?.();
   }
 
   anim() {
-    return { clip: this.air ? `${this.clip}_air` : this.clip, t: this.t, key: `igaze${this.inst}` };
+    return { clip: this.air ? 'ita_tsukuyomi_air' : 'ita_tsukuyomi', t: this.t, key: `igaze${this.inst}` };
   }
 
   step(ctrl, input, dt) {
     this.t += dt;
     this.hold(ctrl, dt, !this.done, 11);
-    if (!this.done && this.t >= this.at * F) {
+    if (!this.done && this.t >= this.gazeF * F) {
+      this.done = true;
+      this.K.gaze(ctrl, this);
+    }
+    return this.t < this.D.total * F;
+  }
+}
+
+/**
+ * R: Amaterasu. Its cinematic starts on every screen from the press (amaterasu.js); he turns to the target until the
+ * pick (n:1: his eyes and facing: the server takes the cone and tells everyone who), then acts it out, untouchable
+ * from the press to the cinematic's end (the server keeps the same window). In the air he hangs where he is.
+ */
+class AmaterasuAction extends Cast {
+  constructor(K, ctrl) {
+    super(K, ctrl, 'amaterasu', ctrl.C.jutsu.amaterasu.range + 2);
+    ctrl.invulnUntil = (ctrl.t || K.game.net.serverNow() / 1000) + this.D.cinema[1] * F;
+    if (this.air) {
+      this.physicsOpts = { ...ctrl.opts, gravity: 0, fallMul: 1 };
+      ctrl.body.vy = 0;
+    }
+    this.done = false;
+    K.game.audio?.ult?.();
+    K.cine.start(K.game.net.id, this.inst, this.at, ctrl.C.id);
+  }
+
+  anim() {
+    return { clip: this.air ? 'ita_amaterasu_air' : 'ita_amaterasu', t: this.t, key: `igaze${this.inst}` };
+  }
+
+  step(ctrl, input, dt) {
+    this.t += dt;
+    this.hold(ctrl, dt, !this.done, 11);
+    if (this.air) ctrl.body.vy = 0;
+    if (!this.done && this.t >= this.D.pick * F) {
       this.done = true;
       this.K.gaze(ctrl, this);
     }
@@ -166,7 +199,7 @@ export const ITACHI_CASTS = {
   phoenixFire: { ok: () => true, start: (J, ctrl) => new FireAction(J.itachi, ctrl) },
   tsukuyomi: { ok: () => true, start: (J, ctrl) => new GazeAction(J.itachi, ctrl, 'tsukuyomi') },
   crowEscape: { ok: () => true, start: (J, ctrl) => new CrowAction(J.itachi, ctrl) },
-  amaterasu: { ok: () => true, start: (J, ctrl) => new GazeAction(J.itachi, ctrl, 'amaterasu') },
+  amaterasu: { ok: () => true, start: (J, ctrl) => new AmaterasuAction(J.itachi, ctrl) },
 };
 
 // ---------------------------------------------------------------- the kit
@@ -185,6 +218,7 @@ export class ItachiKit {
     this.shifts = new Map(); // Itachi fighter -> { on, strands, px, pz, dx, dz }: his dash as ink (updateShift)
     this.comets = []; // the escape's ink flights (inkComet)
     this.world = new TsukuyomiWorld(this); // Tsukuyomi's world on its victim's own screen (tsukuyomi.js)
+    this.cine = new AmaterasuCinema(this); // Amaterasu's cinematic, on every screen at once (amaterasu.js)
     this.balls = []; // fireballs in flight (see addBall)
     this.dazed = new Map(); // victim id -> { t0, until } (server ms): the Tsukuyomi mark
     this.burning = new Map(); // victim id -> { t0, last } (server ms, `last`: the last tick heard)
@@ -610,9 +644,9 @@ export class ItachiKit {
    * Ink thrown off where he left (a dash, the escape, a substitution): dark ink puffs flung back from the way he went
    * (dx, dz: unit, or 0 for every way), aqua chakra wisps licking up, a cold flash. k: size.
    */
-  inkSplash(p, dx, dz, k) {
+  inkSplash(p, dx, dz, k, ink = 1) {
     const g = this.game, q = this.quality();
-    for (let n = Math.round(8 * k * q) + 2; n > 0; n--) {
+    for (let n = Math.round((8 * k * q + 2) * ink); n > 0; n--) {
       const a = Math.random() * 6.283, sp = (1.2 + Math.random() * 2.4) * k, h = 0.25 + Math.random() * 1.35;
       g.fx.emit(0, p.x + Math.cos(a) * 0.25, p.y + h, p.z + Math.sin(a) * 0.25, Math.cos(a) * sp - dx * 1.2 * k, 0.6 + Math.random() * 1.4, Math.sin(a) * sp - dz * 1.2 * k, 0.3 + Math.random() * 0.25, 0.25 * k, (0.4 + Math.random() * 0.3) * k, INK[0], INK[1], INK[2]);
     }
@@ -621,9 +655,9 @@ export class ItachiKit {
   }
 
   /** He takes shape out of the ink: dark puffs drawn in round the body, shrinking into it; then aqua licks and a flash. */
-  inkForm(p, k) {
+  inkForm(p, k, ink = 1) {
     const g = this.game, q = this.quality();
-    const n = Math.round(9 * k * q) + 3;
+    const n = Math.round((9 * k * q + 3) * ink);
     for (let i = 0; i < n; i++) {
       const a = (i / n) * 6.283 + Math.random() * 0.5, r = (0.55 + Math.random() * 0.35) * k, h = 0.2 + Math.random() * 1.45;
       // (a puff travels vel * (1 - e^-4t) / 4: ~vel / 6 in its quarter second: from r out, drawn to the body's middle)
@@ -663,10 +697,10 @@ export class ItachiKit {
    * What the ink sheds as it goes, over `dist` metres of the brush's path ending at p (the feet) heading (dx, dz):
    * dark puffs, aqua wisps, white speed lines along the way, feathers.
    */
-  inkWake(p, dx, dz, dist, k = 1) {
+  inkWake(p, dx, dz, dist, k = 1, ink = 1) {
     const g = this.game, q = this.quality() * k;
     const count = (perM) => Math.floor(dist * perM * q + Math.random());
-    for (let n = count(1.4); n > 0; n--) {
+    for (let n = count(1.4 * ink); n > 0; n--) {
       const b = Math.random() * dist;
       g.fx.emit(0, p.x - dx * b + (Math.random() - 0.5) * 0.5, p.y + 0.3 + Math.random() * 1.3, p.z - dz * b + (Math.random() - 0.5) * 0.5, -dx * 1.5 + (Math.random() - 0.5), 0.4 + Math.random() * 0.8, -dz * 1.5 + (Math.random() - 0.5), 0.3 + Math.random() * 0.2, 0.15, 0.3 + Math.random() * 0.2, INK[0], INK[1], INK[2]);
     }
@@ -716,19 +750,13 @@ export class ItachiKit {
     sh.dz = dz;
     sh.strands.length = 0;
     if (quiet) return;
-    for (const [hw, lean, life, dy] of SHIFT_STRANDS) {
-      const S = this.ink.add(hw, lean, life);
+    for (const [hw, lean, life, dy, alpha] of SHIFT_STRANDS) {
+      const S = this.ink.add(hw, lean, life, alpha);
       if (!S) continue;
       S.dy = dy;
       sh.strands.push(S);
       this.ink.push(S, p.x, p.y + dy, p.z);
     }
-    sh.blots = [];
-    for (const [hw, lean, life] of BLOTS) {
-      const S = this.ink.add(hw, lean, life);
-      if (S) sh.blots.push(S);
-    }
-    this.blot(sh, p);
     // crows burst off the spot, out to the sides and up (flyOff keeps them off the camera)
     const side = Math.atan2(dx, -dz);
     for (let n = Math.round(6 * q) + 3; n > 0; n--) {
@@ -736,7 +764,7 @@ export class ItachiKit {
       this.flyOff(p.x + Math.cos(a) * 0.2, p.y + h, p.z + Math.sin(a) * 0.2, Math.cos(a) * sp, 4 + Math.random() * 3.5, Math.sin(a) * sp, 0.75 + Math.random() * 0.6, 0.65);
     }
     this.feathers.puff(p.x, p.y + 1.0, p.z, Math.round(12 * q) + 3, 0.7, 3.2);
-    this.inkSplash(p, dx, dz, 0.85);
+    this.inkSplash(p, dx, dz, 0.7, 0.3);
     g.audio?.crowShift?.(f === g.player ? null : p);
   }
 
@@ -752,28 +780,16 @@ export class ItachiKit {
       sh.dz = mz / d;
     }
     for (const S of sh.strands) this.ink.push(S, p.x, p.y + S.dy, p.z);
-    this.blot(sh, p);
     // (a jump in the stream, e.g. a correction, isn't a stretch of path)
-    if (d < 1.5) this.inkWake(p, sh.dx, sh.dz, d);
+    if (d < 1.5) this.inkWake(p, sh.dx, sh.dz, d, 0.85, 0.15);
   }
 
   /** The dash ends: the brush lifts (the ink dries out behind him) and he takes shape at its head. */
   shiftEnd(f, sh, quiet) {
     sh.on = false;
     for (const S of sh.strands) this.ink.release(S);
-    for (const S of sh.blots || []) this.ink.release(S);
     sh.strands.length = 0;
-    sh.blots = null;
-    if (!quiet && !f.dead) this.inkForm(f.pos, 0.8);
-  }
-
-  /** His body as ink: upright brush strokes where he is, leaning back from the way he goes (they dry where he re-forms). */
-  blot(sh, p) {
-    let k = 0;
-    for (const S of sh.blots || []) {
-      const back = BLOTS[k++][3];
-      this.ink.line(S, p.x + sh.dx * 0.1, p.y + 0.05, p.z + sh.dz * 0.1, p.x - sh.dx * back, p.y + 1.85, p.z - sh.dz * back);
-    }
+    if (!quiet && !f.dead) this.inkForm(f.pos, 0.7, 0.35);
   }
 
   /** Where the escape's ink is at eased progress e: along the line, lifted into an arc (the body's middle at both ends). */
@@ -787,8 +803,8 @@ export class ItachiKit {
     if (this.world.S?.on) return;
     const d = Math.hypot(to[0] - from.x, to[2] - from.z);
     const C = { from: [from.x, from.y, from.z], to: [to[0], to[1], to[2]], t: 0, dur: Math.max(dur, 0.06), e: 0, arc: Math.min(3, 0.6 + d * 0.1), len: Math.hypot(d, to[1] - from.y), strands: [] };
-    for (const [hw, lean, life, dy] of COMET_STRANDS) {
-      const S = this.ink.add(hw, lean, life);
+    for (const [hw, lean, life, dy, alpha] of COMET_STRANDS) {
+      const S = this.ink.add(hw, lean, life, alpha);
       if (!S) continue;
       S.dy = dy;
       C.strands.push(S);
@@ -880,8 +896,13 @@ export class ItachiKit {
       if (D && m.v === g.net.id) this.world.breakAt(now);
     }
     if (id === 'amaterasu:ignite') {
-      this.burning.set(m.v, { t0: now, last: now });
-      this.igniteFx(m.v);
+      // (the cinematic already lit it at the focus on this screen: the hit just brings the damage)
+      const b = this.burning.get(m.v);
+      if (b?.lit && now - b.lit < 3000) b.last = now;
+      else {
+        this.burning.set(m.v, { t0: now, last: now });
+        this.igniteFx(m.v);
+      }
     } else if (id === 'amaterasu:burn') {
       const b = this.burning.get(m.v);
       if (b) b.last = now;
@@ -889,10 +910,24 @@ export class ItachiKit {
     }
   }
 
-  igniteFx(id) {
-    const g = this.game, B = this.body(id), q = this.quality();
+  /**
+   * The cinematic's flames take hold (every screen at the focus, server clock): black fire blooms on the side of the
+   * body facing him and spreads over it (updateBurning); the server's hitr brings the damage a moment later.
+   */
+  latch(id, from) {
+    const now = this.game.net.serverNow(), B = this.body(id);
     if (!B) return;
     const c = B.hurt?.center || _v.set(B.pos.x, B.pos.y + 1, B.pos.z);
+    const dx = from.x - c.x, dz = from.z - c.z, l = Math.hypot(dx, dz) || 1;
+    const o = new THREE.Vector3(c.x + (dx / l) * 0.22, c.y + 0.25, c.z + (dz / l) * 0.22);
+    this.burning.set(id, { t0: now, last: now, lit: now, latch: o });
+    this.igniteFx(id, o, 1.5);
+  }
+
+  igniteFx(id, at = null, k = 1) {
+    const g = this.game, B = this.body(id), q = this.quality() * k;
+    if (!B) return;
+    const c = at || B.hurt?.center || _v.set(B.pos.x, B.pos.y + 1, B.pos.z);
     for (let n = 0; n < Math.round(24 * q) + 4; n++) {
       const u = Math.random() * 2 - 1, a = Math.random() * 6.283, s = Math.sqrt(1 - u * u), sp = 2 + Math.random() * 4;
       this.black.puff(c.x, c.y, c.z, Math.cos(a) * s * sp, u * sp * 0.6 + 2, Math.sin(a) * s * sp, 0.35 + Math.random() * 0.25, 0.16, 0.3 + Math.random() * 0.15, 1, 0, 3);
@@ -968,12 +1003,16 @@ export class ItachiKit {
       }
       const caps = B.hurt?.caps;
       if (!caps?.length) continue;
-      // (a fading start and end: the ignition swells them in)
-      const k = ss(0, 0.3, (now - b.t0) / 1000);
+      // (a fading start and end: the ignition swells them in; latched by the cinematic they spread out over the body
+      // from where his gaze met it, ~3 m/s)
+      const age = (now - b.t0) / 1000;
+      const k = b.latch ? ss(0, 0.12, age) * 1.3 : ss(0, 0.3, age);
+      const reach = b.latch ? 0.12 + age * 3 : 1e9;
       for (let n = Math.floor(dt * 80 * q * k + Math.random()); n > 0; n--) {
         const c = caps[(Math.random() * caps.length) | 0], t = Math.random();
         const u = Math.random() * 2 - 1, a = Math.random() * 6.283, s = Math.sqrt(1 - u * u), rr = c.r * (0.5 + Math.random() * 0.6);
         const x = c.a.x + (c.b.x - c.a.x) * t + Math.cos(a) * s * rr, y = c.a.y + (c.b.y - c.a.y) * t + u * rr, z = c.a.z + (c.b.z - c.a.z) * t + Math.sin(a) * s * rr;
+        if (reach < 3 && Math.hypot(x - b.latch.x, y - b.latch.y, z - b.latch.z) > reach) continue;
         this.black.puff(x, y, z, (Math.random() - 0.5) * 0.6, 3.2 + Math.random() * 3.2, (Math.random() - 0.5) * 0.6, 0.22 + Math.random() * 0.22, 0.09 + Math.random() * 0.06, 0.05 + Math.random() * 0.1, 1, 0, 3);
       }
       // taller tongues off the shoulders and head, a pool of it round the feet
@@ -1011,14 +1050,16 @@ export class ItachiKit {
       const fr = on ? act.t * 60 : -1, clip = on ? act.clip.replace('_air', '') : '';
       const S = on ? this.stateOf(f, act.key) : this.per.get(f);
       const hit = (x) => S && S.last < x && fr >= x;
-      // the eyes: a faint Sharingan always; the Mangekyō blazing through the gazes
-      let glow = 0.25, mangekyo = false;
+      // the eyes: the Mangekyō blazing through the gazes only (the model has its own Sharingan; an idle faint mark
+      // over it read as translucent eyeballs in front of his face)
+      let glow = 0, mangekyo = false;
       if (clip === 'ita_tsukuyomi') {
-        glow = 0.25 + 1.2 * ss(12, 18, fr) * (1 - ss(36, 44, fr));
+        glow = 1.45 * ss(12, 18, fr) * (1 - ss(36, 44, fr));
         mangekyo = fr >= 12;
       } else if (clip === 'ita_amaterasu') {
-        glow = 0.25 + 1.4 * ss(14, 30, fr) * (1 - ss(40, 54, fr));
-        mangekyo = fr >= 14;
+        // (the cinematic shows the eyes waking in close-up; back in the arena they blaze as the flames take)
+        glow = 1.65 * ss(246, 262, fr) * (1 - ss(292, 312, fr));
+        mangekyo = fr >= 246;
       }
       // hidden while he is crows: from the vanish until they have gathered at the spot and the re-forming frame
       let hidden = false;
@@ -1038,7 +1079,7 @@ export class ItachiKit {
       hidden ||= shifting;
       f.root.visible = !hidden;
       f.visible = !hidden;
-      if (!hidden && !f.dead && LODnear(f, g.camera)) {
+      if (glow > 0.01 && !hidden && !f.dead && LODnear(f, g.camera)) {
         this.eyes(f, C, _v, _c1, _c2);
         const size = mangekyo ? 0.022 : 0.016;
         for (const e of [_c1, _c2]) this.marks.set(e.x, e.y, e.z, size, -1, clamp(glow, 0, 1), this.time * (mangekyo ? 3 : 1.2), glow);
@@ -1061,13 +1102,7 @@ export class ItachiKit {
         if (clip === 'ita_amaterasu' && hit(C.jutsu.amaterasu.focus)) this.gazeFx(f, C, 'amaterasu');
         S.last = fr;
       }
-      // the gaze reaches everyone near: the view dims and drains of colour round Amaterasu's focus; the caster's own
-      // screen pulses red as Tsukuyomi takes hold
-      if (clip === 'ita_amaterasu') {
-        const k = ss(20, 30, fr) * (1 - ss(32, 50, fr)) * this.nearness(f.pos, 30);
-        g.post.grade.sat -= 0.55 * k;
-        g.post.grade.bright -= 0.07 * k;
-      }
+      // the caster's own screen pulses red as Tsukuyomi takes hold (Amaterasu's grades are its cinematic's)
       if (local && clip === 'ita_tsukuyomi') g.post.genjutsu.amt = Math.max(g.post.genjutsu.amt, 0.28 * ss(17, 19, fr) * (1 - ss(19, 30, fr)));
     };
     each(g.player, g.ctrl?.C, true);
@@ -1077,7 +1112,6 @@ export class ItachiKit {
       if (seen.has(f)) continue;
       // (gone from the arena mid-dash: the brush lifts)
       for (const S of sh.strands) this.ink.release(S);
-      for (const S of sh.blots || []) this.ink.release(S);
       this.shifts.delete(f);
     }
   }
@@ -1097,8 +1131,12 @@ export class ItachiKit {
       const clip = m.m === 'tsukuyomi' ? 'ita_tsukuyomi' : 'ita_amaterasu';
       if (!m.n) {
         r.act = { clip: m.f ? `${clip}_air` : clip, sv: true, at: m.at, key: `igaze${m.i}`, dur: D.total * F, pause: 0 };
-        if (m.m === 'amaterasu') g.audio?.ult?.(r.fighter?.pos);
-      }
+        if (m.m === 'amaterasu') {
+          g.audio?.ult?.(r.fighter?.pos);
+          // (every screen films it from the press, on the server clock)
+          if (D.cinema) this.cine.start(m.id, m.i, m.at, r.info.ch);
+        }
+      } else if (m.m === 'amaterasu' && m.n === 1) this.cine.pick(m);
     } else if (m.m === 'crowEscape') {
       if (!m.n) {
         r.act = { clip: 'ita_crow', sv: true, at: m.at, key: `icrow${m.i}`, dur: D.total * F, pause: 0 };
@@ -1122,14 +1160,18 @@ export class ItachiKit {
     return true;
   }
 
-  /** Our own cast's phase coming back (the crow teleport is broadcast to its sender too): already done here. */
-  onOwn() {}
+  /** Our own cast's phase coming back from the server (the crow teleport: already done here; Amaterasu's pick: who burns). */
+  onOwn(m) {
+    if (m.m === 'amaterasu' && m.n === 1) this.cine.pick(m);
+  }
 
   /** The server refused one of our casts: the action stops (a hidden body shows again). */
   onDeny(m) {
     if (m.k !== 'jutsu' || !ITACHI_CASTS[m.m]) return;
     const g = this.game, a = g.ctrl?.action;
     if (a && a.inst === m.i && a.K === this) g.ctrl.action = null;
+    // (a refused Amaterasu: another's cinematic was playing, or no gauge; ours never starts)
+    if (this.cine.S?.id === g.net.id && this.cine.S.inst === m.i) this.cine.end();
     if (g.player) {
       g.player.root.visible = true;
       g.player.visible = true;
@@ -1153,6 +1195,7 @@ export class ItachiKit {
     this.updateItachi(dt);
     this.updateDazed(now);
     this.world.update(dt, now);
+    this.cine.update(dt, now);
     this.updateBurning(now, dt);
     this.marks.end();
     this.seal.end();
