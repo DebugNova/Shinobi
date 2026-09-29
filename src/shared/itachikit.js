@@ -27,10 +27,15 @@ export function inGaze(J, o, d, p, r = 0.34) {
  * walkable ground (not inside anything, not over a drop, not in the river, inside the arena, near his height). Scored
  * by how far it is from the nearest enemy and whether enemies can see it (out of sight counts as 6 m more), plus a
  * little randomness (`rand`: () => 0..1) so it isn't predictable. enemies: [{ x, y, z }]. Returns [x, y, z] or null.
+ * (Nowhere free on those rings, e.g. backed against the arena's edge or a cliff: rings at half the distance.)
  */
 export function escapeSpot(world, J, from, enemies, rand = Math.random) {
   const [d0, d1] = J.dist;
-  const N = 20, a0 = rand() * Math.PI * 2;
+  return ringSpot(world, from, enemies, rand, d0, d1) || ringSpot(world, from, enemies, rand, d0 / 2, d1 / 2);
+}
+
+function ringSpot(world, from, enemies, rand, d0, d1) {
+  const N = Math.max(20, Math.round(d1 * 1.6)), a0 = rand() * Math.PI * 2;
   let best = null, bs = -Infinity;
   for (let ring = 0; ring < 3; ring++) {
     const rad = d0 + ((d1 - d0) * ring) / 2;

@@ -147,7 +147,8 @@ class Game {
 
     // ---- more fighter instances behind the loading screen (a join never parses a VRM mid-fight): enough of every
     // character for a full room of it
-    for (const e of this.chars.values()) await e.model.warm(NET.maxPlayers + 1);
+    // (+1 for a Tsukuyomi caster's body: its victim's genjutsu draws both stand-ins from these pools)
+    for (const e of this.chars.values()) await e.model.warm(NET.maxPlayers + 1 + (e.C.jutsu.tsukuyomi ? 1 : 0));
     await this.jutsu.warmClones(4);
 
     // ---- gameplay objects
@@ -514,6 +515,7 @@ class Game {
         this.ctrl?.reset(m.p, m.yaw);
         this.player?.snap(m.p[0], m.p[1], m.p[2], m.yaw);
         this.cam.reset(m.p[0], m.p[1], m.p[2], m.yaw);
+        this.jutsu.itachi.world.abort(); // (a respawn ends a Tsukuyomi on this screen at once)
       } else {
         const r = this.remotes.get(m.id);
         if (r) {
@@ -643,6 +645,7 @@ class Game {
     for (const r of this.remotes.values()) fighter(r.fighter);
     if (this.jutsu) for (const c of this.jutsu.clones) if (!c.gone) fighter(c.f);
     this.jutsu?.madara.casters(add); // Madara's stakes (and the meteor) while they stand
+    this.jutsu?.itachi.world.casters(add); // Tsukuyomi's cross and its two stand-ins (while it stands in the arena)
     if (this.dummy) add(this.dummy.root, this.dummy.pos.x, this.dummy.pos.y + 1, this.dummy.pos.z, 1.4);
     if (this.logs) for (const L of this.logs.pool) if (L.m.visible) add(L.m, L.m.position.x, L.m.position.y, L.m.position.z, 0.9);
     out.length = n;
@@ -769,9 +772,11 @@ class Game {
     if (this.studio) this.studioCam();
     else this.cam.update(dt, this.player.pos, { sprint: c.sprint, dash: c.st === ST.dash, wall: c.wall });
     this.cam.lock = c.lockTarget;
+    // (inside Tsukuyomi's world the view is the genjutsu's: its camera, the real fighters hidden)
+    const tw = this.jutsu.itachi.world, inWorld = tw.late(this.camera);
     this.sky.update(dt, this.camera);
     this._focus ||= new THREE.Vector3();
-    updateToon(this.sky.sun, this.camera, this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
+    updateToon(this.sky.sun, this.camera, inWorld ? tw.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
     this.art.update(dt, this.fx);
     if (this.debug) {
       const hurts = (this._hurts ||= []);
@@ -883,6 +888,7 @@ class Game {
         r.motion.push(this.net.renderTime() - 1, [m.p[0], m.p[1], m.p[2], 0, 0, 0, r.fighter?.yaw || 0, ST.loco, 0, 0]);
         r.fighter?.snap(m.p[0], m.p[1], m.p[2], r.fighter.yaw);
         this.fx.poof({ x: m.p[0], y: m.p[1], z: m.p[2] }, 0.8);
+        this.jutsu.itachi.onSub(C, { x: f[0], y: f[1], z: f[2] }, { x: m.p[0], y: m.p[1], z: m.p[2] });
         this.audio.poof({ x: f[0], y: f[1], z: f[2] });
         break;
       }

@@ -129,6 +129,12 @@ export class HUD {
     this.root.classList.toggle('hidden', !on);
   }
 
+  /** Cinematic: the HUD and the nameplates fade out (Tsukuyomi's world on its victim's screen) and back. */
+  cinema(on) {
+    this.root.classList.toggle('cine', on);
+    this.plates.classList.toggle('cine', on);
+  }
+
   /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G (kits with a third jutsu), R. */
   setKit(C) {
     const K = C.kit, J = C.jutsu;

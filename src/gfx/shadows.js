@@ -42,6 +42,7 @@ export class ShadowCache {
 
   /** Drops the cached static maps (e.g. static shadow casters were added or removed). */
   invalidate() {
+    this.gen = (this.gen || 0) + 1; // (counted: Tsukuyomi's world hides the arena and redraws it if this happened meanwhile)
     for (const e of this.entries.values()) e.valid = false;
   }
 

@@ -37,7 +37,9 @@ export function bot(URL, i, NB, center) {
     const y = g.y + (jump ? Math.sin((((t + i) % 4) / 0.6) * Math.PI) * 1.4 : 0);
     const vx = -Math.sin(a) * R * w * (i % 2 ? 1 : -1), vz = Math.cos(a) * R * w * (i % 2 ? 1 : -1);
     const yaw = Math.atan2(-vx, -vz);
-    ws.send(JSON.stringify({ t: 's', s: [x, y, z, vx, 0, vz, yaw, jump ? 1 : 0, 0, 1], n: B.seq }));
+    // BOT_DASH=1: a dash state 0.28 s of every 1.2 s (Itachi's crow shift draws its ink for each: the worst case)
+    const dash = process.env.BOT_DASH && !jump && (t + i * 0.2) % 1.2 < 0.28;
+    ws.send(JSON.stringify({ t: 's', s: [x, y, z, vx, 0, vz, yaw, jump ? 1 : dash ? 2 : 0, 0, 1], n: B.seq }));
     // an attack now and then (remotes play the clip)
     if (++B.n % 20 === i) ws.send(JSON.stringify({ t: 'a', k: 'atk', m: MOVES[B.n % MOVES.length], i: B.n, at: Date.now() + B.off }));
   }, 1000 / 30);

@@ -1173,9 +1173,10 @@ export class MadaraKit {
         S.last = -1;
         S.seed = Math.random() * 10;
       }
-      // the fan: in the hand from the grab to the release (a few frames of blend each way)
+      // the fan: in the hand from the grab to the release; the fist holds it just as it rides on his back at both
+      // (madaramoves.js), so the hand-over is short and centred on the frame the hand closes / opens
       let w = 0;
-      if (on) w = ss(D.grab, D.grab + 4, fr) * (1 - ss(D.release - 4, D.release, fr));
+      if (on) w = ss(D.grab - 1, D.grab + 1, fr) * (1 - ss(D.release - 3, D.release, fr));
       else if (G.w > 0.05) {
         // cut short with the fan out: it goes back in a puff of smoke
         g.fx.poof(G.point(0, 0, 0, _v).setY(_v.y - 0.8), 0.45);

@@ -9,6 +9,7 @@
 // No lights are added (programs are keyed by lights: gotcha 17); every glow is emissive + bloom.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { VRMSpringBoneCollider, VRMSpringBoneColliderShapePlane } from '@pixiv/three-vrm';
 
 const NOISE = /* glsl */ `
   float mh3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -692,13 +693,21 @@ export class Debris {
 
 // The gunbai: public/assets/props/gunbai.glb ("Madara-Uchiha gunbai" by Madara.Uchiha.supreme, CC BY 4.0; source
 // models/gunbai.glb). Prop frame, metres: +y along the handle toward the head, origin at the neck (where the paddle
-// meets the handle), +z the face's normal, +x across the face. `len`: overall length; `grip`: the fist's place below
-// the neck; `back`: where it rides on his back, in the upper chest's frame (VRM normalized: +z forward, +x his left):
-// the neck behind the shoulder blades, the paddle leaning up over his left shoulder, the handle down to his right
-// hip (where the right hand finds it), the tomoe face to the back.
+// meets the handle), +z the face's normal, +x across the face; the paddle is 13 mm thick at most (6.7 mm on the -z
+// side, the wrapping 13 mm), the handle 9 mm in radius. `len`: overall length; `grip`: the fist's place below the
+// neck; `back`: where it rides on his back, in the upper chest's frame (VRM normalized: +z forward, +x his left):
+// carried like a sword, head down: the neck at the shoulder blades, the paddle hanging down his back over the hair
+// toward his left hip (18 degrees), the handle rising past his right shoulder (where the right hand finds it), the
+// tomoe face to the back. The paddle's inner face rests on the hair (its back surface measured on the model: z -0.23
+// to -0.27 from 0.9 to 1.45 m, thinning to the robe's -0.14 at 0.75 m), leaning in a little at the bottom.
+// `hair`: how far in front of the fan's mid-plane the hair's spring joints are held, at two points down the paddle
+// ([prop y, metres]): the mane's spikes stand up to 11 cm behind its joints at the shoulder blades but 3 cm at its
+// tail, so the plane leans (deep where the hair is thick, shallow where it is thin: the hips' collider leaves the tail
+// ~8 cm, the chest's ~15; measured with scripts/debug/gunbai.mjs, a flat 7.5 cm still let 10-24 spike tips through).
 export const GUNBAI = {
   url: '/assets/props/gunbai.glb', len: 1.12, grip: 0.27,
-  back: { p: [0.02, -0.12, -0.27], up: [0.26, 1, -0.02], face: [0, 0, -1] },
+  back: { p: [-0.03, 0.11, -0.275], up: [0.309, -0.951, 0.1], face: [0, 0, -1] },
+  hair: [[0.15, 0.125], [0.6, 0.07]],
 };
 let gunbaiGeo = null;
 
@@ -770,6 +779,9 @@ gunbaiBack();
  * One Madara's gunbai: a child of his fighter's root, placed every frame from his bones (after their world matrices
  * are up to date): on his back (the upper chest's frame) at w = 0, in the right fist at w = 1 (the handle through
  * the closed fingers, measured from that body's own finger bones), blended in between (the grab, the release).
+ * While it rides on his back it is also a spring-bone collider for his hair (a plane under the paddle's inner face,
+ * on the upper chest), so a swinging mane drapes against the fan instead of passing through it; once the fan leaves
+ * his back the plane backs away (and eases back in on the release: the hair is pressed down, never snapped).
  */
 export class Gunbai {
   constructor(mat) {
@@ -780,14 +792,30 @@ export class Gunbai {
     this.fist = new THREE.Vector3(); // the grip point in the hand bone's space
     this.gripQ = new THREE.Quaternion(); // the prop's frame in the hand bone's space
     this.w = 0;
+    this.shape = new VRMSpringBoneColliderShapePlane({ offset: new THREE.Vector3(), normal: new THREE.Vector3(0, 0, -1) });
+    this.collider = new VRMSpringBoneCollider(this.shape);
+    this.colliders = { name: 'gunbai', colliders: [this.collider] };
+    this.joints = [];
+    this.hairAt = [0, 0];
   }
 
   attach(fighter) {
     if (this.fighter === fighter) return;
+    if (this.fighter) this.detach();
     const H = fighter.vrm.humanoid;
     this.fighter = fighter;
     this.hand = H.getRawBoneNode('rightHand');
     this.chest = H.getNormalizedBoneNode('upperChest') || H.getNormalizedBoneNode('chest');
+    // the hair collider rides on the chest in the back mount's frame (the normalized bone: the same frame `pose` uses)
+    this.collider.position.copy(BACK_P);
+    this.collider.quaternion.copy(BACK_Q);
+    this.chest.add(this.collider);
+    this.joints = [...(fighter.vrm.springBoneManager?.joints || [])];
+    for (const j of this.joints) j.colliderGroups.push(this.colliders);
+    // the plane through GUNBAI.hair's two limits (joint centres; the joints' own radius taken off)
+    const [[y0, d0], [y1, d1]] = GUNBAI.hair, r = this.joints[0]?.settings.hitRadius || 0, k = (d0 - d1) / (y1 - y0);
+    this.shape.normal.set(0, k, -1).normalize();
+    this.hairAt = [y0, -(d0 - r)];
     // the grip frame: the handle runs pinky -> index through the middle of the fist, the face opens toward where the
     // knuckles point
     const I = H.getRawBoneNode('rightIndexProximal').position, Lp = H.getRawBoneNode('rightLittleProximal').position, M = H.getRawBoneNode('rightMiddleProximal').position;
@@ -802,6 +830,12 @@ export class Gunbai {
 
   detach() {
     this.mesh.removeFromParent();
+    this.collider.removeFromParent();
+    for (const j of this.joints) {
+      const i = j.colliderGroups.indexOf(this.colliders);
+      if (i >= 0) j.colliderGroups.splice(i, 1);
+    }
+    this.joints = [];
     this.fighter = null;
   }
 
@@ -830,6 +864,11 @@ export class Gunbai {
     const m = this.mesh;
     m.matrixWorld.compose(_gp, _gq, _one);
     m.matrix.copy(this.fighter.root.matrixWorld).invert().multiply(m.matrixWorld);
+    // the hair's plane: under the inner face while on his back, backing off as the hand takes the fan (gone once it
+    // is in the hand), sweeping in over the release's last frames (a hair behind it is pressed forward, not popped)
+    this.collider.position.copy(BACK_P);
+    this.collider.quaternion.copy(BACK_Q);
+    this.shape.offset.set(0, this.hairAt[0], this.hairAt[1] + (w >= 1 ? 100 : w * 0.6));
   }
 
   /** A point of the prop (prop frame, e.g. the top of the paddle) in world space, as last drawn. */

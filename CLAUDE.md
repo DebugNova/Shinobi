@@ -7,22 +7,19 @@ here too). The owner cares most about how it looks, how smooth it runs, how perf
 feel + exact hitboxes, 3. sync, 4. frame rate, 5. map beauty, 6. UI. Full brief `shinobi-game-prompt.md`; status, milestones, known issues `project.md`; player-facing
 `README.md`; the owner's asset checklist (VRoid Naruto + Mixamo clips) `ASSETS.md`.
 
-**Standing rules from the owner:** after every successful change, update CLAUDE.md (+ docs/gotchas.md), project.md and README.md. Keep CLAUDE.md **under 250 lines**
-(condense, never drop information). Commit only when the owner asks. Never kill a process on a port without asking (the owner may run ARMORY on 3000 and this on 3100).
+**Standing rules from the owner:** after EVERY successful change update CLAUDE.md, project.md, README.md, docs/gotchas.md (what broke) and docs/visuals.md (HOW each
+animation/effect/visual was built: the owner wants the techniques on record). CLAUDE.md **under 250 lines** (condense, never drop info). Commit only when asked. Never kill a process on a port without asking (the owner may run ARMORY on 3000 and this on 3100).
 
 ## Commands
 
 ```bash
 npm install; npm start    # vite build + node server/index.js on :3100 (how the owner plays);  npm run serve: server only (serves dist/)
-npm run dev               # server :3100 + Vite HMR :5174 (/ws and /api proxied);  npm run build: client -> dist/;  build:test: client -> dist-test/ (tests never touch
-                          dist/)
+npm run dev               # server :3100 + Vite HMR :5174 (/ws, /api proxied);  npm run build: client -> dist/;  build:test: -> dist-test/ (tests never touch dist/)
 npm run share             # public https link: cloudflared quick tunnel over HTTP/2 (keep --protocol http2!)
 npm run deploy            # upload + build + pm2 restart on the VPS (https://shinobi.185-2-49-69.sslip.io); kicks live players
-npm run anims             # mixamo/*.fbx (+ mixamo/base/armory-humanoid.json) -> public/assets/anims/clips.json;  npm run fonts: re-download the Google Fonts into
-                          public/assets/fonts (no CDN at runtime)
+npm run anims             # mixamo/*.fbx (+ mixamo/base/armory-humanoid.json) -> public/assets/anims/clips.json;  npm run fonts: Google Fonts -> public/assets/fonts (no CDN)
 npm run rig -- models/naruto_sage.rig.json   # unrigged T-pose .glb -> game-ready .vrm (public/assets/characters/sage.vrm)
-npm run test:mp           # 2 headless Chrome clients vs a test server on :3101;  test:mp-lag: same vs SHINOBI_LAG=200,40,1 on :3102;  test:chars: names + character
-                          select (2 clients, :3101)
+npm run test:mp           # 2 headless Chrome clients vs a test server on :3101;  test:mp-lag: same vs SHINOBI_LAG=200,40,1 on :3102;  test:chars: names + picks (:3101)
 node scripts/test/<t>.mjs <url>   # mpcombat, kovis (:3104), perf (:3101 5 6), animcheck, zoom, chars, mp; mapwalk.mjs needs no server (see Testing)
 ```
 
@@ -39,9 +36,9 @@ node scripts/test/<t>.mjs <url>   # mpcombat, kovis (:3104), perf (:3101 5 6), a
 ## Layout
 
 - `index.html` Boot screen (inline markup/CSS/script: paints before the bundle; window.BOOT API), title, HUD roots.
-- `server/index.js` Static server (dist/, gzip cached in memory) + /api/status + the WebSocket room at /ws: join (auto names "Naruto", "Naruto 2"...), states (seq rule,
-  sanity clamp), actions (relayed with the owner's start time), hits (validated in combat.js), HP, KOs, assists, respawns (farthest spawn), sub pips, ult gauge, match
-  loop (warmup -> live 5:00 -> results 10 s -> live), ghosts.
+- `server/index.js` Static server (dist/, gzip in memory), /api/status, WebSocket room /ws: join (auto names "Naruto", "Naruto 2"...), states (seq rule, sanity
+  clamp), actions (relayed with the owner's start time), hits (validated in combat.js), HP, KOs, assists, respawns (farthest spawn), sub pips, ult gauge, match loop
+  (warmup -> live 5:00 -> results 10 s -> live), ghosts.
 - `server/combat.js` Per-fighter history (rewind), action instances, reactions as deterministic flights, invulnerability windows, hit validation (window, reach, LOS, dup,
   invuln at the hit time). server/lag.js: SHINOBI_LAG simulation (ordered delay lines per socket and direction).
 - `src/shared/` Client AND server (pure JS, no three.js): config.js (PORT, SIM (60 Hz), NET, MATCH, PALETTE, ST state ids, FLAG bits, SURF ids); naruto.js (THE data file
@@ -60,7 +57,7 @@ node scripts/test/<t>.mjs <url>   # mpcombat, kovis (:3104), perf (:3101 5 6), a
   material variants), remote.js (RemoteMotion: stream interpolation), camera.js (third-person spring arm + wheel zoom), input.js (KB/M + gamepad, buffering), net.js,
   combat.js (attack/guard/charge/reaction actions, hit detection on the clip, predicted feedback, hitr/hitx, substitution), hurtbox.js (capsules, swept tests), jutsu.js
   (shuriken, Rasengan, Shadow Clone Rush, Rasenshuriken: actions, projectiles, clones), madara.js (Madara's kit: casts, area hits, gunbai + wind barrier, meteor), itachi.js
-  (Itachi's kit: fireballs, gazes, crow escape, marks, burning), dummy.js (training dummy + substitution logs), audio.js (procedural Web Audio).
+  (Itachi's kit: fireballs, gazes, crows, marks, burning, capture seals), tsukuyomi.js (the victim's Tsukuyomi world), dummy.js (dummy + sub logs), audio.js (Web Audio).
 - `src/char/` rig.js (normalized humanoid rig, Pose buffers, FK, two-bone IK), posekit.js (pose helpers), gait.js (procedural locomotion), animator.js (pose sources + dead
   blending + layers + view-driven actions), clips.js (clip library), keyframes.js (keyed poses with IK targets -> clips), moves.js (every combat/jutsu clip, baked at load)
   + madaramoves.js / itachimoves.js (their jutsu clips; `dazed`), vrm.js (VRM loading, instance pool, shared textures AND materials).
@@ -70,22 +67,23 @@ node scripts/test/<t>.mjs <url>   # mpcombat, kovis (:3104), perf (:3101 5 6), a
 - `src/gfx/` post.js (outline, bloom by threshold, Neutral tone mapping, grade, SMAA), toon.js (toon patch for Lambert: bands, hatching, triplanar, dither fade of
   occluders), outline.js (screen-space depth/normal outline), paint.js (procedural canvas textures), shadows.js (ShadowCache: static shadows drawn once, moving casters
   redrawn), fx.js (instanced particles), jutsufx.js (jutsu shaders), movefx.js (M1 trails, scroll prop, bursts: by clip + time), madarafx.js (the kit's visuals: fire/smoke
-  billows (`black`: Amaterasu's), decals, field flames, stakes, debris, the gunbai prop (GLB) + wind barrier, meteor), itachifx.js (Mangekyō marks, crows,
-  feathers, GenjutsuEffect: Tsukuyomi's screen), haze.js (heat shimmer), debugdraw.js (F4), governor.js + perfcheck.js (frame stats, from ARMORY).
+  billows (`black`: Amaterasu's), decals, field flames, stakes, debris, the gunbai prop (GLB) + wind barrier, meteor), itachifx.js (Mangekyō marks, crows, feathers,
+  GenjutsuEffect: the victim's grades + eye wipe), tsukuyomifx.js (seals, stage, katanas, ink), haze.js (heat shimmer), debugdraw.js (F4), governor.js + perfcheck.js (ARMORY's).
 - `src/ui/` hud.js (HUD, banners, combo, damage numbers, kill feed, scoreboard, results, pause menu + settings + performance panel), portrait.js (offscreen model
   pictures: HUD portrait, title character cards), hud.css, style.css (incl. the title's name field + character cards).
 - `scripts/` tools/: deploy.mjs (npm run deploy: the VPS), anims.mjs, fonts.mjs, keyart.mjs `<url>` (recapture the boot screen key art: public/assets/boot), rig.mjs (npm
   run rig: auto-rig a T-pose .glb into a VRM 1.0) + glb.mjs (GLB read/write). test/: views, film, shoot, errs, eval, sheet, crop, anim, animcheck, mp, mpcombat, kovis,
   chars, perf, bots, mapwalk, zoom, madara, itachi, itachiperf (see Testing).
-- `scripts/debug/` modelview.mjs (a .glb/.vrm alone from several angles: bones, one bone's weights, test poses; no server), lanes.mjs (clear flat lanes for tests), prof.mjs
-  (CPU profile with bots), crowd.mjs (remote state dump + shot), spikes.mjs (long frames), boot.mjs (the boot screen as players see it), climbdbg.mjs (one traced trunk
-  climb), embed.mjs (no server: wall runs up every house face and trunk must never end inside a collider; `TRACE=`, `NOUNBURY=1`), stairs.mjs `<url>` (runs up the village
-  stairs: the drawn height per frame must rise smoothly), clones.mjs (two clients: clones jumping up to / dropping off a 2.8 m ledge, shots + per-clone trace; `VIEW=B`
-  shoots the target's screen), glbinfo.mjs (a .glb's credits, nodes, materials; `islands` lists every connected piece in world space: start of a rig config), footdbg.mjs
-  (one animcheck scenario traced per frame for one leg: thigh/shin/foot rotation + the gait's foot state; `SCEN=<js>`), vnc.mjs (the VPS's VNC console: type + screenshot),
-  m1film/m1cast/m1trace (M1 review: slow-motion strip, real speed vs a victim, per-frame trace; options in each header), clipflips(-live).mjs (keyframe flips), jshots.mjs (screenshots from a JSON config: one load, one sheet),
-  lagdbg/jabdbg/clipdbg/seqdbg (investigations kept for reuse), freeze.mjs (effect freeze-frame sheets), posetest.mjs (keyed-pose workbench), duo.mjs (both screens filmed
-  side by side, any lag; X/Z: where), los.mjs (the first collider on a line: test lanes, gotcha 51).
+- `scripts/debug/` modelview.mjs (a .glb/.vrm alone from several angles: bones, one bone's weights, test poses; no server), lanes.mjs (clear flat lanes for tests), prof.mjs (CPU
+  profile with bots), crowd.mjs (remote state dump + shot), spikes.mjs (long frames), boot.mjs (the boot screen as players see it), climbdbg.mjs (one traced trunk climb), embed.mjs
+  (no server: wall runs up every house face and trunk must never end inside a collider; `TRACE=`, `NOUNBURY=1`), stairs.mjs `<url>` (runs up the village stairs: the drawn height per
+  frame must rise smoothly), clones.mjs (two clients: clones jumping up to / dropping off a 2.8 m ledge, shots + per-clone trace; `VIEW=B` shoots the target's screen), glbinfo.mjs (a
+  .glb's credits, nodes, materials; `islands` lists every connected piece in world space: start of a rig config), footdbg.mjs (one animcheck scenario traced per frame for one leg:
+  thigh/shin/foot rotation + the gait's foot state; `SCEN=<js>`), vnc.mjs (the VPS's VNC console: type + screenshot), m1film/m1cast/m1trace (M1 review: slow-motion strip, real speed
+  vs a victim, per-frame trace; options in each header), clipflips(-live).mjs (keyframe flips), jshots.mjs (screenshots from a JSON config: one load, one sheet),
+  lagdbg/jabdbg/clipdbg/seqdbg (investigations kept for reuse), freeze.mjs (effect freeze-frame sheets), posetest.mjs (keyed-pose workbench), duo.mjs (both screens filmed side by
+  side, any lag; X/Z: where), los.mjs (the first collider on a line: test lanes, gotcha 51), gunbai.mjs (Madara's fan at clip frames, several angles; `RUN=1`), gunbaisolve.mjs
+  (wrist/target that hold it as wanted), gunbaicheck.mjs (back surface, turn rate, clearance, hair through it), tsushots.mjs (Tsukuyomi: both screens at set times).
 - `public/assets/` characters/: standin.vrm = pixiv's VRM1_Constraint_Twist_Sample (VRoid-made; licence: everything allowed incl. violence and modification); sage.vrm =
   npm run rig from models/naruto_sage.glb (CC BY 4.0 ninjatorent13: credit kept in README + its card + VRM meta); madara.vrm, obito.vrm, itachi.vrm = npm run rig
   from models/madara.glb / obito.glb (CC BY 4.0 AJ Studio) / itachi.glb (CC BY 4.0 angelolamonaca), credited the same way; naruto.vrm when the owner adds it.
@@ -94,10 +92,9 @@ node scripts/test/<t>.mjs <url>   # mpcombat, kovis (:3104), perf (:3101 5 6), a
 
 ## Conventions
 
-- **World axes:** +x east, +z south (north = -z), y up, metres. **yaw 0 looks toward -z**; facing = (-sin yaw, -cos yaw); the fighter's left = (-cos yaw, sin yaw); a yaw
-  increase turns left. **VRM normalized space** (src/char): rest rotations are identity; the model faces +Z, its left is +X. Spine chain: +X bends forward, +Y twists
-  left, +Z leans right. Arms rest along +-X (T-pose, palms down), elbows flex toward +Z; legs rest along -Y, knees flex toward -Z. The VRM scene sits in `Fighter.body`
-  turned by PI, so root yaw = game yaw.
+- **World axes:** +x east, +z south (north = -z), y up, metres. **yaw 0 looks toward -z**; facing = (-sin yaw, -cos yaw); the fighter's left = (-cos yaw, sin yaw); a yaw increase turns
+  left. **VRM normalized space** (src/char): rest rotations are identity; the model faces +Z, its left is +X. Spine chain: +X bends forward, +Y twists left, +Z leans right. Arms rest
+  along +-X (T-pose, palms down), elbows flex toward +Z; legs rest along -Y, knees flex toward -Z. The VRM scene sits in `Fighter.body` turned by PI, so root yaw = game yaw.
 - **Colliders must be deterministic:** map.js uses the seeded rng and dsin/dcos only (never Math.random, never Math.sin for anything that becomes a collider). Client and
   server log `map <hash>`: they must match. Box yaw: `box(..., yaw)` (dcos/dsin) or boxDir with a unit direction (no trig).
 - **Network protocol** (JSON, `t` = type; times are server-clock ms). Client -> server: `join{name,ch,token,pw}` (empty name = the character's name + ' 2'...; `pw`: locked characters),
@@ -125,23 +122,28 @@ each state) `net.interp` ms behind the synced clock.
   `animcheck.mjs` after (foot sliding, pops) and look at a `film.mjs` strip. **M1 strings**: naruto.js `light` picks U1-U5 (standing) / S1-S5 (>= 5 m/s or dash; L1-L5 =
   the clones'); AttackAction step/leap/air/dive + counted presses; clips `u_*`/`r_*` (moves.js); effects MOVE_FX (movefx.js); scroll hitbox = `grip` box (hurtbox.js
   gripSegment = the prop). After: clipflips-live, animcheck (light + moving combo), mpcombat, m1trace `run` at 200,40,1.
-- **Madara's kit** (Q Great Fire Annihilation, E Wood Release, G Uchiha Return, R Tengai Shinsei): data src/shared/madara.js (a hit's `cls` melee/proj/ult/area
-  decides what the barrier does); geometry madarakit.js; src/game/madara.js; madarafx.js; madaramoves.js. Casts come in phases: n:0 at the press (cooldown/gauge),
-  n:1 = the effect with o/d/at (`f` 1 = cast in the air); area hits: the caster detects, the server checks them with the same geometry (checkArea). G: the gunbai
-  (public/assets/props/gunbai.glb) rides on every Madara's back (GUNBAI.back; `debugGunbai`), in the fist from `grab` to `release` of `mad_counter`; from the press
-  to `barrier` the server answers EVERY hit (`a{m:uchihaReturn,n:1,f:1 blow|2 reflect|3 deflect,o,tg,ai,e?,cl?}` to everyone incl. the owner; an answered attack is
-  spent: `deflected`, 3 s), throws everyone near at `gustAt` (gustBurst); server hits go through `serverHit` (another barrier deflects them; the meteor too: at1 +
-  delay, victims + ping/2, max 150 ms). After: `scripts/test/madara.mjs` at :3104 and :3102, jshots/freeze/duo for the looks.
+- **Madara's kit** (Q Great Fire Annihilation, E Wood Release, G Uchiha Return, R Tengai Shinsei): data src/shared/madara.js (a hit's `cls` melee/proj/ult/area decides what the
+  barrier does); geometry madarakit.js; src/game/madara.js; madarafx.js; madaramoves.js. Casts come in phases: n:0 at the press (cooldown/gauge), n:1 = the effect with o/d/at (`f` 1
+  = cast in the air); area hits: the caster detects, the server checks them with the same geometry (checkArea). G: the gunbai (public/assets/props/gunbai.glb) rides head down on every Madara's
+  back (GUNBAI.back; `debugGunbai`) as a spring plane for his hair (GUNBAI.hair), in the fist from `grab` to `release` of `mad_counter` (the fist matches the back pose there: keys
+  solved with gunbaisolve.mjs, gotcha 54); from the press to `barrier` the server answers EVERY hit (`a{m:uchihaReturn,n:1,f:1 blow|2 reflect|3 deflect,o,tg,ai,e?,cl?}` to everyone
+  incl. the owner; an answered attack is spent: `deflected`, 3 s), throws everyone near at `gustAt` (gustBurst); server hits go through `serverHit` (another barrier deflects them;
+  the meteor too: at1 + delay, victims + ping/2, max 150 ms). After: `scripts/test/madara.mjs` at :3104 and :3102, jshots/freeze/duo for the looks (fan: gunbai(check).mjs).
 - **Itachi's kit** (Q Phoenix Sage Fire, E Tsukuyomi, G Crow Clone Escape, R Amaterasu): data src/shared/itachi.js; itachikit.js; src/game/itachi.js; itachifx.js;
-  itachimoves.js. Fireballs (n:1-3): the caster detects (turn-rate homing on an intercept point; a dash seen drops the lock; the server refuses a ball whose
-  victim dashed/substituted during its flight: `spec.dodge`). Gazes (n:1: eyes + facing): the SERVER takes the cone (gazeHits); Tsukuyomi = `REACT.daze` (5 s, no
-  sub; `keepDaze`: hits keep it, `dz` in hitr); Amaterasu ignites, then `v.burn` server ticks to 50% of max HP (burnStep). Crows: n:1 = the spot (crowTeleport),
-  invulnerable (`p.escape`). After: `scripts/test/itachi.mjs` at :3104 and :3102, itachiperf.mjs.
+  itachimoves.js. Fireballs (n:1-3): the caster detects (turn-rate homing on an intercept point; a dash seen drops the lock; the server refuses a ball whose victim
+  dashed/substituted during its flight: `spec.dodge`). Gazes (n:1: eyes + facing): the SERVER takes the cone (gazeHits); Tsukuyomi = `REACT.daze` (5 s, no sub; `keepDaze`:
+  hits keep it, `dz` in hitr); Amaterasu ignites, then `v.burn` server ticks to 50% of max HP (burnStep). Crows: n:1 = the spot (14-22 m; crowTeleport), invulnerable
+  (`p.escape`), an ink comet flies there (`inkComet`). **Crow shift** (`crowShift`, visual only): his dash = ink (`updateShift`, from `view.st` on every screen: body hidden,
+  InkStrokes strands + upright blots, crows via `flyOff` (never at the camera: gotcha 57), `inkWake`/`inkForm`); his substitution: `onSub`. Test: itachi.mjs `shift`.
+  **Tsukuyomi's looks** (tsukuyomifx.js): every screen: the eye before him (clip frames 10-40), the capture round each victim (SealFx: flash, violet, blades, ring, seal;
+  updateDazed), then the head mark. The victim's screen (tsukuyomi.js, TSU): eye + pupil wipe; a stage where it stood (T cross, stand-ins `tsu_bound`/`tsu_watch` from
+  the pools, +1 warmed), camera/fog/HUD borrowed (`late()`), dim -> fog (arena hidden) -> negative (gotchas 55-56), katanas on bones, ink; all given back (`abort()`).
+  After: `scripts/test/itachi.mjs` at :3104 and :3102, itachiperf.mjs, `scripts/debug/tsushots.mjs` (the looks).
 - **Jutsu** (projectiles, clones, effects): `src/game/jutsu.js`, shaders `src/gfx/jutsufx.js`, data in naruto.js. Aimed casts (clones, shuriken, Rasenshuriken) pick their
   target with `Combat.aimTarget` (lock-on, else the enemy nearest the camera's centre within ~32 degrees). Clones move with `stepBody` (`Jutsu.stepClone`); run
   `kovis.mjs` and `scripts/debug/clones.mjs` after changing them.
 - **Graphics**: post (outline, bloom, grade) `src/gfx/post.js`; toon shading `src/gfx/toon.js`; sky/sun/fog `src/world/sky.js`; presets `Game.setPreset` in `src/main.js`;
-  run `perf.mjs` after (budget: 6 fighters, High). **UI / HUD**: `src/ui/hud.js` + `hud.css`; boot screen inline in `index.html`.
+  run `perf.mjs` after (budget: 6 fighters, High). New effects/poses: follow docs/visuals.md. **UI / HUD**: `src/ui/hud.js` + `hud.css`; boot screen inline in `index.html`.
 - **Map**: layout + colliders `src/shared/map.js` (deterministic, hashes must match); art `src/world/*`; run `mapwalk.mjs` and `scripts/debug/embed.mjs` after. Nothing
   drawn may stand outside its collider where a fighter or the camera can reach it (tree art follows `treeRadius`; bark dents and buttress gaps only go inward); leaves
   have no collider (they fade near the camera: toon `near`). Trees: trunk cone + root-flare cone (`wallTop` hands a wall run on to the trunk) + a crown platform on the
@@ -169,27 +171,28 @@ each state) `net.interp` ms behind the synced clock.
 
 ## Hard-won gotchas
 
-Details of each (what broke, numbers, the fix) are in docs/gotchas.md, imported here so every session loads them; add new ones there, numbered. Index: 1. Standing height
-includes the hip-joint drop | 2. Run/sprint (8, 12 m/s) far exceed mocap run clips (~4.5 m/s) | 3. The VRM object has no userData | 4. Remote interpolation delay | 5.
-Anti-teleport clamp vs resyncs | 6. Clock sync under simulated lag | 7. Google Fonts CJK families come in ~120 unnamed chunks | 8. The lag simulator keeps order with one
-queue per line | 9. Hit detection samples the move's own clip, not the drawn frames | 10. Hitbox bones must match the animation | 11. Substitution vs hits on the wire |
-12. A late confirmation must not replace a newer prediction | 13. Controller.reset() ends the current action | 14. Constructor names are minified in builds | 15. Clones
-and projectiles send their own position | 16. ShadowCache.blit() must restore the renderer's target | 17. Shader programs are keyed by output colour space and lights |
-18. Six fighters were CPU-bound in the render submission | 19. Fighter world matrices are computed once per frame | 20. The laptop's CPU speed swings ~2x between runs |
-21. Branches are overhangs, not walls | 22. Tints multiply in linear space | 23. Flat planes edge-on become lines | 24. Two-bone IK turns both bones about one hinge axis
-| 25. The sim runs at 60 Hz, drawing at 144 | 26. Gait restarts must be continuous | 27. A dead fighter's action must keep stepping | 28. The server relayed the clones'
-cast origin only with 3 numbers | 29. Easing into a late reaction starts from the drawn position and aims at the flight's present point | 30. Every fighter draws with its
-own character's model AND clip library | 31. Auto-rigging a low-poly model | 32. Two test clients in one browser share localStorage and get throttled in the background |
-33. Ripped game meshes (Sketchfab "Free Fire", node names `*.rip`) wind ~half their triangles backwards | 34. Keyed hand targets are placed relative to the shoulders |
-35. A-pose lift past the elbow | 36. A swinging foot must not follow the raw velocity direction | 37. A vault's landing must have room | 38. Only a ledge is a step up |
-39. Falling, land on anything within a step above the feet | 40. Cones and wall runs | 41. Keys (or blends into them) ~180 degrees apart flip | 42. Effects warmed in
-warmShaders are moved to the spawn point | 43. Slow motion breaks server validation | 44. The chain buffer counts presses | 45. Server-applied hits are never predicted |
-46. pickLock may pick the training dummy | 47. One long frame in a headless vsync-off run is not a hitch to chase | 48. A barrier must not raise the invuln flag |
-49. A display figure has no body under its clothes; one piece per material costs a draw each | 50. Post effects see linear light | 51. Test lanes need line of
-sight, not just flat ground | 52. A keyed hand target is the wrist.
+Details of each (what broke, numbers, the fix) are in docs/gotchas.md, imported here so every session loads them; add new ones there, numbered. Index: 1. Standing height includes
+the hip-joint drop | 2. Run/sprint (8, 12 m/s) far exceed mocap run clips (~4.5 m/s) | 3. The VRM object has no userData | 4. Remote interpolation delay | 5. Anti-teleport clamp
+vs resyncs | 6. Clock sync under simulated lag | 7. Google Fonts CJK families come in ~120 unnamed chunks | 8. The lag simulator keeps order with one queue per line | 9. Hit
+detection samples the move's own clip, not the drawn frames | 10. Hitbox bones must match the animation | 11. Substitution vs hits on the wire | 12. A late confirmation must not
+replace a newer prediction | 13. Controller.reset() ends the current action | 14. Constructor names are minified in builds | 15. Clones and projectiles send their own position |
+16. ShadowCache.blit() must restore the renderer's target | 17. Shader programs are keyed by output colour space and lights | 18. Six fighters were CPU-bound in the render
+submission | 19. Fighter world matrices are computed once per frame | 20. The laptop's CPU speed swings ~2x between runs | 21. Branches are overhangs, not walls | 22. Tints
+multiply in linear space | 23. Flat planes edge-on become lines | 24. Two-bone IK turns both bones about one hinge axis | 25. The sim runs at 60 Hz, drawing at 144 | 26. Gait
+restarts must be continuous | 27. A dead fighter's action must keep stepping | 28. The server relayed the clones' cast origin only with 3 numbers | 29. Easing into a late
+reaction starts from the drawn position and aims at the flight's present point | 30. Every fighter draws with its own character's model AND clip library | 31. Auto-rigging a
+low-poly model | 32. Two test clients in one browser share localStorage and get throttled in the background | 33. Ripped game meshes (Sketchfab "Free Fire", node names `*.rip`)
+wind ~half their triangles backwards | 34. Keyed hand targets are placed relative to the shoulders | 35. A-pose lift past the elbow | 36. A swinging foot must not follow the raw
+velocity direction | 37. A vault's landing must have room | 38. Only a ledge is a step up | 39. Falling, land on anything within a step above the feet | 40. Cones and wall runs |
+41. Keys (or blends into them) ~180 degrees apart flip | 42. Effects warmed in warmShaders are moved to the spawn point | 43. Slow motion breaks server validation | 44. The chain
+buffer counts presses | 45. Server-applied hits are never predicted | 46. pickLock may pick the training dummy | 47. One long frame in a headless vsync-off run is not a hitch to
+chase | 48. A barrier must not raise the invuln flag | 49. A display figure has no body under its clothes; one piece per material costs a draw each | 50. Post effects see linear
+light | 51. Test lanes need line of sight, not just flat ground | 52. A keyed hand target is the wrist | 53. Spring collider matrices are refreshed in the scene pass | 54. A prop
+resting on spiky spring hair | 55. A post effect that mixes channels must guard against NaN | 56. Something drawn to survive the negative must be written as its perceived
+negative | 57. Effects thrown back from a third-person fighter fly into the camera.
 
 @docs/gotchas.md
-
+@docs/visuals.md
 ## The VPS (production, set up 2026-09-28)
 
 - **Live:** **https://shinobi.185-2-49-69.sslip.io** (also http://185.2.49.69:3100): Shulker VPS `games-1` (4 vCPU / 8 GB, Ubuntu 24.04, Dadri), to host all
@@ -204,25 +207,24 @@ sight, not just flat ground | 52. A keyed hand target is the wrist.
 
 ## Testing (headless Chrome on the real RTX 4050)
 
-Build to dist-test first (`npm run build:test`), run a test server (see Commands), then (tools in scripts/test/ unless noted, e.g. `node scripts/test/mp.mjs
-http://localhost:3101/`; look at every PNG you produce):
+Build dist-test (`npm run build:test`), start a test server (Commands), run the tools (scripts/test/ unless noted: `node scripts/test/mp.mjs http://localhost:3101/`); look at every PNG:
 - `views.mjs <url> <prefix> '[["name","js",waitMs], ...]' [w h]`: one load, a screenshot per view. `film.mjs <url> <out.png> <setupJs> [frames] [everyMs] [cols] [w] [h]
   [stepJs]`: filmstrip contact sheet (animation review; `__game.timeScale = 0.25` slow motion, `__game.studio = {...}` camera).
 - `mp.mjs <url>`: two clients, PASS/FAIL: see each other, remote path error vs the true path (net of the uplink), settle, jump replication, leave. At 0 ms (:3101) and
-  200,40,1 (:3102), where the running-path median lands just over its 0.35 m limit ~1 run in 4 (TCP-like loss stalls): rerun before calling it a regression (a real one
-  fails every run).
+  200,40,1 (:3102), where the running-path median lands just over its 0.35 m limit ~1 run in 4 (TCP-like loss stalls): rerun before calling it a regression (a real
+  one fails every run; madara.mjs's two-shuriken reflection at 200,40,1 too).
 - `mpcombat.mjs <url>` (combat sync; :3104): two clients fight: 5-hit combo confirmed, HP agrees, knockback flight within 10 cm on both screens, substitution, KO + score
   + respawn. Needs `SHINOBI_HP=600 SHINOBI_MATCH=300,10,2`; at 0 ms and `SHINOBI_LAG=200,40,1`. `DETAIL=1` prints every flight frame off by > 3 cm; `CH=sage` fights as
   another character (its own rig/clips drive the hitboxes). The flight check only measures frames after the finisher (200 ms: earlier reactions snap in late).
 - `madara.mjs <url> [fire,wood,counter,meteor]` (Madara vs Naruto, `SHINOBI_ULT=1`): each ability hits, same place on both screens, HP agrees; dodges, guards, the barrier's gust/blow/reflections/window end.
-- `itachi.mjs <url> [fire,dodge,amaterasu,tsukuyomi,crow]` (Itachi vs Naruto, `SHINOBI_ULT=1`, HP 600; clear lane x -44): fireballs hit + sync, a dash
-  shakes them off, a runner is hit; Amaterasu burns exactly 300; the daze (5 s, no move/sub, kept by a hit); crows. `itachiperf.mjs`: fps with each ability.
+- `itachi.mjs <url> [fire,dodge,amaterasu,tsukuyomi,crow]` (vs Naruto, `SHINOBI_ULT=1`, HP 600, lane x -44): fireballs hit + sync, a dash shakes them off, a runner is
+  hit; Amaterasu burns exactly 300; the daze (5 s, no move/sub, kept by a hit) + B's world (arena hidden, all given back, no compile); crows. `itachiperf.mjs`: fps each.
 - `kovis.mjs <url> [shotsDir]`: the KO fall on the victim's own screen and the attacker's (thrown, then lying: hips < 0.5 m), paths agree within 25 cm after the ease-in,
   no pops (> 0.5 m in a frame) on the victim's screen; then Shadow Clone Rush cast just by looking at the victim (no lock-on): the target is the victim, who sees both
   clones run in, attack and hit. Same env as mpcombat, 0 ms and 200,40,1. `DETAIL=1`: frames around any step > 20 cm; `CH=<id>`: both clients as that character.
 - `chars.mjs <url>`: A goes through the title screen (types "Nova", picks Sage Naruto by its number key, or `CH=<id>`'s card, Enter), B autojoins with no name:
   typed/fallback names, saved choices, each draws the other with the right model + clip library, B sees A's clones in A's body, a rename reaches the other screen.
-- `perf.mjs <url> [bots=5] [secs=6]` (budget check): 1920x1080 vsync-off client + network bots (bots.mjs) at four spots; fps, 1% low, worst frame, CPU per frame and
+- `perf.mjs <url> [bots=5] [secs=6]` (budget check): 1920x1080 vsync-off client + network bots (bots.mjs; `BOT_DASH=1`: they dash) at four spots; fps, 1% low, worst frame, CPU per frame and
   logic+anim JS, calls, triangles, programs vs the budget. Bots cycle through the roster (every model on screen); `BOT_CH=<id>` gives them one, `CH=<id>` the client. Run
   perf alone (another session's headless Chrome tests wreck the numbers: 88 ms spikes). `SHOTS=shots` saves a shot per spot; `W=/H=` viewport. The match starts (everyone
   respawns) when the bots join: teleport after that.
@@ -233,9 +235,8 @@ http://localhost:3101/`; look at every PNG you produce):
   ankle drift of planted flat feet (< 2 cm) and pops (> 15 deg in one frame and >= 2.5x the rotation rate of the frames around it). `DETAIL=n`: the worst n events with
   the gait's feet state; `CH=sage` another character. `zoom.mjs <url> [shotsDir]`: wheel zoom (synthetic wheel events): limits (arm 3.3 m / 1 m), FOV never changes, a
   wall behind still limits the arm while zooming out, focus lag sprinting zoomed in, lock-on keeps the wheel, no overshoot; PASS/FAIL.
-- `scripts/debug/prof.mjs <url> [bots] [secs]`: Chrome CPU profile, top self and inclusive times per frame; `CALLERS=fn` breaks one function down by caller (use the
-  unminified 3103 build). `eval.mjs <url> "<js>"` (join, run an expression, print), `errs.mjs` (startup errors), `shoot.mjs` (one screenshot), `sheet.mjs` (contact sheet
-  of PNGs), `crop.mjs` (zoom).
+- `scripts/debug/prof.mjs <url> [bots] [secs]`: Chrome CPU profile, top self/inclusive times per frame; `CALLERS=fn` splits one function by caller (unminified 3103 build).
+  `eval.mjs <url> "<js>"` (join, run an expression, print), `errs.mjs` (startup errors), `shoot.mjs` (one screenshot), `sheet.mjs` (PNG contact sheet), `crop.mjs` (zoom).
 
 **Debug hooks** (`window.__game`, `window.__ready`, `window.__BI` bone indices): URL `?autojoin=1&name=X` joins without a click. `__game.teleport(x, z, yaw)`: the local
 fighter on the ground there. `__game.hold(['up','jump'...])` holds input actions (`[]` releases). `__game.timeScale` (0 freezes). `__game.studio = { yaw, pitch, dist, h,
@@ -246,4 +247,4 @@ victims (yellow); `__game.debug` is the DebugDraw while on. F6: collider greybox
 software -> low, integrated -> medium, dedicated -> high, high-end desktop -> ultra). `__game.setPreset('low'|'medium'|'high'|'ultra')` (pixel ratio, sun shadow size,
 grass density, bloom, SMAA quality; High/Ultra = native resolution), `__game.audio` (Audio), `__game.shadows` (ShadowCache), `LOD` in fighter.js.
 ## Style
-Plain ES modules, no TypeScript, no framework. Two-space indent, single quotes, semicolons. Comments explain *why*, sparsely. Small files, one responsibility.
+Plain ES modules, no TypeScript, no framework. Two-space indent, single quotes, semicolons. Comments explain *why*, sparsely. Small files, one responsibility. Update all md files and claude.md everytime u do some changes.

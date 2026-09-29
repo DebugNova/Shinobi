@@ -167,3 +167,36 @@ index and other notes refer to it).
 52. **A keyed hand target is the wrist:** fingers pointing up from a wrist placed at eye height end ~20 cm above the
     head (Amaterasu's two fingers "at the eye" were over his hair). Put the wrist a hand's length below where the
     fingertips go (at the chin for the eye).
+53. **Spring collider matrices are refreshed in the scene pass:** three-vrm updates a collider's `colliderMatrix`
+    (world matrix + shape offset) only in `updateWorldMatrix`, which `updateMatrixWorld` (the pass Fighter.updateVRM
+    runs before the springs) never calls, so hair collided with where the body was a frame or more ago (8 cm behind
+    a running fighter). vrm.js patches `VRMSpringBoneCollider.prototype.updateMatrixWorld` to refresh it; a collider
+    added at runtime (the gunbai's plane) needs nothing more than a parent in the fighter's tree.
+54. **A prop resting on spiky spring hair:** holding the joints a fixed distance off the prop still let spike tips
+    through (the mane stands 11 cm behind its joints at the shoulders, 3 cm at its tail, and the hips' collider leaves
+    the tail no room): lean the collider plane against the prop (deep where the hair is thick). Vertices driven by the
+    head (the hair's root at the nape) can't be moved by any collider: keep the prop clear of where the head goes in
+    the run pose (it tips back toward a chest-mounted prop). Count, don't eyeball: `scripts/debug/gunbaicheck.mjs
+    poke`. Keyed hands holding a prop are solved, not guessed (gunbaisolve.mjs: the wrist Euler for a wanted prop
+    orientation on the real rig, and the target move that closes the fist on the handle); a straight arm overhead
+    can't hold a fan upright with a natural wrist (the solver said [-39, -76, 101] degrees).
+55. **A post effect that mixes channels must guard against NaN:** the colour grade's saturation boost can push a
+    saturated colour's weakest channel below 0, and the sRGB transfer wrapped round the contrast effect turns it into
+    NaN. Invisible while each channel passes through on its own (it was ~0 anyway), but Tsukuyomi's negative world
+    computes luminance from all three: sunlit grass came out bright yellow, Itachi's clouds stayed red. The
+    GenjutsuEffect zeroes any channel that isn't `>= 0.0` first (a NaN fails every comparison). Found by forcing the
+    grade on a plain scene (`G.apply` wrapped to set `neg = 1`): test a new grade on the arena, not only on its stage.
+56. **Something drawn to survive the negative must be written as its perceived negative:** the victim's post flips
+    perceived lightness (luminance^(1/2.2)), so steel written as `1 - c` in linear light came back dark red-brown.
+    tsukuyomifx.js `negSelf(c, neg)` flips in perceived space (`pow(1 - pow(c, 1/2.2), 2.2)`) and follows the post's
+    own `neg` exactly; the sky and ground write their final darkness directly (luminance = 1 - n on the ramp). The
+    effect also blends with `BlendFunction.SRC`: blended by the buffer's alpha, see-through hair and cloth kept part of
+    their own colour (pink edges on Itachi).
+57. **Effects thrown back from a third-person fighter fly into the camera:** "behind him" is where the camera is. Itachi's
+    dash crows, burst away from the way he went, filled the view (a crow 1 m from the lens is a third of the screen), and
+    the ink puffs flung back became big dark blots. Crows go out to the sides and up, `flyOff` removes the camera-ward
+    part of any crow's velocity, and the crow shader shrinks every crow within 3 m of the camera. Review an effect from
+    the player's own camera (studio yaw PI), not only from the side. Related: a strip widened toward the camera about
+    its path needs a stable sign for its lean (from the path's right side: s.y is ~0 seen from behind and flickered),
+    and an effect's timeline belongs on the frame clock, not the server's (in slow motion the escape's ink comet,
+    timed on the server clock, was over before the crows had left).

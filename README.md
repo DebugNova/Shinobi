@@ -100,8 +100,9 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
   stakes erupts toward the target, 18 m long, racing along the ground at 30 m/s (it follows slopes and stops at
   walls). Whoever it reaches is launched into the air (90 damage): follow up with an air combo. Side-dash out of the
   line or guard it. From the air he dives down first and slams on landing.
-- **G: Uchiha Return** (20 chakra, 8 s). Madara carries his war fan (the gunbai) on his back all the time. On G he
-  tears it off his back over his shoulder, spins once on the spot sweeping it all the way round him, and plants it
+- **G: Uchiha Return** (20 chakra, 8 s). Madara carries his war fan (the gunbai) on his back all the time, head down
+  over his hair with the handle up past his right shoulder. On G he draws it over his shoulder in one swing behind
+  him and over his head, spins once on the spot sweeping it all the way round him, and plants it
   upright in front of him while a whirlwind swirls round him in waves. From the moment you press G until the fan
   starts going back (1.2 s), **nothing can touch him**, from any side: a punch, a kick, the Rasengan or a shadow clone
   is blown back (the attacker takes 60 and is thrown back a few metres; a clone just vanishes), a shuriken flies back
@@ -125,15 +126,25 @@ all the time; through Tsukuyomi and Amaterasu it turns into the spinning Mangeky
   fireball in flight, and they fly on straight past you. Two flinch, the third knocks you back (~150 damage in all);
   a guard blocks them with a little chip. They burst on walls, trees and posts: cover works too.
 - **E: Mangekyō Sharingan: Tsukuyomi** (35 chakra, 15 s). He lowers his head, then raises it and his eyes meet
-  yours: **everyone in front of him** (up to 18 m, a ~76° cone, in his line of sight) is caught. A Mangekyō eye opens
-  over each victim's head, and they stand dazed on the spot **for 5 seconds**: no moving, no guard, no substitution.
-  Hits while they are dazed don't free them (only being launched or knocked down does), but after a few seconds of
-  combo the game's knockdown rule throws them out of it. The victim's own screen turns into Tsukuyomi's red-and-black
-  world while it lasts. A dash at the moment of the gaze dodges it; so does being behind him or behind cover.
+  yours: a great Mangekyō turns in the air before him, and **everyone in front of him** (up to 18 m, a ~76° cone, in
+  his line of sight) is caught. Around each victim a white flash bursts, a violet sphere closes on them, black
+  blades sweep in, a red ring tears into ink and the Mangekyō spins over their body; then an eye opens over their
+  head. They stand dazed on the spot **for 5 seconds**: no moving, no guard, no substitution. Hits while they are
+  dazed don't free them (only being launched or knocked down does), but after a few seconds of combo the game's
+  knockdown rule throws them out of it. A dash at the moment of the gaze dodges it; so does being behind him or
+  behind cover.
+  **If you are the one caught**, your screen leaves the fight: the Mangekyō spins up and its pupil swallows the view,
+  and you find yourself bound to a wooden cross where you stood, Itachi watching. The world dims, a white fog
+  swallows everything, then it all turns negative (a blood-red sky, white ground) while swords fly in and stab you
+  again and again. The eye closes it and you are back in the fight when the 5 seconds are up.
 - **G: Crow Clone Escape** (20 chakra, 10 s). His body bursts into a flock of crows that scatter in every direction,
-  and he re-forms 7-12 m away at the **safest spot nearby** (the one farthest from enemies and out of their sight),
-  where the crows gather, crouched and facing the nearest enemy. Nothing can touch him from the press until he has
-  re-formed (0.6 s).
+  a streak of black brush ink flies off in an arc, and he re-forms **14-22 m away** at the **safest spot nearby** (the
+  one farthest from enemies and out of their sight), where the ink and the crows gather, crouched and facing the
+  nearest enemy. Nothing can touch him from the press until he has re-formed (0.6 s).
+- **His dash (Shift) is a crow shift**: for the length of the dash his body turns into torn strokes of black brush
+  ink smeared along his path, with aqua chakra sparks, white speed lines and falling feathers, while a few crows
+  scatter from where he left. He takes shape again out of the ink at its end. His **substitution** bursts into crows
+  and ink too (the log still drops). Only the look is his: the dash moves exactly like everyone's.
 - **R: Amaterasu** (ultimate). He raises two fingers to his right eye, the world dims, and the eye opens on
   **everyone in front of him** (up to 30 m, in his line of sight): they burst into black flames. The flames can't be
   put out (not by dashing, substitution or a barrier) and keep burning until they have burnt **half of the victim's

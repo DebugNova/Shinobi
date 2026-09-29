@@ -444,6 +444,47 @@ export class Audio {
     }
   }
 
+  /**
+   * Tsukuyomi's world, on its victim's screen: 'in' the eye swallowing the view (a rising metallic whine into a
+   * hollow boom), 'dim' a low swell, 'fog' a cold whispering wind, 'neg' the world turning (a deep hit, a high ring,
+   * a heartbeat under it), 'out' the eye closing it (a reversed swell).
+   */
+  tsukuyomi(k) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(null, 1);
+    if (k === 'in') {
+      this.tone(o, t, 0.6, { type: 'triangle', f0: 600, f1: 2400, gain: 0.08, attack: 0.3 });
+      this.tone(o, t + 0.55, 1.2, { f0: 70, f1: 32, gain: 0.7, attack: 0.01 });
+      this.noise(o, t + 0.55, 1.0, { type: 'lowpass', f0: 900, f1: 120, gain: 0.5, pink: true, attack: 0.01 });
+      for (const f of [1318, 1976, 2637]) this.tone(o, t + 0.6, 2.2, { type: 'triangle', f0: f, f1: f * 0.985, gain: 0.05, attack: 0.05 });
+    } else if (k === 'dim') {
+      this.tone(o, t, 1.4, { type: 'sawtooth', f0: 48, f1: 40, gain: 0.07, attack: 0.4 });
+      this.noise(o, t, 1.3, { f0: 300, f1: 900, q: 1.5, gain: 0.12, attack: 0.5 });
+    } else if (k === 'fog') {
+      this.noise(o, t, 1.6, { f0: 1800, f1: 700, q: 2.5, gain: 0.2, attack: 0.5 });
+      this.noise(o, t + 0.3, 1.2, { f0: 3200, f1: 2200, q: 6, gain: 0.08, attack: 0.3 });
+    } else if (k === 'neg') {
+      this.tone(o, t, 1.1, { f0: 58, f1: 30, gain: 0.9, attack: 0.005 });
+      this.noise(o, t, 0.8, { type: 'lowpass', f0: 2000, f1: 150, gain: 0.6, pink: true, attack: 0.005 });
+      for (const f of [2093, 3136]) this.tone(o, t, 1.8, { type: 'triangle', f0: f, f1: f * 0.97, gain: 0.05 });
+      for (const d of [0.5, 0.72, 1.3, 1.52]) this.tone(o, t + d, 0.14, { f0: 62, f1: 40, gain: 0.5, attack: 0.01 });
+    } else if (k === 'out') {
+      this.tone(o, t, 0.5, { type: 'triangle', f0: 2200, f1: 500, gain: 0.07, attack: 0.02 });
+      this.noise(o, t, 0.5, { f0: 400, f1: 1600, q: 1, gain: 0.25, attack: 0.3 });
+    }
+  }
+
+  /** A katana in Tsukuyomi's world: the whistle in, the blade going home (a wet thud), a thin ring of steel. */
+  tsuSword() {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(null, 0.9);
+    this.noise(o, t, 0.07, { type: 'highpass', f0: 3000, f1: 5200, gain: 0.25, attack: 0.02 });
+    this.tone(o, t + 0.05, 0.16, { f0: 120, f1: 55, gain: 0.55, attack: 0.004 });
+    this.noise(o, t + 0.05, 0.12, { type: 'lowpass', f0: 1100, f1: 300, gain: 0.45, attack: 0.003 });
+    const f = 2800 + Math.random() * 900;
+    this.tone(o, t + 0.05, 0.4, { type: 'triangle', f0: f, f1: f * 0.99, gain: 0.04, attack: 0.002 });
+  }
+
   /** Crow Clone Escape: the body bursts into a flock (a storm of wingbeats, a few caws). */
   crows(pos = null) {
     if (!this.ok()) return;
@@ -455,6 +496,14 @@ export class Audio {
       this.tone(o, s, 0.15, { type: 'sawtooth', f0: f, f1: f * 0.72, gain: 0.07, attack: 0.012 });
       this.noise(o, s, 0.14, { f0: f * 1.6, f1: f * 1.2, q: 5, gain: 0.08, attack: 0.012 });
     }
+  }
+
+  /** Itachi's dash (the crow shift): a short flurry of wings over a soft swish of ink. */
+  crowShift(pos = null) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, 0.7);
+    this.noise(o, t, 0.2, { type: 'lowpass', f0: 1800, f1: 400, gain: 0.28, pink: true, attack: 0.008 });
+    for (let k = 0; k < 7; k++) this.noise(o, t + Math.random() * 0.22, 0.045, { f0: 600 + Math.random() * 800, q: 1.3, gain: 0.13, attack: 0.008 });
   }
 
   /** He re-forms where the crows gather: a soft rush of wings. */

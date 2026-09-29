@@ -128,6 +128,24 @@ function airVariant(def, pitch = 0, from = 0) {
   };
 }
 
+// Inside Tsukuyomi (the victim's own screen, tsukuyomi.js): the victim bound to the cross, arms along the crossbar
+// (pulled a little back onto it), hanging from it with the feet off the ground, the head dropping and rolling as it
+// struggles (a 2.5 s loop); Itachi standing before it, calm, breathing (a 3 s loop)
+const boundArms = (y, z, dx = 0) => ({
+  lh: P(0.6 + dx, y, z, { pole: [0.1, -1, 0.3], open: 0.55, spread: 8 }),
+  rh: P(-0.6 - dx, y, z, { pole: [-0.1, -1, 0.3], open: 0.55, spread: 8 }),
+});
+const BOUND = {
+  h: [0, -0.02, 0.02], hips: [2, 0, 0], spine: [4, 0, 0], chest: [3, 0, 0], upperChest: [1, 0, 0], neck: [16, 0, 6], head: [20, 6, 9],
+  lf: { p: [0.065, 0, 0.04], pole: [0.1, 0, 1], pitch: 38, yaw: -4 }, rf: { p: [-0.065, 0.01, 0.01], pole: [-0.1, 0, 1], pitch: 30, yaw: 6 },
+  ...boundArms(1.3, 0.08),
+};
+const WATCH = {
+  h: [0, -0.015, 0], hips: [0, -4, 0], spine: [1, 2, 0], chest: [0, 2, 0], upperChest: [0, 0, 0], neck: [-2, 0, 0], head: [-3, 0, 0],
+  lf: { p: [0.13, 0, 0.06], pole: [0.2, 0, 1], yaw: -6 }, rf: { p: [-0.13, 0, -0.05], pole: [-0.1, 0, 1], yaw: 10 },
+  lh: P(0.24, 0.84, 0.05, { pole: [1, 0.1, -0.3], open: 0.3 }), rh: P(-0.24, 0.84, 0.04, { pole: [-1, 0.1, -0.3], open: 0.3 }),
+};
+
 export const ITACHI_CLIPS = {
   ita_fire: fire,
   ita_fire_air: airVariant(fire, 16, 16),
@@ -143,6 +161,26 @@ export const ITACHI_CLIPS = {
       [0, { h: [0, -0.1, 0], hips: [4, 0, 0], spine: [8, 0, 3], chest: [8, 0, 2], upperChest: [4, 0, 0], neck: [16, 0, 4], head: [20, 4, 6], ...CALM, lh: P(0.24, 0.8, 0.06, { pole: [1, 0.2, -0.3], open: 0.3 }), rh: P(-0.23, 0.78, 0.04, { pole: [-1, 0.2, -0.3], open: 0.3 }) }],
       [90, { h: [0.02, -0.12, 0.01], hips: [5, 0, -2], spine: [10, 0, -3], chest: [9, 0, -2], upperChest: [4, 0, 0], neck: [18, 0, -5], head: [24, -4, -7], ...CALM, lh: P(0.23, 0.78, 0.05, { pole: [1, 0.2, -0.3], open: 0.3 }), rh: P(-0.24, 0.8, 0.07, { pole: [-1, 0.2, -0.3], open: 0.3 }) }, 'io'],
       [180, { h: [0, -0.1, 0], hips: [4, 0, 0], spine: [8, 0, 3], chest: [8, 0, 2], upperChest: [4, 0, 0], neck: [16, 0, 4], head: [20, 4, 6], ...CALM, lh: P(0.24, 0.8, 0.06, { pole: [1, 0.2, -0.3], open: 0.3 }), rh: P(-0.23, 0.78, 0.04, { pole: [-1, 0.2, -0.3], open: 0.3 }) }, 'io'],
+    ],
+  },
+  tsu_bound: {
+    loop: true,
+    base: BOUND,
+    keys: [
+      [0, {}],
+      [40, { h: [0.012, -0.03, 0.03], spine: [6, 0, -3], chest: [5, 0, -2], neck: [20, 0, -4], head: [24, -8, -7], ...boundArms(1.29, 0.09, -0.01) }, 'io'],
+      [75, { h: [0, -0.015, 0.015], spine: [2, 0, 0], chest: [0, 0, 0], upperChest: [-2, 0, 0], neck: [10, 0, 2], head: [12, 2, 3] }, 'io'],
+      [110, { h: [-0.01, -0.03, 0.03], spine: [6, 0, 3], chest: [5, 0, 2], neck: [19, 0, 7], head: [22, 9, 10], ...boundArms(1.29, 0.09, -0.01) }, 'io'],
+      [150, {}, 'io'],
+    ],
+  },
+  tsu_watch: {
+    loop: true,
+    base: WATCH,
+    keys: [
+      [0, {}],
+      [90, { h: [0, -0.022, 0.004], spine: [2, 2, 0], chest: [1, 2, 0], neck: [-2, 0, 0], head: [-3, 1, 0] }, 'io'],
+      [180, {}, 'io'],
     ],
   },
 };

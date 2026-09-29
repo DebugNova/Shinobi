@@ -68,20 +68,30 @@ const woodDive = {
   loop: true,
 };
 
-// Uchiha Return (90 f, timings in madara.js): the right hand goes back for the gunbai's handle at his right hip (grab
-// at 5), tears it off his back up over the right shoulder (5-12) and sweeps it round in one full turn to his left, the
-// arm out in front so the fan's face pushes the air (rot 0 -> 360 over 12-31, a small hop so the feet don't slide; the
-// gust bursts at 20), then plants it upright in front of him: the Uchiha Return guard, the left palm at the chest
-// behind it (31-72, the barrier). He swings it back up over the shoulder and onto his back (let go at 84). The fan
-// itself follows the hand from the grab to the release (madarafx.js Gunbai); the fist's thumb side up with wrist -40
-// stands it upright.
+// Uchiha Return (90 f, timings in madara.js): the gunbai rides head down on his back, its handle up past his right
+// shoulder (madarafx.js GUNBAI.back). The right hand reaches up over the shoulder and closes on the handle (grab at 5,
+// held a beat), then swings the fan out behind him and up over his head, the paddle turning a half circle away from
+// his back (5-12), and sweeps it round in one full turn to his left, the arm out in front so the fan's face pushes the
+// air (rot 0 -> 360 over 12-31, a small hop so the feet don't slide; the gust bursts at 20), then plants it upright in
+// front of him: the Uchiha Return guard, the left palm at the chest behind it (31-72, the barrier). The same arc the
+// other way puts it back: up over his head, the paddle swung down behind him, the fist back at the shoulder (let go at
+// 84). The fan itself follows the hand from the grab to the release (madarafx.js Gunbai): at the grab and the release
+// the fist holds it exactly as it rides on his back (wrists solved for that on his rig, scripts/debug/gunbai.mjs), so
+// it changes hands without a jump; the fist's thumb side up with wrist -40 stands it upright.
 const FAN = { fist: 1, wrist: [-40, 0, 0] };
-// the hand on the handle behind the right hip (elbow back and out: gotcha 41), the torso turned to reach it
+// the hand on the handle above the right shoulder, palm to the neck, elbow up and forward (gotcha 41: the elbow the
+// way it really goes); the head bows and turns away from the arm, the chest turned a little to the right
 const BACK = {
-  h: [0, -0.06, 0], hips: [2, -18, 0], spine: [4, -14, 0], chest: [2, -10, 0], neck: [0, 18, 0], head: [-2, 16, 0],
+  h: [0, -0.04, 0], hips: [2, -8, 0], spine: [2, -6, 0], chest: [0, -4, 0], neck: [6, 4, -4], head: [6, 6, -6],
   lf: { p: [0.2, 0, 0.26], pole: [0.3, 0, 1], yaw: -12 }, rf: { p: [-0.2, 0, -0.26], yaw: 25 },
-  rh: P(-0.24, 0.86, -0.25, { pole: [-1, 0.2, -1], fist: 1, wrist: [-20, 0, 0] }), lh: P(0.16, 1.12, 0.3, { pole: [1, -1, 0], open: 0.6 }),
+  rh: P(-0.075, 1.508, -0.256, { pole: [-0.6, 1, 0.5], fist: 1, wrist: [6.4, 8, -13] }), lh: P(0.16, 1.12, 0.3, { pole: [1, -1, 0], open: 0.6 }),
 };
+// the swing: the fist up over the shoulder, the paddle swung out behind him (60 degrees from hanging), the chest
+// opening back
+const SWING = { spine: [-2, -2, 0], chest: [-3, 0, 0], neck: [0, 4, -6], head: [-2, 8, -8] };
+const swingR = () => P(-0.36, 1.6, -0.1, { pole: [-1, 0.3, 0.3], fist: 1, wrist: [-51.4, 24, 1.2] });
+// overhead, the paddle straight up (the half turn done), about to sweep round
+const overR = () => P(-0.5, 1.45, -0.02, { pole: [-1, -0.2, -0.6], fist: 1, wrist: [-40, 0, 0] });
 const GUARD = {
   h: [0, -0.1, 0], hips: [4, -20, 0], spine: [4, -10, 0], chest: [2, -6, 0], neck: [-2, 8, 0], head: [-2, 10, 0],
   lf: { p: [0.24, 0, 0.32], pole: [0.3, 0, 1], yaw: -12 }, rf: { p: [-0.22, 0, -0.3], yaw: 25 },
@@ -98,9 +108,10 @@ const counter = {
   keys: [
     [0, {}],
     [5, BACK, 'out'],
-    // torn off the back: out to the side and up over the shoulder, the torso unwinding
-    [9, { ...BACK, hips: [0, -6, 0], spine: [-2, -2, 0], chest: [-2, 0, 0], neck: [-4, 6, 0], head: [-4, 6, 0], rh: P(-0.52, 1.42, -0.12, { pole: [-1, -0.2, -0.6], ...FAN }) }, 'in'],
-    [12, { ...SPIN, rot: 0, hips: [-2, -4, 0], spine: [-4, 0, 0], chest: [-4, 0, 0], rh: P(-0.3, 1.72, 0.18, { pole: [-1, 0, -0.3], ...FAN }) }, 'io'],
+    // torn off the back: the paddle swings out behind him and up, the torso unwinding
+    [9, { ...BACK, hips: [0, -6, 0], ...SWING, rh: swingR() }, 'in'],
+    // (eases matched so the paddle's turn runs on at ~30 degrees a frame from here into the spin: no hitch at a key)
+    [12, { ...SPIN, rot: 0, hips: [-2, -4, 0], spine: [-4, 0, 0], chest: [-4, 0, 0], rh: overR() }, 'lin'],
     // one full turn to his left (keys <= 90 degrees apart: nlerp takes the short way, gotcha 41)
     [16, { ...SPIN, rot: 70 }, 'lin'],
     [20, { ...SPIN, rot: 160, h: [0, -0.02, 0] }, 'lin'],
@@ -111,10 +122,11 @@ const counter = {
     [38, { ...GUARD, rot: 360 }, 'io'],
     [55, { ...GUARD, rot: 360, h: [0, -0.11, 0], rh: P(-0.12, 0.85, 0.51, { pole: [-1, -1, 0], ...FAN }) }, 'io'],
     [72, { ...GUARD, rot: 360 }, 'io'],
-    // back on his back: up over the right shoulder, down behind to the hip
-    [77, { ...BACK, rot: 360, hips: [0, -8, 0], spine: [-2, -4, 0], chest: [-2, -2, 0], neck: [-2, 8, 0], head: [-2, 8, 0], rh: P(-0.36, 1.62, 0.02, { pole: [-1, 0, -0.4], ...FAN }) }, 'io'],
-    [81, { ...BACK, rot: 360, rh: P(-0.44, 1.2, -0.24, { pole: [-1, 0, -0.8], fist: 1, wrist: [-30, 0, 0] }) }, 'io'],
-    [84, { ...BACK, rot: 360 }, 'out'],
+    // back on his back: up over his head, the paddle swung down behind him, the fist back at the shoulder
+    [76, { ...BACK, rot: 360, hips: [0, -6, 0], spine: [-4, 0, 0], chest: [-4, 0, 0], neck: [-4, 6, 0], head: [-4, 6, 0], rh: overR() }, 'io'],
+    [79, { ...BACK, rot: 360, hips: [0, -6, 0], ...SWING, rh: swingR() }, 'in'],
+    [82, { ...BACK, rot: 360 }, 'out'],
+    [84, { ...BACK, rot: 360 }, 'hold'],
     [90, { rot: 360 }, 'io'],
   ],
 };

@@ -1,12 +1,13 @@
 // Itachi's kit, two clients: A plays Itachi, B plays Naruto. Each ability must do what it says on both screens, the
 // damage must agree, and everything that moves must be in the same place on both screens. PASS/FAIL.
-// usage: node scripts/test/itachi.mjs [url=http://localhost:3104/] [only=fire,dodge,tsukuyomi,crow,amaterasu]
+// usage: node scripts/test/itachi.mjs [url=http://localhost:3104/] [only=fire,dodge,tsukuyomi,crow,shift,amaterasu]
 // The server needs a full ultimate gauge and HP 600 (the 3104 / 3102 test servers):
 //   SHINOBI_HP=600 SHINOBI_ULT=1 SHINOBI_MATCH=300,10,2
 import puppeteer from 'puppeteer-core';
+import { ST } from '../../src/shared/config.js';
 
 const URL = process.argv[2] || 'http://localhost:3104/';
-const ONLY = (process.argv[3] || 'fire,dodge,tsukuyomi,crow,amaterasu').split(',');
+const ONLY = (process.argv[3] || 'fire,dodge,tsukuyomi,crow,shift,amaterasu').split(',');
 const launch = () => puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -150,6 +151,8 @@ if (ONLY.includes('tsukuyomi')) {
   await place(8);
   await clearLogs();
   const hp0 = await hpOf();
+  const WSTATE = "({ on: !!__game.jutsu.itachi.world.S?.on, active: !!__game.jutsu.itachi.world.S, arena: __game.arena.visible, me: __game.player.root.visible, fog: __game.scene.fog.far, cine: __game.hud.root.classList.contains('cine'), taken: [...__game.chars.values()].reduce((n, e) => n + e.model.pool.filter((v) => v.taken).length, 0), stage: __game.jutsu.itachi.world.stage.group.visible, progs: __game.renderer.info.programs.length })";
+  const w0 = await B.p.evaluate(WSTATE);
   await cast('jutsu2', 'tsukuyomi', 15);
   await sleep(500);
   // (the server's result reaches each screen half a round trip after the gaze reaches the server; a lost segment adds one)
@@ -164,6 +167,12 @@ if (ONLY.includes('tsukuyomi')) {
   const markB = await B.p.evaluate((id) => __game.jutsu.itachi.dazed.has(id), idB);
   check('tsukuyomi: B is dazed on its own screen (the dazed pose, the red world)', inB.act === 9 && inB.gen > 0.5 && inB.clip === 'dazed', JSON.stringify(inB));
   check('tsukuyomi: the Mangekyō mark is over B on both screens', markA && markB);
+  // B's own screen leaves the fight: the world (the stage at B, B's camera taken, the real fighters hidden, two stand-ins)
+  await B.p.waitForFunction(() => __game.jutsu.itachi.world.S?.on && __game.jutsu.itachi.world.cam, { timeout: 1500, polling: 16 }).catch(() => {});
+  const w1 = await B.p.evaluate(WSTATE);
+  check("tsukuyomi: B's screen enters the genjutsu's world (stage up, real bodies hidden, two stand-ins, HUD away)", w1.on && w1.stage && !w1.me && w1.cine && w1.taken === w0.taken + 2, JSON.stringify(w1));
+  const onA2 = await A.p.evaluate(() => !!__game.jutsu.itachi.world.S);
+  check("tsukuyomi: the caster's screen stays in the fight", !onA2);
   // B can't move or substitute out of it
   const p0 = await posB();
   await B.p.evaluate(() => { __game.hold(['up']); __game.input.press('dash'); });
@@ -180,6 +189,9 @@ if (ONLY.includes('tsukuyomi')) {
   const m1 = await onB('U1');
   const still = await B.p.evaluate(() => ({ r: __game.ctrl.action?.h?.r ?? null, dz: __game.ctrl.action?.h?.dz ?? 0, clip: __game.view.act?.clip }));
   check('tsukuyomi: a hit inside the genjutsu keeps B dazed to its end', m1.length === 1 && m1[0].dz === ha[0]?.dz && still.dz === ha[0]?.dz && still.clip === 'dazed', `${JSON.stringify(m1.map((h) => ({ r: h.r, dz: h.dz })))} ${JSON.stringify(still)}`);
+  await B.p.waitForFunction(() => !__game.arena.visible, { timeout: 3000, polling: 16 }).catch(() => {});
+  const w2 = await B.p.evaluate(WSTATE);
+  check("tsukuyomi: the fog swallows the arena on B's screen (hidden behind the stage's sky and ground)", w2.on && !w2.arena, JSON.stringify(w2));
   const hpMid = await hpOf();
   check('tsukuyomi: HP agrees (30 + the hit)', hpMid.bSelf === hpMid.aSeesB && hp0.bSelf - hpMid.bSelf >= 30, `B ${hp0.bSelf} -> ${hpMid.bSelf}, A sees ${hpMid.aSeesB}`);
   // released after 5 s: B moves again, the red world gone
@@ -190,6 +202,9 @@ if (ONLY.includes('tsukuyomi')) {
   await B.p.evaluate(() => __game.hold([]));
   const q1 = await posB();
   const genEnd = await B.p.evaluate(() => __game.post.genjutsu.uniforms.get('uAmt').value);
+  const w3 = await B.p.evaluate(WSTATE);
+  check("tsukuyomi: B's world gives everything back (arena, fog, own body, HUD, the stand-ins' bodies)", !w3.active && w3.arena && w3.me && !w3.cine && !w3.stage && w3.fog === w0.fog && w3.taken === w0.taken, JSON.stringify(w3));
+  check('tsukuyomi: no shader compiled for it mid-fight (everything warmed at load)', w3.progs === w0.progs, `${w0.progs} -> ${w3.progs} programs`);
   check('tsukuyomi: B is free after the 5 s (moves, the red world is gone)', Math.hypot(q1[0] - q0[0], q1[2] - q0[2]) > 1 && genEnd < 0.01, `moved ${Math.hypot(q1[0] - q0[0], q1[2] - q0[2]).toFixed(2)} m, uAmt ${genEnd}`);
   // out of the cone (behind him): nothing
   await sleep(Math.max(0, 15800 - 6800));
@@ -226,7 +241,7 @@ if (ONLY.includes('crow')) {
   const seen = await B.p.evaluate((id) => { const f = __game.remotes.get(id)?.fighter; return f ? [f.pos.x, f.pos.y, f.pos.z, f.root.visible] : null; }, idA);
   const d = Math.hypot(a1[0] - a0[0], a1[2] - a0[2]);
   check('crow: he bursts into crows and is hidden on both screens', hidden[0] && hidden[1] && crowsA > 10 && crowsB > 10, `hidden ${hidden}, crows ${crowsA}/${crowsB}`);
-  check('crow: he re-forms 7-12 m away, farther from the enemy', d >= 6.5 && d <= 12.5 && Math.hypot(a1[0] - b0[0], a1[2] - b0[2]) > Math.hypot(a0[0] - b0[0], a0[2] - b0[2]) + 4, `${d.toFixed(1)} m, from B ${Math.hypot(a1[0] - b0[0], a1[2] - b0[2]).toFixed(1)} m`);
+  check('crow: he re-forms 14-22 m away, farther from the enemy', d >= 13.5 && d <= 22.5 && Math.hypot(a1[0] - b0[0], a1[2] - b0[2]) > Math.hypot(a0[0] - b0[0], a0[2] - b0[2]) + 4, `${d.toFixed(1)} m, from B ${Math.hypot(a1[0] - b0[0], a1[2] - b0[2]).toFixed(1)} m`);
   check('crow: B sees him re-formed at the same spot (<= 0.35 m), visible', seen && seen[3] && Math.hypot(seen[0] - a1[0], seen[2] - a1[2]) <= 0.35, seen ? `${Math.hypot(seen[0] - a1[0], seen[2] - a1[2]).toFixed(2)} m` : 'no remote');
   const hits = await A.p.evaluate((id) => window.__hl.filter((h) => h.v === id), idA);
   check('crow: nothing lands on him through it', hits.length === 0, `${hits.length} hits`);
@@ -234,6 +249,41 @@ if (ONLY.includes('crow')) {
   await sleep(600);
   const srv = await B.p.evaluate((id) => { const r = __game.remotes.get(id); return r?.motion.cur ? [r.motion.cur[0], r.motion.cur[2]] : null; }, idA);
   check('crow: the state stream carries on from the spot', srv && Math.hypot(srv[0] - a1[0], srv[1] - a1[2]) < 0.35, srv ? `${Math.hypot(srv[0] - a1[0], srv[1] - a1[2]).toFixed(2)} m` : '');
+}
+
+// ---------------------------------------------------------------- 5b. the crow shift: his dash is ink on every screen
+if (ONLY.includes('shift')) {
+  await sleep(600);
+  await place(8);
+  await sleep(300);
+  // every drawn frame for 0.9 s on both screens: is he hidden, is he dashing, the ink and the crows
+  const rec = (p, id) => p.evaluate((id) => new Promise((res) => {
+    const out = [], t0 = performance.now();
+    const f = () => {
+      const fi = id === null ? __game.player : __game.remotes.get(id)?.fighter, K = __game.jutsu.itachi;
+      out.push({ t: Math.round(performance.now() - t0), hid: fi ? !fi.root.visible : null, st: fi?.view?.st, ink: K.ink.mesh.geometry.drawRange.count, crows: K.crows.list.length, x: fi?.pos.x, z: fi?.pos.z });
+      if (performance.now() - t0 < 900) requestAnimationFrame(f);
+      else res(out);
+    };
+    f();
+  }), id);
+  const pa = rec(A.p, null), pb = rec(B.p, idA);
+  await sleep(60);
+  await A.p.evaluate(() => { __game.hold(['left']); __game.input.press('dash'); });
+  await sleep(150);
+  await A.p.evaluate(() => __game.hold([]));
+  const [ra, rb] = await Promise.all([pa, pb]);
+  for (const [who, r] of [['A', ra], ['B', rb]]) {
+    const dash = r.filter((e) => e.st === ST.dash), hid = r.filter((e) => e.hid);
+    const mismatch = r.filter((e) => e.hid !== (e.st === ST.dash));
+    if (process.env.DETAIL) console.log(`  ${who}:`, r.map((e) => `${e.t}:${e.st}${e.hid ? 'H' : ''}/${e.ink}`).join(' '));
+    check(`shift: ${who} sees the dash as ink (hidden exactly while dashing, ink drawn, crows)`, dash.length > 3 && mismatch.length === 0 && Math.max(...dash.map((e) => e.ink)) > 0 && Math.max(...r.map((e) => e.crows)) >= 3, `${dash.length} dash frames, ${hid.length} hidden, ${mismatch.length} mismatched, ink ${Math.max(...r.map((e) => e.ink))}, crows ${Math.max(...r.map((e) => e.crows))}`);
+    check(`shift: ${who} sees him again after it`, !r.at(-1).hid);
+  }
+  // the ink dries out (strands released and gone)
+  await sleep(900);
+  const left = await Promise.all([A.p, B.p].map((p) => p.evaluate(() => __game.jutsu.itachi.ink.list.length)));
+  check('shift: the ink has dried out on both screens', left[0] === 0 && left[1] === 0, `${left}`);
 }
 
 // ---------------------------------------------------------------- 6. fireballs on a runner (last: B's HP budget)

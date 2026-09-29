@@ -198,13 +198,39 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
   time, each victim where its own screen had it: like the meteor). New reaction `REACT.daze` (9): 5 s standing
   (stun 300), unblockable, no substitution (no stun window), opens no combo. `keepDaze` (shared/combat.js): a hit
   that doesn't throw a dazed victim leaves it dazed to the genjutsu's end (`dz`, in hitr; the attacker predicts the
-  same); a launch/knockdown breaks it; the knockdown rule (3.5 s / 12 hits) still applies. Visuals: a Mangekyō eye
-  opening over the victim's head (EyeMarks), the `dazed` loop clip, on the victim's own screen the GenjutsuEffect
-  (red-and-black world, the Mangekyō over the view as it takes hold) + a heartbeat.
-- **G Crow Clone Escape** (20 chakra, 10 s): the spot is picked at the press (itachikit escapeSpot: rings 7-12 m,
+  same); a launch/knockdown breaks it; the knockdown rule (3.5 s / 12 hits) still applies. The victim stands in the
+  `dazed` loop clip for everyone else.
+  **Its looks (2026-09-29, from the owner's Shinobi Striker reference shots):**
+  - Every screen, from the clip (frames 10-40): a great Mangekyō projected ~1.1 m before his eyes, facing his gaze,
+    popping in and turning (SealFx, tsukuyomifx.js: Itachi's pattern: a red iris with a hot core, three sickle blades
+    off the pupil, a ragged black brush ring with thorns and three horns sweeping off it).
+  - Every screen, on each victim from its hitr (updateDazed, ~2.6 s): a white flash sphere tearing wind streaks off
+    it, a violet sphere (rim-lit, a highlight, a dark core), three great black blades sweeping in and closing, a red
+    ring tearing into ink, then the whole Mangekyō over the body (the body shows through the iris); then the eye mark
+    opens over the head for the rest of the daze.
+  - The victim's own screen (src/game/tsukuyomi.js, timeline `TSU`): the Mangekyō spins up over the arena as it
+    reddens, its pupil swallows the view (GenjutsuEffect `eye`/`cover`); under the black a stage is built where the
+    victim stood (turned so the stand-in Itachi stands toward the real one; the camera side/angle with a clear view:
+    viewScore): a T cross of pale weathered wood (toon, canvas grain), rope at the wrists and ankles, the victim's own
+    body bound to it (`tsu_bound` clip: arms along the bar, feet off the ground, head rolling) and the caster's standing
+    before it (`tsu_watch`), both stand-ins from the model pools (Tsukuyomi kits warm one more instance); a hole opens
+    in the black onto it (the violet sphere over the victim, image 7). The world dims and drains (the ink pinwheel
+    over the victim, the first katanas streaking in: image 8), a white fog closes in (fog near/far eased, then mono;
+    at full fog the arena, its sky dome and every real fighter are hidden and the stage's sky shell + ground disc take
+    over: image 9), then under a flash it turns negative (luminance flipped onto a black / blood-brown / dusty-rose /
+    white ramp; a boiling blood-brown sky with black cloud masses, white ground, the fog its own negative: image 10)
+    while katana volleys (12, ~40 blades, 1.4x size, faceted steel with a hamon, wrapped grips, motion streaks) fly in
+    from Itachi's side at every angle and stick on the victim's bones (quivering, ink bursting out the far side, drops
+    arcing and staining the ground, the body jerking, the camera shaking). A slow dolly in + a slight dutch tilt; the
+    HUD and nameplates fade; its own sounds (tsukuyomi in/dim/fog/neg/out, a sword stab). The eye closes it (the same
+    wipe backwards) half a second before the daze ends (sooner if a launch breaks it, at once on a respawn), and
+    everything is given back: the arena, sky, fog, outline reach, HUD, the real bodies, the stand-ins' VRMs.
+    Purely local and visual: no protocol change; other players see the capture and the mark.
+- **G Crow Clone Escape** (20 chakra, 10 s): the spot is picked at the press (itachikit escapeSpot: rings 14-22 m
+  (2026-09-29, owner's request; were 7-12), falling back to rings at half that when nothing is free (the arena's edge),
   free standing room, no drop, not the river, in bounds; score = distance from the nearest enemy + 6 if no enemy can
   see it + a little randomness). Frame 5: n:1 with the spot, moved there locally (not teleportTo: it ends the action);
-  the server checks reach (15 m) and room and broadcasts it to everyone incl. the sender (no seq bump needed: the
+  the server checks reach (maxDist 26 m) and room and broadcasts it to everyone incl. the sender (no seq bump needed: the
   socket keeps order). Invulnerable 0.6 s from the press (`p.escape`, FLAG.invuln). Hidden from frame 5 until the
   crows have gathered (form 26; a late screen still gets >= 0.25 s of gathering). Crows: instanced low-poly birds,
   two-joint flapping wings in the vertex shader, banking; feathers fall on the GPU.
@@ -216,7 +242,10 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
   licking off the victim's hurtbox capsules; burn ticks don't white-flash.
 - Server hits (the gazes, the burn) go through `serverHit` (now returns whether it applied; `srv` hits don't
   count toward the attacker's rate limit). The attacker's screen shows their feedback from hitr (SERVER_HIT).
-- Tests: `scripts/test/itachi.mjs` (26 checks: fireballs hit + sync + HP, dash dodge (client and server-only), Amaterasu exactly 300 of 600
+- Tests: `scripts/test/itachi.mjs` (31 checks since Tsukuyomi's world: + B's screen enters it (stage up, real bodies
+  hidden, two stand-ins, HUD away), the caster's doesn't, the fog hides the arena, everything given back, no shader
+  compiled mid-fight; 31/31 at 0 ms and at 200,40,1; mpcombat ALL PASS; perf default roster 146-154 fps, 1% low
+  78-98, CPU 5.4-5.8 ms, 79 programs (+9, all compiled at load). Earlier: 26 checks: fireballs hit + sync + HP, dash dodge (client and server-only), Amaterasu exactly 300 of 600
   through a dash on both screens, Tsukuyomi 5 s daze on both screens + no move/sub + a hit keeps the daze + free after +
   none behind him, crow burst/hidden/re-form 7-12 m away at the same spot on both screens, invulnerable, a runner hit
   by all 3) **26/26 at 0 ms (:3104) and 26/26 at 200,40,1 (:3102)**, several runs each. Regressions ALL PASS:
@@ -227,6 +256,42 @@ src/char/itachimoves.js). Casts come in phases like Madara's (n:0 at the press, 
   compiled mid-fight. Shots in shots/itachi/ (look*, film_*, duo_*: both screens).
 - Not yet: the owner's review (looks, feel, balance: a 5 s stun every 15 s is strong; Amaterasu's 50% is certain
   once caught); Madara's barrier reflects a fireball as a shuriken.
+
+## Itachi's crow shift + longer G (2026-09-29, owner's request)
+
+- The owner's references (Shinobi Striker, an Uchiha dashing): the body gone for the dash, a torn stroke of dark ink
+  where it went, feathers, cyan-green chakra, speed lines, then the fighter swiftly shown where it arrives. Wanted on
+  his Shift dash and on G (the same look), crows from where he left on the dash and on any ability, G farther.
+- **Data:** `crowShift: true` in itachi.js (visual only: the dash's movement is everyone's). G `dist` [14, 22],
+  `maxDist` 26 (the server's limit).
+- **InkStrokes** (itachifx.js): every ink stroke on screen in one dynamic mesh, one draw, one program (compiled at load).
+  A strand = a path of points (x, y, z, birth time, arc length); the vertex shader widens it about the path toward the
+  camera, leaned toward the vertical (`lean`; its sign from the path's right side: taken from s.y it flickered seen from
+  behind), so from the side it stands up like a body-high smear and from behind two opposite leans cross like brush
+  strokes. Fragment: bristle fibres pinned to the arc length (they don't swim as it grows), a ragged torn edge, a round
+  tip at the head, a dry-brush tail, fibres fraying at the edges; each point dries `life` s after it was laid
+  (indigo-black, crimson only at the fringes). `release(S, fade)`: the rest dries within `fade` s (its fresh head
+  lingered by the body), added on top of the age: no pop. `line()`: a straight stroke redrawn each frame.
+- **The dash** (src/game/itachi.js `updateShift`, every Itachi on every screen, from the drawn view: `view.st ===
+  ST.dash`, so it matches the body exactly, remotes included): hidden while dashing; four strands following the body
+  (SHIFT_STRANDS) + two upright camera-facing blots where he is (BLOTS: a vertical path, so the strip turns about it:
+  the body as ink seen from behind); at the start crows out to the sides and up, feathers, an ink splash, aqua sparks,
+  a wing flutter (`audio.crowShift`); on the way ink puffs, aqua sparks (fx kind 6), white speed lines (kind 2),
+  feathers (`inkWake`); at the end the brush lifts and he takes shape in ink drawn in round him (`inkForm`).
+- **G:** the burst adds an ink splash; `crowGather` launches `inkComet`: three strands flying from where he vanished to
+  the spot on an arc (up to 3 m high), fast off the mark and easing in as the crows arrive, sub-stepped every 0.5 m
+  (a smooth arc at any frame rate), on its own frame clock (on the server clock it outran everything in slow motion);
+  `formFx` adds `inkForm`. **Substitution** (`onSub`, local combat.substitute + remote main.js sub): crows, feathers
+  and ink where he stood, ink gathering where he appears.
+- **Crows never fill the view** (gotcha 57): `flyOff` takes the camera-ward part out of a crow's velocity, and every
+  crow shrinks away within 3 m of the camera (Crows vertex shader). Inside Tsukuyomi's world (this screen) none of it
+  is drawn (the body still hides).
+- **Tests:** itachi.mjs `shift` (new): every drawn frame on both screens, hidden exactly while the view says dash (0
+  mismatched frames), ink drawn, crows, visible after, the ink dried out; `crow` now checks 14-22 m. **36/36 at 0 ms
+  (:3104)**, crow/shift/fire **17/17 at 200,40,1 (:3102)**; mpcombat CH=itachi ALL PASS at both (substitution with the
+  crows). Programs 79 before and after a dash, a G and a substitution (nothing compiles mid-fight). perf (6 Itachis,
+  back to back): quiet 231-248 fps, 1% low 98-141, logic+anim 1.5 ms; `BOT_DASH=1` (bots.mjs: every bot dashes 0.28 s
+  of every 1.2 s) 215-238 fps, 1% low 98-134, logic+anim 1.6 ms. Shots: shots/shift/ (behind2, side, g: slow motion).
 
 ## Itachi password lock (2026-09-28, owner's request)
 
@@ -379,8 +444,20 @@ them). L1-L5 stay only for the Shadow Clone Rush's clones.
 - Docs: CLAUDE.md is kept under 250 lines (owner's rule); the 40 hard-won gotchas live in `docs/gotchas.md`, which
   CLAUDE.md imports (`@docs/gotchas.md`) and indexes by title.
 
+## Docs for the craft (2026-09-29, owner's request)
+
+- `docs/visuals.md` (imported by CLAUDE.md): the playbook of HOW animations, effects and screen effects are built
+  (reference shots -> phased timeline -> both-screen shots; keyed clips; instanced quad effects with layer weights;
+  GPU particles; post grades; one-screen cinematics that borrow and give back; the must-haves: warmed at load, no
+  per-frame allocation, same on every screen, free when idle). Updated after every visual change, like gotchas.md.
+
 ## Known issues / next
 
+- Tsukuyomi's world (2026-09-29) awaits the owner's look. Limits: it plays where the victim stood, so right against a
+  wall or among trees the camera takes the clearest of 14 sides/angles but may still have something in the first
+  second (before the fog); a victim caught in the air gets a floating cross; real hits landed on the victim during it
+  are not shown on its own screen (HP still drops, the HUD returns with the right value). Tested with the stand-in as
+  the victim (no naruto.vrm yet): re-check the bound pose on the real model (the crossbar follows the wrists).
 - animcheck.mjs: one rare residual spike (13-19 deg on a foot, about 1 run in 3): releasing lock-on mid-backpedal
   while both feet are in the air and the body turns 180 degrees. Since the gait's swing-follow fix (2026-09-27
   evening) Sage and Obito passed every run so far.
@@ -436,13 +513,13 @@ it is identical on every screen (the tests measure 0.0 cm differences) and a lat
   half-second counter stance with a procedural fan that poofed into his hand). The gunbai is the owner's model
   (models/gunbai.glb -> public/assets/props/gunbai.glb, "Madara-Uchiha gunbai" by Madara.Uchiha.supreme, CC BY 4.0:
   credited in README + his card; 1,190 triangles, loaded behind the loading screen, baked to a prop frame, toon
-  material, casts shadows). It rides on EVERY Madara's back at all times (upper chest's frame, behind the hair: the
-  paddle over the left shoulder, the handle down to the right hip, tomoe face out; GUNBAI.back in madarafx.js,
+  material, casts shadows). It rides on EVERY Madara's back at all times (upper chest's frame, head down like a
+  sword since 2026-09-29, see "Gunbai fix" below; GUNBAI.back in madarafx.js,
   `__game.jutsu.madara.debugGunbai({p, up}, grip)` to try mounts live). The 90-frame clip `mad_counter`: the hand
-  reaches back and grabs the handle (5), tears it free over the right shoulder (5-12: the fan blends from the back
-  into the fist over 4 frames), one full spin to his left with the arm out so the face pushes the air (12-31, rot keys
+  reaches over the right shoulder and closes on the handle (5), swings the fan out behind him and up (5-12), one
+  full spin to his left with the arm out so the face pushes the air (12-31, rot keys
   <= 90 degrees apart, feet just off the ground; he turns toward the target inside the spin), the gust at 20, the
-  planted guard (the fan upright in front of face and chest), the fan back over the shoulder onto his back (72-84).
+  planted guard (the fan upright in front of face and chest), the same arc back onto his back (72-84).
   Server: from the press to frame 72 (+50 ms slack each side) EVERY hit on him is answered, any number of times:
   melee -> refused (`hitx why:counter`), the attacker blown back once (`uchihaReturn:blow` 60, knockback [9, 5]:
   a few metres; a clone is dispelled); projectiles -> reflected (50 each, every shuriken of the cast); ultimates and
@@ -484,6 +561,37 @@ it is identical on every screen (the tests measure 0.0 cm differences) and a lat
   fall, impact, crater) and shots/gunbai/ (the mount, slow-motion strips of the cast, the two screens side by side).
 - At 200 ms a jab thrown in the first ~0.1 s of the barrier is predicted on the attacker's screen (it hasn't heard of
   the cast yet) and undone by the `hitx`: inherent to the latency; the server's answer is right.
+- **Gunbai fix (2026-09-29, owner's bug report: "upside down", "a gap between the gunbai and the hair"):**
+  - Mount: head down like a sword on the back: the paddle hangs down his back over the hair toward his left hip
+    (18 degrees), the wrapped handle rises past his right shoulder, tomoe face out (GUNBAI.back `p [-0.03, 0.11,
+    -0.275], up [0.309, -0.951, 0.1]`). The paddle's inner face rests on the hair: its back measured on the model
+    (gunbaicheck.mjs `back`: z -0.23..-0.27 from 0.9 to 1.45 m, robe -0.14 at 0.75 m); leaning in 6 degrees at
+    the bottom. 4 cm lower than first tried: running tips his head back toward the chest-mounted fan, and the
+    hair's root at the nape (driven by the head, not the springs) poked through its top edge.
+  - Hair collider: while on his back the fan is a spring-bone plane for his hair (Gunbai.attach: a
+    VRMSpringBoneColliderShapePlane on the normalized upper chest in the mount's frame, added to every joint's
+    colliderGroups). It leans against the fan (`GUNBAI.hair`: joints held 12.5 cm off the mid-plane at the
+    shoulder blades, 7 cm at the tail): the mane's spikes stand 11 cm behind its joints up top, 3 cm at the tail,
+    and the hips' collider leaves the tail only ~8 cm. A flat 7.5 cm still let 10-24 spike tips through while
+    running. The plane backs off as the hand takes the fan (100 m away once in the hand) and sweeps back in over
+    the release's frames (a hair behind it is pressed forward, not snapped). gunbaicheck.mjs `poke`: 0 vertices
+    through the face at idle, over 14 running samples, over a jump.
+  - Collider matrices fixed for every character (vrm.js): three-vrm refreshes a collider's matrix only in
+    updateWorldMatrix, which the scene pass never calls; they lagged a frame (8 cm behind a running fighter).
+    Patched VRMSpringBoneCollider.updateMatrixWorld (gotcha 53).
+  - Draw/return keys (madaramoves.js BACK / swingR / overR): the right hand over the shoulder, palm to the neck,
+    elbow up and forward; the fan swings out behind him and up over the head (the paddle a half circle away from
+    his back), fist out at head height at 12, then the unchanged spin. Wrists solved on his rig (gunbaisolve.mjs):
+    at 5 and 82 the fist holds the fan exactly as it rides (0.1 degrees, 0 mm), so the hand-over blend is 2-3
+    frames (madara.js) and invisible (the fan moves 0-0.6 deg/frame through it); the swing's wrist picked as the
+    most natural (smallest deviation). Eases matched so the turn runs 4, 14, 23, 30, 30, 32, 30, 31, 33 deg/frame
+    into the spin (no hitch at a key); the return lifts, holds a beat, flicks down into the grip (peak 51 deg/f).
+    The paddle stays 6 cm or more off the skull, 10 cm off the torso (gunbaicheck.mjs `clear`). Timings in
+    madara.js unchanged (the server's window, gust and release are the same).
+  - Tests: madara.mjs ALL PASS at 0 ms; at 200,40,1 the counter set 3 of 3 PASS (one full run missed a second
+    reflected shuriken: a lag stall, the server side is untouched); animcheck CH=madara, mpcombat CH=madara, chars
+    ALL PASS; perf 6 Madaras 306-341 fps, logic+anim 1.0 ms, 70 programs (the last commit: 70 too). Shots in
+    shots/gunbai/ (before, rest, run, draw1-2, head, air).
 - Not yet: the owner's review (looks, feel, balance: 1.2 s of total cover every 8 s for 20 chakra, sound by ear);
   perf with several meteors at once (2 pooled); the Rasenshuriken/torrent still draw their own explosion on the
   attacker's screen when the barrier deflects them (the damage is refused; only the wind's deflect burst is new).

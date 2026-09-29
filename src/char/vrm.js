@@ -6,8 +6,18 @@
 // hit flash). MToon materials get the game's outline and rim look.
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+import { VRMLoaderPlugin, VRMUtils, VRMSpringBoneCollider } from '@pixiv/three-vrm';
 import { Rig } from './rig.js';
+
+// A spring collider's matrix (world matrix + shape offset) is only refreshed by updateWorldMatrix, which the scene's
+// matrix pass never calls: the springs tested the hair against where the body (and the gunbai) was a frame or more
+// ago (8 cm behind a running fighter). Refreshed in the pass itself (Fighter.updateVRM runs it before the springs).
+const _umw = THREE.Object3D.prototype.updateMatrixWorld, _cp = new THREE.Vector3();
+VRMSpringBoneCollider.prototype.updateMatrixWorld = function (force) {
+  _umw.call(this, force);
+  this.colliderMatrix.copy(this.matrixWorld);
+  if (this.shape.offset) this.colliderMatrix.setPosition(_cp.copy(this.shape.offset).applyMatrix4(this.matrixWorld));
+};
 
 const TEX_PROPS = ['map', 'normalMap', 'emissiveMap', 'shadeMultiplyTexture', 'shadingShiftTexture', 'matcapTexture', 'rimMultiplyTexture', 'outlineWidthMultiplyTexture', 'uvAnimationMaskTexture', 'alphaMap'];
 

@@ -20,6 +20,10 @@ export const ITACHI = {
   // (card.face: his collar hides everything below the eyes; eye: the eyes' place from the head bone, metres, in the
   // fighter's frame: up, forward, apart. The Mangekyō glows there through his casts)
   eyes: { up: 0.072, fwd: 0.085, apart: 0.032 },
+  // his dash (and substitution) is a crow shift. The movement is everyone's; only the look differs: the body turns
+  // into a streak of brush ink for the dash, crows scatter from where he left, he re-forms at its end (visual only:
+  // src/game/itachi.js updateShift, itachifx.js InkStrokes)
+  crowShift: true,
 
   jutsu: {
     shuriken: NARUTO.jutsu.shuriken, // tool 1: the same as everyone's
@@ -60,10 +64,11 @@ export const ITACHI = {
     crowEscape: {
       name: 'Crow Clone Escape', key: 'G', cost: 20, cd: 10, icon: 'crows', escape: true,
       // the body bursts into crows at `vanish` (the teleport: phase n:1 with the spot), they gather at the spot and
-      // he re-forms at `form`, crouched, standing by `total`. Invulnerable for `invuln` s from the press.
+      // he re-forms at `form`, crouched, standing by `total`. Invulnerable for `invuln` s from the press. Between the
+      // two, an ink streak flies from where he vanished to the spot (itachi.js inkComet).
       vanish: 5, form: 26, total: 38, invuln: 0.6,
-      dist: [7, 12], // metres the spot is picked from (the safest: farthest from enemies, out of their sight)
-      maxDist: 15, // the server's limit from where he pressed
+      dist: [14, 22], // metres the spot is picked from (the safest: farthest from enemies, out of their sight)
+      maxDist: 26, // the server's limit from where he pressed
     },
 
     amaterasu: {

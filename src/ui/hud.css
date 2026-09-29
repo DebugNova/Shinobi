@@ -108,3 +108,7 @@
 #pz-perf p { margin: 4px 0; max-width: 460px; font: 500 15px/1.4 var(--num); }
 #pz-perf h4 { margin: 10px 0 6px; font: 800 18px var(--num); }
 .lv-ok { color: #6fe28a; } .lv-warn { color: #ffc15a; } .lv-bad { color: #ff6a5a; }
+
+/* Tsukuyomi's world (hud.cinema): everything fades away while the genjutsu holds the view */
+#hud, #plates { transition: opacity 0.25s; }
+#hud.cine, #plates.cine { opacity: 0; pointer-events: none; }

@@ -914,6 +914,7 @@ export class Combat {
     ctrl.invulnUntil = g.net.serverNow() / 1000 + 0.4;
     g.player.snap(x, y, z, ctrl.yaw);
     g.fx.poof({ x, y, z }, 0.8);
+    g.jutsu.itachi.onSub(ctrl.C, from, { x, y, z }); // (Itachi's crow shift: crows and ink)
     g.audio?.poof?.();
   }
 }

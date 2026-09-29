@@ -13,7 +13,9 @@ import { REACT } from '../shared/combat.js';
 import { r3 } from '../shared/madarakit.js';
 import { escapeSpot, shotDir } from '../shared/itachikit.js';
 import { Billows } from '../gfx/madarafx.js';
-import { EyeMarks, Crows, Feathers } from '../gfx/itachifx.js';
+import { EyeMarks, Crows, Feathers, InkStrokes } from '../gfx/itachifx.js';
+import { SealFx } from '../gfx/tsukuyomifx.js';
+import { TsukuyomiWorld } from './tsukuyomi.js';
 import { segSeg } from './hurtbox.js';
 
 const F = 1 / 60;
@@ -27,7 +29,17 @@ const ss = (a, b, x) => {
 const QUALITY = { low: 0.4, medium: 0.7, high: 1, ultra: 1.3 };
 const CAST_CLIPS = new Set(['ita_fire', 'ita_fire_air', 'ita_tsukuyomi', 'ita_tsukuyomi_air', 'ita_crow', 'ita_amaterasu', 'ita_amaterasu_air']);
 const _v = new THREE.Vector3(), _w = new THREE.Vector3(), _u = new THREE.Vector3(), _c1 = new THREE.Vector3(), _c2 = new THREE.Vector3(), _q = new THREE.Quaternion();
-const _prev = new THREE.Vector3(), _dir = new THREE.Vector3(), _gnd = {};
+const _prev = new THREE.Vector3(), _dir = new THREE.Vector3(), _nrm = new THREE.Vector3(), _ink = new THREE.Vector3(), _gnd = {};
+// the crow shift's ink: [half width (m), lean, life (s), height above the feet (m)] per strand. A wide body-high smear
+// and a narrower one leaning the other way (from behind they cross like two brush strokes), a thin flick at the
+// shoulders, one low by the legs. The escape's flight: the same, a little bolder.
+const SHIFT_STRANDS = [[0.7, 0.5, 0.5, 0.95], [0.46, -0.6, 0.42, 1.0], [0.17, 0.15, 0.34, 1.5], [0.22, -0.25, 0.3, 0.42]];
+const COMET_STRANDS = [[0.62, 0.5, 0.6, 1.0], [0.4, -0.6, 0.5, 1.05], [0.16, 0.2, 0.42, 1.5]];
+// the body as ink while he dashes: upright strokes facing the camera (a vertical path: the strip turns about it),
+// [half width, lean (its sign: which way it faces), life, lean back (m the top trails the feet)]
+const BLOTS = [[0.32, 1, 0.34, 0.35], [0.19, -1, 0.28, 0.6]];
+const INK = [0.03, 0.024, 0.06]; // ink puffs (normal-blended toon discs)
+const AQUA = [0.35, 1.9, 1.6]; // chakra sparks (HDR: the bloom takes them)
 
 /** World position of a fighter's bone (drawn pose). */
 function bonePos(fighter, name, out) {
@@ -168,6 +180,11 @@ export class ItachiKit {
     this.marks = new EyeMarks(s); // Tsukuyomi's marks, the Mangekyō in his eyes
     this.crows = new Crows(s);
     this.feathers = new Feathers(s);
+    this.seal = new SealFx(s); // Tsukuyomi's Mangekyō: the capture round a victim, the eye before him as he casts
+    this.ink = new InkStrokes(s); // the crow shift's brush ink (his dash, the escape's flight)
+    this.shifts = new Map(); // Itachi fighter -> { on, strands, px, pz, dx, dz }: his dash as ink (updateShift)
+    this.comets = []; // the escape's ink flights (inkComet)
+    this.world = new TsukuyomiWorld(this); // Tsukuyomi's world on its victim's own screen (tsukuyomi.js)
     this.balls = []; // fireballs in flight (see addBall)
     this.dazed = new Map(); // victim id -> { t0, until } (server ms): the Tsukuyomi mark
     this.burning = new Map(); // victim id -> { t0, last } (server ms, `last`: the last tick heard)
@@ -208,12 +225,24 @@ export class ItachiKit {
       this.crows.update(0.01);
       this.feathers.puff(p.x, p.y + 1, p.z, 2);
       this.feathers.update(0.01);
+      const S = this.ink.add(0.6, 0.5, 1);
+      this.ink.push(S, p.x, p.y, p.z);
+      this.ink.push(S, p.x + 1, p.y, p.z);
+      this.ink.update(0.01);
+      this.seal.begin();
+      this.seal.set(p, 0.5, null, 0, { flash: 1, violet: 1, blades: 1, ring: 1, seal: 1, ink: 1 }, 0.5, 0, null, 1);
+      this.seal.end();
+      this.world.warm(true, p);
     } else {
       this.black.give(this.warmBlack);
       this.black.update(0);
       this.marks.begin();
       this.marks.end();
       this.crows.clear();
+      this.ink.clear();
+      this.seal.begin();
+      this.seal.end();
+      this.world.warm(false);
     }
   }
 
@@ -523,7 +552,7 @@ export class ItachiKit {
     const n = Math.round(34 * q) + 6;
     for (let k = 0; k < n; k++) {
       const h = 0.2 + Math.random() * 1.5, a = Math.random() * 6.283, sp = 3.5 + Math.random() * 5;
-      this.crows.burst(from.x + Math.cos(a) * 0.2, from.y + h, from.z + Math.sin(a) * 0.2, Math.cos(a) * sp, 1 + Math.random() * 5 + (h - 0.8) * 2, Math.sin(a) * sp, 1.1 + Math.random() * 1.3, (x, y, z) => Math.random() < 0.4 && this.feathers.puff(x, y, z, 1, 0.1, 0.8));
+      this.flyOff(from.x + Math.cos(a) * 0.2, from.y + h, from.z + Math.sin(a) * 0.2, Math.cos(a) * sp, 1 + Math.random() * 5 + (h - 0.8) * 2, Math.sin(a) * sp, 1.1 + Math.random() * 1.3);
     }
     this.feathers.puff(from.x, from.y + 1.0, from.z, Math.round(26 * q) + 4, 0.8, 4);
     for (let k = 0; k < 7; k++) {
@@ -531,6 +560,7 @@ export class ItachiKit {
       g.fx.emit(0, from.x + Math.cos(a) * 0.3, from.y + 0.5 + Math.random() * 1.1, from.z + Math.sin(a) * 0.3, Math.cos(a) * 1.4, 0.6, Math.sin(a) * 1.4, 0.6 + Math.random() * 0.3, 0.4, 1.1, 0.11, 0.1, 0.13);
     }
     g.fx.emit(5, from.x, from.y + 1.1, from.z, 0, 0, 0, 0.12, 0.4, 1.4, 0.7, 0.05, 0.08);
+    this.inkSplash(from, 0, 0, 1.25);
     g.audio?.crows?.(from);
   }
 
@@ -540,6 +570,8 @@ export class ItachiKit {
     S.arrived = true;
     S.dest = to;
     S.formAt = formAt;
+    // the ink streaks across to the spot, arriving with the crows (the same frame clock as theirs)
+    this.inkComet(from, to, dur);
     const n = Math.round(16 * q) + 4;
     for (let k = 0; k < n; k++) {
       let sx, sy, sz;
@@ -568,7 +600,241 @@ export class ItachiKit {
       const a = (k / 4) * 6.283;
       g.fx.emit(0, p.x + Math.cos(a) * 0.45, p.y + 0.3 + Math.random() * 1.2, p.z + Math.sin(a) * 0.45, Math.cos(a) * 2.2, 0.4, Math.sin(a) * 2.2, 0.3, 0.2, 0.5, 0.1, 0.09, 0.12);
     }
+    this.inkForm(p, 1.2);
     g.audio?.crowForm?.(p);
+  }
+
+  // ---------------------------------------------------------------- the crow shift: ink
+
+  /**
+   * Ink thrown off where he left (a dash, the escape, a substitution): dark ink puffs flung back from the way he went
+   * (dx, dz: unit, or 0 for every way), aqua chakra wisps licking up, a cold flash. k: size.
+   */
+  inkSplash(p, dx, dz, k) {
+    const g = this.game, q = this.quality();
+    for (let n = Math.round(8 * k * q) + 2; n > 0; n--) {
+      const a = Math.random() * 6.283, sp = (1.2 + Math.random() * 2.4) * k, h = 0.25 + Math.random() * 1.35;
+      g.fx.emit(0, p.x + Math.cos(a) * 0.25, p.y + h, p.z + Math.sin(a) * 0.25, Math.cos(a) * sp - dx * 1.2 * k, 0.6 + Math.random() * 1.4, Math.sin(a) * sp - dz * 1.2 * k, 0.3 + Math.random() * 0.25, 0.25 * k, (0.4 + Math.random() * 0.3) * k, INK[0], INK[1], INK[2]);
+    }
+    this.wisps(p.x, p.y, p.z, Math.round(7 * k * q) + 2, 0.45 * k);
+    g.fx.emit(5, p.x, p.y + 1.0, p.z, 0, 0, 0, 0.12, 0.2 * k, 0.75 * k, 0.15, 0.6, 0.55);
+  }
+
+  /** He takes shape out of the ink: dark puffs drawn in round the body, shrinking into it; then aqua licks and a flash. */
+  inkForm(p, k) {
+    const g = this.game, q = this.quality();
+    const n = Math.round(9 * k * q) + 3;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 6.283 + Math.random() * 0.5, r = (0.55 + Math.random() * 0.35) * k, h = 0.2 + Math.random() * 1.45;
+      // (a puff travels vel * (1 - e^-4t) / 4: ~vel / 6 in its quarter second: from r out, drawn to the body's middle)
+      g.fx.emit(0, p.x + Math.cos(a) * r, p.y + h, p.z + Math.sin(a) * r, -Math.cos(a) * r * 5, (1.0 - h) * 4, -Math.sin(a) * r * 5, 0.22 + Math.random() * 0.08, (0.42 + Math.random() * 0.2) * k, 0.06, INK[0], INK[1], INK[2]);
+    }
+    this.feathers.puff(p.x, p.y + 1.0, p.z, Math.round(8 * k * q) + 2, 0.6, 2.4);
+    this.wisps(p.x, p.y, p.z, Math.round(5 * k * q) + 1, 0.35 * k);
+    g.fx.emit(5, p.x, p.y + 1.0, p.z, 0, 0, 0, 0.16, 0.15 * k, 0.6 * k, 0.15, 0.6, 0.55);
+  }
+
+  /** Aqua chakra licking up round (x, y, z) (the feet), within `r` metres: flickering sparks that rise and wander. */
+  wisps(x, y, z, n, r) {
+    const fx = this.game.fx;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * 6.283, rr = r * Math.sqrt(Math.random()), h = 0.15 + Math.random() * 1.5;
+      fx.emit(6, x + Math.cos(a) * rr, y + h, z + Math.sin(a) * rr, Math.cos(a) * 1.2, 1.5 + Math.random() * 2, Math.sin(a) * 1.2, 0.35 + Math.random() * 0.35, 0.09 + Math.random() * 0.06, 0.03, AQUA[0], AQUA[1], AQUA[2]);
+    }
+  }
+
+  /** A crow thrown off (x, y, z) at v, never toward this screen's camera (up close one filled the view); s: its size. */
+  flyOff(x, y, z, vx, vy, vz, life, s = 1) {
+    const cam = this.game.camera.position;
+    let tx = cam.x - x, tz = cam.z - z;
+    const tl = Math.hypot(tx, tz) || 1;
+    tx /= tl;
+    tz /= tl;
+    const d = vx * tx + vz * tz;
+    if (d > 0) {
+      vx -= 1.6 * d * tx;
+      vz -= 1.6 * d * tz;
+    }
+    const c = this.crows.burst(x, y, z, vx, vy, vz, life, (px, py, pz) => Math.random() < 0.3 && this.feathers.puff(px, py, pz, 1, 0.1, 0.8));
+    if (c) c.s *= s;
+  }
+
+  /**
+   * What the ink sheds as it goes, over `dist` metres of the brush's path ending at p (the feet) heading (dx, dz):
+   * dark puffs, aqua wisps, white speed lines along the way, feathers.
+   */
+  inkWake(p, dx, dz, dist, k = 1) {
+    const g = this.game, q = this.quality() * k;
+    const count = (perM) => Math.floor(dist * perM * q + Math.random());
+    for (let n = count(1.4); n > 0; n--) {
+      const b = Math.random() * dist;
+      g.fx.emit(0, p.x - dx * b + (Math.random() - 0.5) * 0.5, p.y + 0.3 + Math.random() * 1.3, p.z - dz * b + (Math.random() - 0.5) * 0.5, -dx * 1.5 + (Math.random() - 0.5), 0.4 + Math.random() * 0.8, -dz * 1.5 + (Math.random() - 0.5), 0.3 + Math.random() * 0.2, 0.15, 0.3 + Math.random() * 0.2, INK[0], INK[1], INK[2]);
+    }
+    for (let n = count(1.4); n > 0; n--) {
+      const b = Math.random() * dist;
+      this.wisps(p.x - dx * b, p.y, p.z - dz * b, 1, 0.4);
+    }
+    for (let n = count(2); n > 0; n--) {
+      const b = Math.random() * dist, sp = 10 + Math.random() * 8;
+      g.fx.emit(2, p.x - dx * b + (Math.random() - 0.5) * 0.9, p.y + 0.2 + Math.random() * 1.6, p.z - dz * b + (Math.random() - 0.5) * 0.9, dx * sp, 0.6, dz * sp, 0.1 + Math.random() * 0.06, 0.05, 0.02, 1.8, 1.9, 2.1);
+    }
+    if (dist * 1.6 * q > Math.random()) this.feathers.puff(p.x - dx * dist * 0.5, p.y + 1.0, p.z - dz * dist * 0.5, Math.max(1, count(1.6)), 0.6, 1.6);
+  }
+
+  /** The crow shift, every frame, for one Itachi: while his view says dash he is ink (returns true: hidden). */
+  updateShift(f, C, dt, quiet) {
+    const dashing = !!C.crowShift && !f.dead && f.view?.st === ST.dash;
+    let sh = this.shifts.get(f);
+    if (!dashing) {
+      if (sh?.on) this.shiftEnd(f, sh, quiet);
+      return false;
+    }
+    if (!sh) this.shifts.set(f, (sh = { on: false, strands: [], px: 0, pz: 0, dx: 0, dz: -1 }));
+    if (!sh.on) this.shiftStart(f, sh, quiet);
+    else this.shiftStep(f, sh, quiet);
+    return true;
+  }
+
+  /** The dash begins: crows scatter where he stood, ink splashes back, the brush starts at his body. */
+  shiftStart(f, sh, quiet) {
+    const p = f.pos, v = f.view, g = this.game, q = this.quality();
+    sh.on = true;
+    sh.px = p.x;
+    sh.pz = p.z;
+    // the way he goes: the view's velocity (forward (-sin, -cos) * vf + left (-cos, sin) * vl), else his facing
+    const s = Math.sin(v.yaw ?? f.yaw), c = Math.cos(v.yaw ?? f.yaw);
+    let dx = -s * (v.vf || 0) - c * (v.vl || 0), dz = -c * (v.vf || 0) + s * (v.vl || 0);
+    const l = Math.hypot(dx, dz);
+    if (l > 0.5) {
+      dx /= l;
+      dz /= l;
+    } else {
+      dx = -s;
+      dz = -c;
+    }
+    sh.dx = dx;
+    sh.dz = dz;
+    sh.strands.length = 0;
+    if (quiet) return;
+    for (const [hw, lean, life, dy] of SHIFT_STRANDS) {
+      const S = this.ink.add(hw, lean, life);
+      if (!S) continue;
+      S.dy = dy;
+      sh.strands.push(S);
+      this.ink.push(S, p.x, p.y + dy, p.z);
+    }
+    sh.blots = [];
+    for (const [hw, lean, life] of BLOTS) {
+      const S = this.ink.add(hw, lean, life);
+      if (S) sh.blots.push(S);
+    }
+    this.blot(sh, p);
+    // crows burst off the spot, out to the sides and up (flyOff keeps them off the camera)
+    const side = Math.atan2(dx, -dz);
+    for (let n = Math.round(6 * q) + 3; n > 0; n--) {
+      const a = side + (Math.random() < 0.5 ? 0 : Math.PI) + (Math.random() - 0.5) * 1.6, sp = 2 + Math.random() * 2.5, h = 0.4 + Math.random() * 1.2;
+      this.flyOff(p.x + Math.cos(a) * 0.2, p.y + h, p.z + Math.sin(a) * 0.2, Math.cos(a) * sp, 4 + Math.random() * 3.5, Math.sin(a) * sp, 0.75 + Math.random() * 0.6, 0.65);
+    }
+    this.feathers.puff(p.x, p.y + 1.0, p.z, Math.round(12 * q) + 3, 0.7, 3.2);
+    this.inkSplash(p, dx, dz, 0.85);
+    g.audio?.crowShift?.(f === g.player ? null : p);
+  }
+
+  /** The brush follows his drawn body; the ink sheds what it passes. */
+  shiftStep(f, sh, quiet) {
+    const p = f.pos;
+    const mx = p.x - sh.px, mz = p.z - sh.pz, d = Math.hypot(mx, mz);
+    sh.px = p.x;
+    sh.pz = p.z;
+    if (quiet) return;
+    if (d > 1e-3) {
+      sh.dx = mx / d;
+      sh.dz = mz / d;
+    }
+    for (const S of sh.strands) this.ink.push(S, p.x, p.y + S.dy, p.z);
+    this.blot(sh, p);
+    // (a jump in the stream, e.g. a correction, isn't a stretch of path)
+    if (d < 1.5) this.inkWake(p, sh.dx, sh.dz, d);
+  }
+
+  /** The dash ends: the brush lifts (the ink dries out behind him) and he takes shape at its head. */
+  shiftEnd(f, sh, quiet) {
+    sh.on = false;
+    for (const S of sh.strands) this.ink.release(S);
+    for (const S of sh.blots || []) this.ink.release(S);
+    sh.strands.length = 0;
+    sh.blots = null;
+    if (!quiet && !f.dead) this.inkForm(f.pos, 0.8);
+  }
+
+  /** His body as ink: upright brush strokes where he is, leaning back from the way he goes (they dry where he re-forms). */
+  blot(sh, p) {
+    let k = 0;
+    for (const S of sh.blots || []) {
+      const back = BLOTS[k++][3];
+      this.ink.line(S, p.x + sh.dx * 0.1, p.y + 0.05, p.z + sh.dz * 0.1, p.x - sh.dx * back, p.y + 1.85, p.z - sh.dz * back);
+    }
+  }
+
+  /** Where the escape's ink is at eased progress e: along the line, lifted into an arc (the body's middle at both ends). */
+  cometAt(C, e, out) {
+    const [x0, y0, z0] = C.from, [x1, y1, z1] = C.to;
+    return out.set(x0 + (x1 - x0) * e, y0 + (y1 - y0) * e + Math.sin(Math.PI * e) * C.arc, z0 + (z1 - z0) * e);
+  }
+
+  /** Crow Clone Escape's flight: ink streaking from where he vanished (a Vector3) to the spot ([x, y, z]) in `dur` s. */
+  inkComet(from, to, dur) {
+    if (this.world.S?.on) return;
+    const d = Math.hypot(to[0] - from.x, to[2] - from.z);
+    const C = { from: [from.x, from.y, from.z], to: [to[0], to[1], to[2]], t: 0, dur: Math.max(dur, 0.06), e: 0, arc: Math.min(3, 0.6 + d * 0.1), len: Math.hypot(d, to[1] - from.y), strands: [] };
+    for (const [hw, lean, life, dy] of COMET_STRANDS) {
+      const S = this.ink.add(hw, lean, life);
+      if (!S) continue;
+      S.dy = dy;
+      C.strands.push(S);
+      this.ink.push(S, from.x, from.y + dy, from.z);
+    }
+    this.comets.push(C);
+  }
+
+  updateComets(dt) {
+    let w = 0;
+    for (const C of this.comets) {
+      const k = clamp((C.t += dt) / C.dur, 0, 1);
+      // (fast off the mark, easing into the spot as the crows arrive)
+      const e1 = 1 - (1 - k) ** 2.4, e0 = C.e;
+      if (e1 > e0) {
+        // sub-steps half a metre apart: a smooth arc at any frame rate, each point timed where the brush passed it
+        const steps = Math.max(1, Math.ceil(((e1 - e0) * C.len) / 0.5));
+        for (let j = 1; j <= steps; j++) {
+          const e = e0 + ((e1 - e0) * j) / steps, t = this.ink.time - (1 - j / steps) * dt;
+          const P = this.cometAt(C, e, _ink);
+          for (const S of C.strands) this.ink.push(S, P.x, P.y + S.dy, P.z, t);
+        }
+        const P = this.cometAt(C, e1, _ink), dx = C.to[0] - C.from[0], dz = C.to[2] - C.from[2], l = Math.hypot(dx, dz) || 1;
+        this.inkWake(P, dx / l, dz / l, (e1 - e0) * C.len, 0.6);
+        C.e = e1;
+      }
+      if (k >= 1) {
+        for (const S of C.strands) this.ink.release(S);
+        continue;
+      }
+      this.comets[w++] = C;
+    }
+    this.comets.length = w;
+  }
+
+  /** A substitution by a fighter with the crow shift: crows and ink burst where he stood, ink gathers where he appears. */
+  onSub(C, from, to) {
+    if (!C?.crowShift || this.world.S?.on) return;
+    const q = this.quality();
+    for (let n = Math.round(12 * q) + 4; n > 0; n--) {
+      const a = Math.random() * 6.283, sp = 3 + Math.random() * 4.5, h = 0.3 + Math.random() * 1.4;
+      this.flyOff(from.x + Math.cos(a) * 0.2, from.y + h, from.z + Math.sin(a) * 0.2, Math.cos(a) * sp, 1.5 + Math.random() * 4, Math.sin(a) * sp, 0.9 + Math.random() * 0.8);
+    }
+    this.feathers.puff(from.x, from.y + 1.0, from.z, Math.round(16 * q) + 4, 0.8, 3.5);
+    this.inkSplash(from, 0, 0, 1);
+    this.inkForm(to, 0.8);
   }
 
   // ---------------------------------------------------------------- the victims: marks and flames
@@ -600,6 +866,8 @@ export class ItachiKit {
       // (the dummy only wobbles; it wears the mark for the genjutsu's length all the same)
       const until = m.dz || (m.v === 0 ? m.at + charOf('itachi').jutsu.tsukuyomi.hits.main.stun * (1000 / 60) : m.e);
       this.dazed.set(m.v, { t0: now, until });
+      // (its own screen leaves the fight for the genjutsu's world)
+      if (m.v === g.net.id) this.world.start(m.a, until);
       const B = this.body(m.v);
       if (B) {
         g.audio?.genjutsu?.(B.pos, m.v === g.net.id);
@@ -609,6 +877,7 @@ export class ItachiKit {
       // thrown out of it (a launch, a knockdown): the genjutsu breaks
       const D = this.dazed.get(m.v);
       if (D) D.until = Math.min(D.until, now);
+      if (D && m.v === g.net.id) this.world.breakAt(now);
     }
     if (id === 'amaterasu:ignite') {
       this.burning.set(m.v, { t0: now, last: now });
@@ -634,9 +903,13 @@ export class ItachiKit {
     if (id === g.net.id) g.cam.addTrauma(0.45);
   }
 
-  /** The Tsukuyomi mark over every dazed victim; the genjutsu over the local victim's own screen. */
+  /**
+   * Every dazed victim, on every screen: the capture (a white flash sphere tearing wind off it, a violet sphere, three
+   * black blades sweeping in, a red ring tearing into ink, then the whole Mangekyō turning over the body), then the
+   * mark over its head for the rest of the genjutsu. The local victim's own screen is the world's (tsukuyomi.js).
+   */
   updateDazed(now) {
-    const g = this.game, gen = g.post.genjutsu;
+    const g = this.game, inWorld = this.world.S?.on;
     for (const [id, D] of this.dazed) {
       const B = this.body(id);
       const age = (now - D.t0) / 1000, left = (D.until - now) / 1000;
@@ -644,20 +917,39 @@ export class ItachiKit {
         this.dazed.delete(id);
         continue;
       }
-      // an eye that opens over the head, its pinwheel turning; it closes as the genjutsu lets go
-      const open = ss(0, 0.28, age) * (left > 0 ? 1 : ss(-0.35, 0, left));
-      const head = (B.fighter && bonePos(B.fighter, 'head', _v)) || _v.set(B.pos.x, B.pos.y + 1.75, B.pos.z);
-      const bob = Math.sin(this.time * 2.4 + id) * 0.03;
-      this.marks.set(head.x, head.y + 0.62 + bob, head.z, 0.4 * (0.85 + 0.15 * ss(0, 0.2, age)), open, 1, this.time * 1.3, 0.9 + 0.3 * Math.sin(this.time * 5));
+      if (id === g.net.id && inWorld) continue;
+      const alive = left > 0 ? 1 : ss(-0.35, 0, left);
+      // the capture, round the body's middle
+      if (age < 2.7) {
+        const c = _w.set(B.pos.x, B.pos.y + 1.0, B.pos.z);
+        const w = (this._sw ||= {});
+        w.flash = ss(0, 0.04, age) * (1 - ss(0.2, 0.45, age));
+        w.violet = ss(0.12, 0.3, age) * (1 - ss(0.95, 1.35, age));
+        w.blades = ss(0.42, 0.6, age) * (1 - ss(1.2, 1.5, age));
+        w.ring = ss(0.78, 0.95, age) * (1 - ss(1.35, 1.65, age));
+        w.seal = ss(1.1, 1.28, age) * (1 - ss(2.2, 2.6, age));
+        w.ink = 0;
+        for (const k of ['flash', 'violet', 'blades', 'ring', 'seal']) w[k] *= alive;
+        const sc = (this._ssc ||= {});
+        const pop = ss(1.1, 1.45, age), back = 1 + 2.2 * (pop - 1) ** 3 + 1.2 * (pop - 1) ** 2; // (ease out, overshooting)
+        sc.seal = 0.55 + 0.45 * back + 0.18 * ss(2.2, 2.6, age);
+        sc.blades = 1.7 - 0.65 * ss(0.42, 1.3, age);
+        sc.ink = 1;
+        const spin = age * 2.2 + 3 * (1 - Math.exp(-age * 2.5));
+        this.seal.set(c, 1.05, null, 0.6, w, age, spin, sc, 0.45);
+      }
+      // then an eye opens over the head, its pinwheel turning; it closes as the genjutsu lets go
+      const open = ss(2.2, 2.5, age) * alive;
+      if (open > 0.001) {
+        const head = (B.fighter && bonePos(B.fighter, 'head', _v)) || _v.set(B.pos.x, B.pos.y + 1.75, B.pos.z);
+        const bob = Math.sin(this.time * 2.4 + id) * 0.03;
+        this.marks.set(head.x, head.y + 0.62 + bob, head.z, 0.4 * (0.85 + 0.15 * ss(2.2, 2.4, age)), open, 1, this.time * 1.3, 0.9 + 0.3 * Math.sin(this.time * 5));
+      }
       // red threads of chakra winding round the head now and then
-      if (left > 0 && Math.random() < 0.35) {
+      if (left > 0 && age > 1.2 && Math.random() < 0.35) {
+        const head = (B.fighter && bonePos(B.fighter, 'head', _v)) || _v.set(B.pos.x, B.pos.y + 1.75, B.pos.z);
         const a = Math.random() * 6.283;
         g.fx.emit(2, head.x + Math.cos(a) * 0.35, head.y + 0.1, head.z + Math.sin(a) * 0.35, -Math.sin(a) * 1.5, 0.8, Math.cos(a) * 1.5, 0.35, 0.03, 0.01, 2.2, 0.05, 0.06);
-      }
-      if (id === g.net.id && left > -0.35) {
-        // the world turns red and black (in at once, out as it lets go); the Mangekyō fills the view at first
-        gen.amt = Math.max(gen.amt, 0.9 * ss(0, 0.25, age) * (left > 0 ? 1 : ss(-0.35, 0, left)));
-        gen.eye = Math.max(gen.eye, 0.85 * Math.sin(Math.PI * clamp(age / 0.9, 0, 1)));
       }
     }
   }
@@ -707,10 +999,14 @@ export class ItachiKit {
    */
   updateItachi(dt) {
     const g = this.game, now = g.net.serverNow(), seen = (this._seen ||= new Set());
+    // (inside Tsukuyomi's world on this screen the arena is gone: no ink or crows in it)
+    const quiet = !!this.world.S?.on;
     seen.clear();
     const each = (f, C, local) => {
       if (!f || !C?.jutsu.crowEscape) return;
       seen.add(f);
+      // his dash: ink instead of a body (the crow shift)
+      const shifting = this.updateShift(f, C, dt, quiet);
       const act = f.view?.act, on = !f.dead && !!act && CAST_CLIPS.has(act.clip);
       const fr = on ? act.t * 60 : -1, clip = on ? act.clip.replace('_air', '') : '';
       const S = on ? this.stateOf(f, act.key) : this.per.get(f);
@@ -739,12 +1035,26 @@ export class ItachiKit {
           }
         }
       }
+      hidden ||= shifting;
       f.root.visible = !hidden;
       f.visible = !hidden;
       if (!hidden && !f.dead && LODnear(f, g.camera)) {
         this.eyes(f, C, _v, _c1, _c2);
         const size = mangekyo ? 0.022 : 0.016;
         for (const e of [_c1, _c2]) this.marks.set(e.x, e.y, e.z, size, -1, clamp(glow, 0, 1), this.time * (mangekyo ? 3 : 1.2), glow);
+      }
+      // Tsukuyomi: the Mangekyō thrown out before him as the eyes meet theirs, a great eye turning between them
+      if (clip === 'ita_tsukuyomi' && fr >= 10 && fr < 41 && !hidden && !f.dead) {
+        const pop = ss(10, 18, fr), out = ss(30, 40, fr);
+        const w = (this._pw ||= { flash: 0, violet: 0, blades: 0, ring: 0, ink: 0 });
+        w.seal = pop * (1 - out);
+        const back = 1 + 2.2 * (pop - 1) ** 3 + 1.2 * (pop - 1) ** 2;
+        const e = this.eyes(f, C, _v), fx = -Math.sin(f.yaw), fz = -Math.cos(f.yaw);
+        e.x += fx * 1.1;
+        e.z += fz * 1.1;
+        const sc = (this._psc ||= {});
+        sc.seal = 0.45 + 0.55 * back + 0.35 * out;
+        this.seal.set(e, 0.9, _nrm.set(fx, 0, fz), 0, w, fr / 60, this.time * 2.4 + 3 * (1 - Math.exp(-(fr - 10) / 20)), sc, 0);
       }
       if (on) {
         if (clip === 'ita_tsukuyomi' && hit(C.jutsu.tsukuyomi.gaze)) this.gazeFx(f, C, 'tsukuyomi');
@@ -763,6 +1073,13 @@ export class ItachiKit {
     each(g.player, g.ctrl?.C, true);
     for (const r of g.remotes.values()) each(r.fighter, charOf(r.info.ch), false);
     for (const f of this.per.keys()) if (!seen.has(f)) this.per.delete(f);
+    for (const [f, sh] of this.shifts) {
+      if (seen.has(f)) continue;
+      // (gone from the arena mid-dash: the brush lifts)
+      for (const S of sh.strands) this.ink.release(S);
+      for (const S of sh.blots || []) this.ink.release(S);
+      this.shifts.delete(f);
+    }
   }
 
   // ---------------------------------------------------------------- the network
@@ -831,11 +1148,16 @@ export class ItachiKit {
     this.time += dt;
     const now = this.game.net.serverNow();
     this.marks.begin();
+    this.seal.begin();
     this.updateBalls(dt);
     this.updateItachi(dt);
     this.updateDazed(now);
+    this.world.update(dt, now);
     this.updateBurning(now, dt);
     this.marks.end();
+    this.seal.end();
+    this.updateComets(dt);
+    this.ink.update(dt);
     this.crows.update(dt);
     this.feathers.update(dt);
     this.black.update(dt, this.game.sky?.sun?.position);

@@ -6,10 +6,14 @@
 //   Crows      a flock of low-poly crows in one instanced draw: wings flap in the vertex shader (two joints), bodies
 //              bank into their turns, near-black with a blue sheen, ink-outlined (opaque, depth-written).
 //   Feathers   black feathers fluttering down, animated entirely on the GPU from their spawn (like fx.js).
+//   InkStrokes torn brush-ink streaks along a path (his crow shift: the dash, the escape's flight): strips widened
+//              in the vertex shader toward the camera, bristles, ragged edges and a dry-brush tail in the fragment
+//              shader, drying out from the tail. Every stroke on screen in one draw.
 //   GenjutsuEffect  the victim's own screen inside Tsukuyomi: the world turned to red and black, the Mangekyō flashed
 //              over the view as it takes hold (a post effect in the stack's first pass; strength 0 = off).
 import * as THREE from 'three';
-import { Effect } from 'postprocessing';
+import { Effect, BlendFunction } from 'postprocessing';
+import { SEAL_GLSL } from './tsukuyomifx.js';
 
 // Itachi's Mangekyō in a unit disc (q: -1..1, the iris edge at 1): a blood-red iris darkening to the rim, the black
 // ring, the pupil and three blades curving out from it like a pinwheel (turned by `rot`). rgb + alpha.
@@ -220,7 +224,9 @@ export class Crows {
           float cb = cos(iData.y), sb = sin(iData.y);
           vec3 r2 = r * cb + u * sb, u2 = u * cb - r * sb;
           // (model +x is the crow's left: r points right, so left = -r2)
-          vec3 wp = iPos.xyz + (-r2 * p.x + u2 * p.y + f * p.z) * iPos.w;
+          // (one flying past the lens filled the view: they shrink away within 3 m of the camera)
+          float near = smoothstep(0.8, 3.0, distance(iPos.xyz, cameraPosition));
+          vec3 wp = iPos.xyz + (-r2 * p.x + u2 * p.y + f * p.z) * iPos.w * near;
           vN = normalize((viewMatrix * vec4(-r2 * n.x + u2 * n.y + f * n.z, 0.0)).xyz);
           vec4 mvPosition = viewMatrix * vec4(wp, 1.0);
           vView = normalize(-mvPosition.xyz);
@@ -472,13 +478,288 @@ export class Feathers {
   }
 }
 
+// ---------------------------------------------------------------- ink strokes
+
+const INK_STRANDS = 48, INK_PTS = 40, INK_STEP = 0.12; // (strands on screen, points each, metres between points)
+
+/**
+ * A strand is a path of points (x, y, z, birth time, arc length), its head where the brush is now. Each point dries
+ * `life` s after it was laid down: gaps open between the bristles, the tail goes first, the whole stroke is gone
+ * when its head has dried. The strip's width axis leans toward the camera about the path (`lean`: from the side it
+ * stands up like a body-high smear; from behind, strands with opposite leans cross like brush strokes).
+ */
+export class InkStrokes {
+  constructor(scene) {
+    const NV = INK_STRANDS * INK_PTS * 2;
+    const g = new THREE.BufferGeometry();
+    const A = (n) => new THREE.BufferAttribute(new Float32Array(NV * n), n).setUsage(THREE.DynamicDrawUsage);
+    this.aPos = A(3); // the path point (the strip is widened in the vertex shader)
+    this.aTan = A(4); // path tangent (unit), side (-1 / 1)
+    this.aInk = A(4); // along (arc length, m: the bristles stay pinned to the ground they cross), to the head (m), tail (0..1), age (0..1)
+    this.aStr = A(4); // half width (m), lean, seed, alpha
+    g.setAttribute('position', this.aPos);
+    g.setAttribute('aTan', this.aTan);
+    g.setAttribute('aInk', this.aInk);
+    g.setAttribute('aStr', this.aStr);
+    this.index = new THREE.BufferAttribute(new Uint16Array(INK_STRANDS * (INK_PTS - 1) * 6), 1).setUsage(THREE.DynamicDrawUsage);
+    g.setIndex(this.index);
+    g.setDrawRange(0, 0);
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
+      fog: true,
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      vertexShader: /* glsl */ `
+        attribute vec4 aTan; attribute vec4 aInk; attribute vec4 aStr;
+        varying vec4 vInk; varying vec3 vStr;
+        #include <fog_pars_vertex>
+        void main() {
+          vec3 p = position, t = aTan.xyz;
+          // the width axis: across the path, facing the camera, leaned toward the vertical
+          vec3 s = cross(t, cameraPosition - p);
+          float sl = length(s);
+          s = sl > 1e-5 ? s / sl : vec3(0.0, 1.0, 0.0);
+          // (its sign from the path's own right side: from behind s is level and a sign taken from s.y flickered;
+          // from the side s is near vertical and either sign leans it the same, up)
+          if (dot(s, cross(t, vec3(0.0, 1.0, 0.0))) < 0.0) s = -s;
+          vec3 w = vec3(0.0, 1.0, 0.0) + s * aStr.y;
+          w -= t * dot(w, t);
+          float wl = length(w);
+          w = wl > 1e-4 ? w / wl : s;
+          vInk = aInk;
+          vStr = vec3(aTan.w, aStr.z, aStr.w);
+          vec4 mvPosition = viewMatrix * vec4(p + w * aTan.w * aStr.x, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          #include <fog_vertex>
+        }`,
+      fragmentShader: /* glsl */ `
+        varying vec4 vInk; varying vec3 vStr;
+        #include <fog_pars_fragment>
+        float h21(vec2 p) {
+          p = fract(p * vec2(123.34, 456.21));
+          p += dot(p, p + 45.32);
+          return fract(p.x * p.y);
+        }
+        float vn(vec2 p) {
+          vec2 i = floor(p), f = fract(p);
+          f = f * f * (3.0 - 2.0 * f);
+          return mix(mix(h21(i), h21(i + vec2(1.0, 0.0)), f.x), mix(h21(i + vec2(0.0, 1.0)), h21(i + vec2(1.0, 1.0)), f.x), f.y);
+        }
+        void main() {
+          float v = vStr.x, av = abs(v), seed = vStr.y;
+          float along = vInk.x, head = vInk.y, tail = vInk.z, age = vInk.w;
+          // bristles: long fibres (noise across the stroke, barely changing along it)
+          float fib = vn(vec2(v * 6.0 + seed * 17.0, along * 0.45)) * 0.6 + vn(vec2(v * 21.0 + seed * 5.0, along * 1.4)) * 0.4;
+          // the outline: a ragged edge, a round brush tip at the head, thinning to a point at the tail
+          float rag = 0.66 + 0.24 * vn(vec2(along * 2.6 + seed * 9.0, v > 0.0 ? 3.0 : 11.0)) + 0.1 * vn(vec2(along * 9.0 + seed * 3.0, v > 0.0 ? 5.0 : 13.0));
+          float tip = 1.0 - clamp(head / 0.34, 0.0, 1.0);
+          float edge = rag * sqrt(max(0.0, 1.0 - tip * tip)) * mix(0.2, 1.0, pow(tail, 0.6));
+          float body = 1.0 - smoothstep(edge - 0.07, edge, av);
+          // dry brush: gaps open between the bristles toward the tail, at the frayed edges and as the ink dries
+          float dry = 0.1 + 0.5 * (1.0 - smoothstep(0.0, 0.75, tail)) + 0.45 * smoothstep(0.5, 1.0, av / max(edge, 0.05)) + age * 0.95;
+          float ink = body * smoothstep(dry - 0.08, dry + 0.03, fib + (1.0 - av) * 0.3);
+          float a = ink * vStr.z;
+          if (a < 0.02) discard;
+          // near-black indigo, bleeding to crimson only at the torn fringes and in the driest strands; a cold sheen on the fibres
+          float fringe = clamp(smoothstep(0.8, 1.0, av / max(edge, 0.05)) + (1.0 - tail) * 0.12 + age * 0.2, 0.0, 1.0);
+          vec3 col = mix(vec3(0.007, 0.007, 0.02), vec3(0.13, 0.008, 0.026), fringe * 0.55);
+          col += vec3(0.035, 0.045, 0.1) * smoothstep(0.72, 0.95, fib) * (1.0 - fringe);
+          gl_FragColor = vec4(col, a);
+          #include <fog_fragment>
+        }`,
+    });
+    this.mesh = new THREE.Mesh(g, this.mat);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 4;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+    this.pool = [];
+    for (let i = 0; i < INK_STRANDS; i++) this.pool.push({ p: new Float32Array(INK_PTS * 5), n: 0, on: false });
+    this.list = [];
+    this.time = 0;
+  }
+
+  /** A new strand (null when every one is in use): hw half width (m), lean (-0.7..0.7), life (s a point takes to dry). */
+  add(hw, lean, life, alpha = 1) {
+    const S = this.pool.find((s) => !s.on);
+    if (!S) return null;
+    S.on = true;
+    S.live = true;
+    S.n = 0;
+    S.hw = hw;
+    S.lean = lean;
+    S.life = life;
+    S.alpha = alpha;
+    S.seed = Math.random();
+    this.list.push(S);
+    return S;
+  }
+
+  /** The brush moves on to (x, y, z) at time t (this clock's s; default now): a new point every INK_STEP metres, the head in between. */
+  push(S, x, y, z, t = this.time) {
+    if (!S?.live) return;
+    const P = S.p;
+    let n = S.n, s = 0;
+    if (n) {
+      const o = (n - 1) * 5, d = Math.hypot(x - P[o], y - P[o + 1], z - P[o + 2]);
+      if (d < 1e-4) {
+        P[o + 3] = t;
+        return;
+      }
+      if (n >= 2) {
+        const o2 = (n - 2) * 5, d2 = Math.hypot(x - P[o2], y - P[o2 + 1], z - P[o2 + 2]);
+        if (Math.hypot(P[o] - P[o2], P[o + 1] - P[o2 + 1], P[o + 2] - P[o2 + 2]) < INK_STEP) {
+          // (the head point moves with the brush until it is a step from the one before)
+          P[o] = x;
+          P[o + 1] = y;
+          P[o + 2] = z;
+          P[o + 3] = t;
+          P[o + 4] = P[o2 + 4] + d2;
+          return;
+        }
+      }
+      s = P[o + 4] + d;
+    }
+    if (n === INK_PTS) {
+      P.copyWithin(0, 5);
+      n--;
+    }
+    const o = n * 5;
+    P[o] = x;
+    P[o + 1] = y;
+    P[o + 2] = z;
+    P[o + 3] = t;
+    P[o + 4] = s;
+    S.n = n + 1;
+  }
+
+  /** A straight stroke from (x0, y0, z0) to (x1, y1, z1), all wet (a blot that moves with its brush: redrawn each frame). */
+  line(S, x0, y0, z0, x1, y1, z1) {
+    if (!S?.live) return;
+    S.n = 0;
+    this.push(S, x0, y0, z0);
+    this.push(S, x1, y1, z1);
+  }
+
+  /** The brush lifts: the strand dries out and is gone, all of it within `fade` s (its fresh head would linger by the body). */
+  release(S, fade = 0.3) {
+    if (!S?.live) return;
+    S.live = false;
+    S.rel = this.time;
+    S.fade = fade;
+  }
+
+  clear() {
+    for (const S of this.list) S.on = false;
+    this.list.length = 0;
+    this.update(0);
+  }
+
+  update(dt) {
+    this.time += dt;
+    const X = this.aPos.array, T = this.aTan.array, K = this.aInk.array, R = this.aStr.array, I = this.index.array;
+    let v = 0, ix = 0, w = 0;
+    for (const S of this.list) {
+      const P = S.p, n = S.n;
+      // gone once its newest point has dried (a live strand keeps its head wet)
+      // (released: every point dries a little more each frame on top of its age: no pop, gone by `fade`)
+      const extra = S.live ? 0 : (this.time - S.rel) / S.fade;
+      if (!S.live && (extra >= 1 || !n || (this.time - P[(n - 1) * 5 + 3]) / S.life >= 1)) {
+        S.on = false;
+        continue;
+      }
+      this.list[w++] = S;
+      if (n < 2) continue;
+      const s0 = P[4], s1 = P[(n - 1) * 5 + 4], len = s1 - s0, tl = 0.25 + len * 0.4;
+      const v0 = v;
+      for (let i = 0; i < n; i++) {
+        const o = i * 5, a = Math.max(0, i - 1) * 5, b = Math.min(n - 1, i + 1) * 5;
+        let tx = P[b] - P[a], ty = P[b + 1] - P[a + 1], tz = P[b + 2] - P[a + 2];
+        const tl2 = Math.hypot(tx, ty, tz) || 1;
+        tx /= tl2;
+        ty /= tl2;
+        tz /= tl2;
+        const age = Math.min(1, Math.max(0, (this.time - P[o + 3]) / S.life) + extra);
+        for (let side = -1; side <= 1; side += 2) {
+          X[v * 3] = P[o];
+          X[v * 3 + 1] = P[o + 1];
+          X[v * 3 + 2] = P[o + 2];
+          T[v * 4] = tx;
+          T[v * 4 + 1] = ty;
+          T[v * 4 + 2] = tz;
+          T[v * 4 + 3] = side;
+          K[v * 4] = P[o + 4];
+          K[v * 4 + 1] = s1 - P[o + 4];
+          K[v * 4 + 2] = Math.min(1, (P[o + 4] - s0) / tl);
+          K[v * 4 + 3] = age;
+          R[v * 4] = S.hw;
+          R[v * 4 + 1] = S.lean;
+          R[v * 4 + 2] = S.seed;
+          R[v * 4 + 3] = S.alpha;
+          v++;
+        }
+      }
+      for (let i = 0; i < n - 1; i++) {
+        const a = v0 + i * 2;
+        I[ix++] = a;
+        I[ix++] = a + 1;
+        I[ix++] = a + 3;
+        I[ix++] = a;
+        I[ix++] = a + 3;
+        I[ix++] = a + 2;
+      }
+    }
+    this.list.length = w;
+    const g = this.mesh.geometry;
+    g.setDrawRange(0, ix);
+    this.mesh.visible = ix > 0;
+    if (!ix) return;
+    for (const [a, n] of [[this.aPos, 3], [this.aTan, 4], [this.aInk, 4], [this.aStr, 4]]) {
+      a.clearUpdateRanges();
+      a.addUpdateRange(0, v * n);
+      a.needsUpdate = true;
+    }
+    this.index.clearUpdateRanges();
+    this.index.addUpdateRange(0, ix);
+    this.index.needsUpdate = true;
+  }
+}
+
 // ---------------------------------------------------------------- the genjutsu on the victim's screen
 
+// (the stack works in linear light: light and shade are judged by perceived lightness, ~gamma 2.2; gotcha 50)
 const genjutsuFrag = /* glsl */ `
-uniform float uAmt; uniform float uEye; uniform float uTime;
-${MANGEKYO}
+uniform float uAmt; uniform float uEye; uniform float uTime; uniform float uEyeS; uniform float uEyeR;
+uniform float uDim; uniform float uMono; uniform float uNeg; uniform float uFlash; uniform vec2 uCover;
+${SEAL_GLSL}
+// the negative world's ramp, by darkness (perceived): black, blood-brown, dusty rose, white
+vec3 negRamp(float n) {
+  vec3 c = mix(vec3(0.015, 0.0, 0.0), vec3(0.3, 0.07, 0.045), smoothstep(0.0, 0.32, n));
+  c = mix(c, vec3(0.58, 0.44, 0.42), smoothstep(0.32, 0.62, n));
+  return mix(c, vec3(0.95, 0.94, 0.94), smoothstep(0.62, 0.95, n));
+}
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
   vec3 c = inputColor.rgb;
+  // (the saturation boost can push a saturated colour's weak channel below 0, and the sRGB transfer round the
+  // contrast effect turns that into NaN: invisible on a channel that was ~0 anyway, but the grades below mix all
+  // three through the luminance and the whole pixel went wrong: yellow grass, red clouds in the negative world)
+  if (!(c.r >= 0.0)) c.r = 0.0;
+  if (!(c.g >= 0.0)) c.g = 0.0;
+  if (!(c.b >= 0.0)) c.b = 0.0;
+  vec2 sq = (uv - 0.5) * vec2(aspect, 1.0);
+  float lum = pow(max(dot(c, vec3(0.2126, 0.7152, 0.0722)), 0.0), 0.4545);
+  if (uDim > 0.001) {
+    // inside the genjutsu the world drains of colour and light, cold, the edges sinking
+    vec3 g = pow(vec3(lum) * vec3(0.86, 0.84, 0.98), vec3(2.2)) * 0.72;
+    c = mix(c, g, uDim * 0.8) * (1.0 - uDim * smoothstep(0.35, 0.9, length(sq)) * 0.6);
+  }
+  if (uMono > 0.001) c = mix(c, pow(vec3(lum) * vec3(1.0, 0.985, 0.97), vec3(2.2)), uMono);
+  if (uNeg > 0.001) {
+    // the negative world: light becomes dark and dark light, on the ramp
+    vec3 ng = pow(negRamp(1.0 - lum), vec3(2.2)) * (1.0 - smoothstep(0.45, 1.05, length(sq)) * 0.55);
+    c = mix(c, ng, uNeg);
+  }
   if (uAmt > 0.001) {
     // Tsukuyomi's world: light turns to blood red, shade to black (hard, like ink), a dark vignette closing in
     // (the stack works in linear light: judge light and shade by perceived lightness, ~gamma 2.2)
@@ -491,34 +772,54 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
     w *= 0.9 + 0.1 * sin(uTime * 2.2);
     c = mix(c, w, uAmt);
   }
+  if (uFlash > 0.001) c = mix(c, vec3(1.0, 0.9, 0.88), uFlash);
   if (uEye > 0.001) {
-    // the Mangekyō over the whole view the moment it takes hold
-    vec2 q = (uv - 0.5) * vec2(aspect, 1.0) / 0.36;
-    vec4 m = mangekyo(q, uTime * 1.6);
+    // the Mangekyō over the whole view (uEyeS: its iris radius in screen heights, uEyeR: its turn)
+    vec4 m = itachiSeal(sq / uEyeS, uEyeR);
     c = mix(c, min(m.rgb, vec3(1.0)), m.a * uEye);
+  }
+  if (uCover.y > 0.001) {
+    // its pupil opening over everything, then a hole opening in it (screen heights: inner, outer), rimmed red
+    float r = length(sq);
+    float cov = smoothstep(uCover.x - 0.006, uCover.x + 0.006, r) * (1.0 - smoothstep(uCover.y - 0.006, uCover.y + 0.006, r));
+    float rim = exp(-pow((r - uCover.y) / 0.022, 2.0)) + exp(-pow((r - uCover.x) / 0.035, 2.0)) * step(0.01, uCover.x);
+    c = mix(c, vec3(0.0), cov) + vec3(0.85, 0.02, 0.02) * rim * 0.9;
   }
   outputColor = vec4(c, inputColor.a);
 }`;
 
 export class GenjutsuEffect extends Effect {
   constructor() {
+    const U = (v) => new THREE.Uniform(v);
+    // (SRC: it replaces the colour outright; blended by the buffer's alpha, see-through hair and cloth kept their own
+    // colours through the negative)
     super('Genjutsu', genjutsuFrag, {
+      blendFunction: BlendFunction.SRC,
       uniforms: new Map([
-        ['uAmt', new THREE.Uniform(0)],
-        ['uEye', new THREE.Uniform(0)],
-        ['uTime', new THREE.Uniform(0)],
+        ['uAmt', U(0)], ['uEye', U(0)], ['uTime', U(0)], ['uEyeS', U(0.36)], ['uEyeR', U(0)],
+        ['uDim', U(0)], ['uMono', U(0)], ['uNeg', U(0)], ['uFlash', U(0)], ['uCover', U(new THREE.Vector2())],
       ]),
     });
-    this.amt = 0; // this frame's strengths (set by the kit), applied in apply()
+    this.reset();
+  }
+
+  /** This frame's strengths, set by the kit (Tsukuyomi's world: tsukuyomi.js), applied in apply(), then reset. */
+  reset() {
+    this.amt = 0;
     this.eye = 0;
+    this.eyeS = 0.36;
+    this.eyeR = null; // (null: turning with the clock)
+    this.dim = 0;
+    this.mono = 0;
+    this.neg = 0;
+    this.flash = 0;
+    this.cover = [0, 0];
   }
 
   apply(dt) {
-    const U = this.uniforms;
-    U.get('uTime').value += dt;
-    U.get('uAmt').value = this.amt;
-    U.get('uEye').value = this.eye;
-    this.amt = 0;
-    this.eye = 0;
+    const U = this.uniforms, t = (U.get('uTime').value += dt);
+    for (const [k, v] of [['uAmt', this.amt], ['uEye', this.eye], ['uEyeS', this.eyeS], ['uEyeR', this.eyeR ?? t * 1.6], ['uDim', this.dim], ['uMono', this.mono], ['uNeg', this.neg], ['uFlash', this.flash]]) U.get(k).value = v;
+    U.get('uCover').value.set(this.cover[0], this.cover[1]);
+    this.reset();
   }
 }
