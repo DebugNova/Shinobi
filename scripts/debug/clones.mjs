@@ -1,4 +1,5 @@
-// clones jumping up to a ledge / dropping off it: shots from the attacker's and the victim's screens + a trace
+// Naruto's shadow clones (Q) jumping up to a ledge / dropping off it after their target: shots from the caster's and
+// the target's screens + a trace (the caster runs them: naruto.js own; the target draws them from the stream: remote)
 import puppeteer from 'puppeteer-core';
 import fs from 'fs';
 const URL = 'http://localhost:3101/';
@@ -31,11 +32,11 @@ await sleep(1500);
 console.log('A', await A.p.evaluate(() => [__game.ctrl.body.x, __game.ctrl.body.y, __game.ctrl.body.z].map((v) => v.toFixed(2))), 'B', await B.p.evaluate(() => [__game.ctrl.body.x, __game.ctrl.body.y, __game.ctrl.body.z].map((v) => v.toFixed(2))));
 // side view from the south of the ledge, on both screens
 for (const P of [A, B]) await P.p.evaluate(() => { __game.timeScale = 1; });
-await B.p.evaluate(`window.__cl = []; (function loop(){ const g = __game; for (const c of g.jutsu.clones) if (c.owner === ${idA}) window.__cl.push([Math.round(g.net.serverNow()), c.idx, c.state, c.b.x.toFixed(2), c.b.y.toFixed(2), c.b.z.toFixed(2), c.b.ground ? 1 : 0, c.f.anim.key, c.jumps]); requestAnimationFrame(loop); })(); 0`);
-await A.p.evaluate(`window.__cl = []; (function loop(){ const g = __game; for (const c of g.jutsu.clones) window.__cl.push([Math.round(g.net.serverNow()), c.idx, c.state, c.b.x.toFixed(2), c.b.y.toFixed(2), c.b.z.toFixed(2), c.b.ground ? 1 : 0, c.f.anim.key, c.jumps]); requestAnimationFrame(loop); })(); 0`);
+await B.p.evaluate(`window.__cl = []; (function loop(){ const g = __game; for (const c of g.jutsu.naruto.remote.values()) if (c.owner === ${idA} && c.shown) window.__cl.push([Math.round(g.net.serverNow()), c.slot, 'remote', c.f.pos.x.toFixed(2), c.f.pos.y.toFixed(2), c.f.pos.z.toFixed(2), c.view.ground ? 1 : 0, c.f.anim.key, '-']); requestAnimationFrame(loop); })(); 0`);
+await A.p.evaluate(`window.__cl = []; (function loop(){ const g = __game; for (const c of g.jutsu.naruto.own?.list || []) window.__cl.push([Math.round(g.net.serverNow()), c.slot, c.state, c.b.x.toFixed(2), c.b.y.toFixed(2), c.b.z.toFixed(2), c.b.ground ? 1 : 0, c.f.anim.key, c.jumps]); requestAnimationFrame(loop); })(); 0`);
 await A.p.evaluate(() => { __game.ctrl.chakra = 100; __game.timeScale = 0.35; });
 await B.p.evaluate(() => { __game.timeScale = 0.35; });
-await A.p.evaluate(() => __game.input.press('jutsu2'));
+await A.p.evaluate(() => __game.input.press('jutsu1'));
 if (process.env.VIEW === 'B') await B.p.evaluate(() => { __game.studio = { yaw: Math.PI / 2, pitch: 0.2, dist: 8, h: 1.2 }; });
 await sleep(150); // the target is picked from the game camera at the press; then the side view
 await A.p.evaluate((c) => { __game.studio = { yaw: c === 'up' ? -Math.PI / 2 : Math.PI / 2, pitch: 0.12, dist: 11, h: 1.5 }; }, CASE);

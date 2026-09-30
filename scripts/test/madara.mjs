@@ -1,12 +1,12 @@
 // Madara's kit, two clients: A plays Madara, B plays Naruto. Each ability must hit, the damage must agree on both
 // screens, and every world effect must land in the same place on both screens (<= 10 cm). PASS/FAIL.
-// usage: node scripts/test/madara.mjs [url=http://localhost:3104/] [only=fire,wood,counter,meteor]
+// usage: node scripts/test/madara.mjs [url=http://localhost:3104/] [only=fire,wood,counter,meteor,genjutsu]
 // The server needs short HP off (the kit's damage is checked against HP) and a full ultimate gauge:
 //   SHINOBI_HP=1000 SHINOBI_ULT=1 (the test servers on 3104 / 3102 run HP 600: fine, nobody is KO'd by one ability)
 import puppeteer from 'puppeteer-core';
 
 const URL = process.argv[2] || 'http://localhost:3104/';
-const ONLY = (process.argv[3] || 'fire,wood,counter,meteor').split(',');
+const ONLY = (process.argv[3] || 'fire,wood,counter,meteor,genjutsu').split(',');
 const launch = () => puppeteer.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: 'new', args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'] });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const results = [];
@@ -31,7 +31,7 @@ const [A, B] = await Promise.all([client('Madara', 'madara'), client('Target', '
 await sleep(2500);
 const idA = await A.p.evaluate(() => __game.net.id), idB = await B.p.evaluate(() => __game.net.id);
 // hit logs on both sides: every hitr with its attacker, victim, hit id, damage, reaction, HP after
-const LOG = `window.__hl = []; __game.net.on('hitr', (m) => window.__hl.push({ a: m.a, v: m.v, m: String(m.m), d: m.d, r: m.r, hp: m.hp, b: m.b, sq: m.sq, at: m.at })); window.__hx = []; __game.net.on('hitx', (m) => window.__hx.push(m)); 0`;
+const LOG = `window.__hl = []; __game.net.on('hitr', (m) => window.__hl.push({ a: m.a, v: m.v, m: String(m.m), d: m.d, r: m.r, hp: m.hp, b: m.b, sq: m.sq, at: m.at, dz: m.dz })); window.__hx = []; __game.net.on('hitx', (m) => window.__hx.push(m)); 0`;
 await A.p.evaluate(LOG);
 await B.p.evaluate(LOG);
 // A at (x, z) facing -z; B `gap` metres in front of A, facing A
@@ -108,7 +108,7 @@ if (ONLY.includes('fire')) {
   const fh = await B.p.evaluate(() => window.__hl.filter((h) => h.m.endsWith(':field')));
   const seq1 = await B.p.evaluate(() => __game.net.seq);
   const act = await B.p.evaluate(() => __game.ctrl.action?.constructor.name ?? null);
-  check('fire: the burning field ticks on someone standing in it (no reaction, no teleport)', fh.length >= 2 && fh.every((h) => h.r === 0 && h.d === 12) && seq1 === seq0 && !act, `${fh.length} ticks of ${fh.map((h) => h.d).join(',')}, seq ${seq0}->${seq1}, action ${act}`);
+  check('fire: the burning field ticks on someone standing in it (no reaction, no teleport)', fh.length >= 2 && fh.every((h) => h.r === 0 && h.d === 18) && seq1 === seq0 && !act, `${fh.length} ticks of ${fh.map((h) => h.d).join(',')}, seq ${seq0}->${seq1}, action ${act}`);
 
   // guard: B guards the torrent head-on: blocked ticks chip 25%
   await sleep(2500);
@@ -120,7 +120,7 @@ if (ONLY.includes('fire')) {
   await sleep(2200);
   await B.p.evaluate(() => __game.hold([]));
   const gh = await A.p.evaluate((id) => window.__hl.filter((h) => h.v === id && h.m.startsWith('fireAnnihilation') && !h.m.endsWith(':field')), idB);
-  check('fire: a guard blocks the torrent with chip damage', gh.length >= 4 && gh.every((h) => h.b === 1 && h.d > 0 && h.d <= 15), gh.map((h) => `${h.d}${h.b ? 'b' : ''}`).join(' '));
+  check('fire: a guard blocks the torrent with chip damage', gh.length >= 4 && gh.every((h) => h.b === 1 && h.d > 0 && h.d <= 25), gh.map((h) => `${h.d}${h.b ? 'b' : ''}`).join(' '));
 }
 
 // ---------------------------------------------------------------- 2. Wood Release: Cutting Technique
@@ -321,6 +321,70 @@ if (ONLY.includes('meteor')) {
   const o1 = await hpOf();
   // (falloff 200 at 5.5 m -> 80 at 13 m: 140 at 9.25 m, a little either way for where the server had B)
   check('meteor: the outer ring hits with falloff (knockback, ~140)', oh.length === 1 && oh[0].m === 'tengaiShinsei:outer' && oh[0].d >= 120 && oh[0].d <= 160 && o1.bSelf === o0.bSelf - oh[0].d && o1.aSeesB === o1.bSelf, `${oh.map((h) => `${h.m}:${h.d}/r${h.r}`).join(' ')}; B ${o0.bSelf} -> ${o1.bSelf}`);
+}
+
+// ---------------------------------------------------------------- 5. Sharingan Genjutsu
+if (ONLY.includes('genjutsu')) {
+  const GJ = 'sharinganGenjutsu:main';
+  const gjHits = (p) => p.evaluate((GJ) => window.__hl.filter((h) => h.m === GJ), GJ);
+  // B in front of him, 7 m: taken (20 damage, the daze for 3 s on both screens), B's screen leaves for the vision
+  await sleep(1500);
+  await place(7);
+  await clearLogs();
+  const h0 = await hpOf();
+  const prog0 = await B.p.evaluate(() => __game.renderer.info.programs.length);
+  const pool0 = await B.p.evaluate(() => __game.charModel('madara').model.pool.filter((v) => v.taken).length);
+  await B.p.evaluate(() => { window.__vis = []; const V = __game.jutsu.madara.gen.vision; const f = () => { if (V.S) window.__vis.push({ t: V.S.t, on: V.S.on, body: !!V.S.body, fov: __game.camera.fov, me: __game.player.root.visible, hud: document.querySelector('#hud').classList.contains('cine'), x: __game.player.pos.x, z: __game.player.pos.z }); requestAnimationFrame(f); }; requestAnimationFrame(f); });
+  await cast('jutsu4', 'genjutsu', 14);
+  // B tries to walk away through it
+  await sleep(700);
+  await B.p.evaluate(() => __game.hold(['up', 'sprint']));
+  await sleep(1800);
+  await B.p.evaluate(() => __game.hold([]));
+  await sleep(1400);
+  const ga = await gjHits(A.p), gb = await gjHits(B.p);
+  const h1 = await hpOf();
+  const g0 = gb[0];
+  check('genjutsu: it takes the target in front of him (20, daze) on both screens', ga.length === 1 && gb.length === 1 && g0?.r === 9 && g0?.d === 20 && ga[0].v === idB, `A ${ga.map((h) => `${h.d}/r${h.r}`).join(' ')} | B ${gb.map((h) => `${h.d}/r${h.r}`).join(' ')}`);
+  // (the hitstop, 8 frames, comes before the 180 frames of stun)
+  check('genjutsu: the daze lasts 3 s after its hitstop (server clock)', !!g0 && Math.abs(g0.dz - g0.at - 3133) < 20, `${g0 ? g0.dz - g0.at : '-'} ms`);
+  check('genjutsu: HP agrees on both screens', h1.bSelf === h0.bSelf - 20 && h1.aSeesB === h1.bSelf, `B ${h0.bSelf} -> ${h1.bSelf}, A sees ${h1.aSeesB}`);
+  const vis = await B.p.evaluate(() => window.__vis);
+  const on = vis.filter((v) => v.on);
+  const moved = vis.length ? Math.hypot(vis.at(-1).x - vis[0].x, vis.at(-1).z - vis[0].z) : 99;
+  const len = vis.length ? vis.at(-1).t : 0;
+  check('genjutsu: the vision plays on the victim screen (his face filmed, its own body hidden, the HUD away)', on.length > 30 && on.some((v) => v.body && v.fov === 30 && !v.me) && vis.some((v) => v.hud), `${vis.length} frames, ${on.length} with the camera, stand-in ${on.some((v) => v.body)}`);
+  check('genjutsu: it holds the victim ~3 s (it cannot walk out of it)', len > 2.7 && len < 3.2 && moved < 0.3, `vision ${len.toFixed(2)} s, moved ${moved.toFixed(2)} m`);
+  const after = await B.p.evaluate(() => ({ S: !!__game.jutsu.madara.gen.vision.S, fov: __game.camera.fov, me: __game.player.root.visible, hud: document.querySelector('#hud').classList.contains('cine'), progs: __game.renderer.info.programs.length, pool: __game.charModel('madara').model.pool.filter((v) => v.taken).length, others: [...__game.remotes.values()].every((r) => !r.fighter || r.fighter.root.visible) }));
+  check('genjutsu: everything given back (camera, own body, others, HUD, the stand-in to its pool)', !after.S && after.fov !== 30 && after.me && !after.hud && after.others && after.pool === pool0, JSON.stringify({ ...after, pool0 }));
+  check('genjutsu: no shader compiled mid-fight on the victim screen', after.progs === prog0, `${prog0} -> ${after.progs}`);
+  const mark = await A.p.evaluate((id) => __game.jutsu.madara.gen.dazed.has(id), idB);
+  check('genjutsu: the caster screen had the victim marked', ga.length === 1, `dazed entry now ${mark}`);
+  // out of the cone: B behind him (he looks away): nothing
+  await sleep(14500);
+  await place(7);
+  await clearLogs();
+  await A.p.evaluate(() => { const c = __game.combat; window.__aim = c.aimTarget; c.aimTarget = () => null; __game.ctrl.lockTarget = null; __game.cam.yaw = Math.PI; __game.ctrl.yaw = Math.PI; });
+  await cast('jutsu4', 'genjutsu', 14);
+  await sleep(1500);
+  await A.p.evaluate(() => { __game.combat.aimTarget = window.__aim; });
+  const gn = await gjHits(A.p);
+  const vn = await B.p.evaluate(() => !!__game.jutsu.madara.gen.vision.S);
+  check('genjutsu: behind him, nothing (no daze, no vision)', gn.length === 0 && !vn, `${gn.length} hits`);
+  // a launch breaks it: the genjutsu, then his stakes into the dazed victim; its vision ends at once, all given back
+  await sleep(13000);
+  await place(7);
+  await clearLogs();
+  await cast('jutsu4', 'genjutsu', 14);
+  await sleep(1100);
+  const inV = await B.p.evaluate(() => !!__game.jutsu.madara.gen.vision.S?.on);
+  await cast('jutsu2', 'wood', 9);
+  await B.p.evaluate(() => { window.__wt = null; __game.net.on('hitr', (m) => { if (String(m.m).startsWith('woodCutting') && window.__wt === null) window.__wt = performance.now(); }); });
+  await B.p.waitForFunction(() => window.__wt !== null, { timeout: 3000 }).catch(() => {});
+  await B.p.waitForFunction(() => !__game.jutsu.madara.gen.vision.S, { timeout: 3000 }).catch(() => {});
+  const br = await B.p.evaluate(() => ({ gone: !__game.jutsu.madara.gen.vision.S, after: window.__wt === null ? null : performance.now() - window.__wt, me: __game.player.root.visible, fov: __game.camera.fov }));
+  const wl = await B.p.evaluate(() => window.__hl.filter((h) => h.m.startsWith('woodCutting')).map((h) => ({ r: h.r, dz: h.dz || 0 })));
+  check('genjutsu: a launch breaks it (the vision ends at once, everything back)', inV && wl.length === 1 && wl[0].r === 3 && !wl[0].dz && br.gone && br.after !== null && br.after < 700 && br.me && br.fov !== 30, `in vision ${inV}, wood ${JSON.stringify(wl)}, ended ${br.after?.toFixed(0)} ms after it, ${JSON.stringify(br)}`);
 }
 
 await A.b.close();

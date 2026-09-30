@@ -16,8 +16,9 @@ export const FLIGHT_G = { [REACT.launch]: 17, [REACT.knockback]: 24, [REACT.spik
 const F = 1 / 60;
 
 /**
- * The hit spec of a hit id: 'L1'..'L5', 'A1'..'A4', 'H' (moves), 'shuriken', 'rasengan', 'rasengan:g' (grind tick),
- * 'clone' / 'clone:last' (shadow clone string), 'rsh' (Rasenshuriken impact), 'rsh:b' (its burst ticks).
+ * The hit spec of a hit id: 'L1'..'L5', 'A1'..'A4', 'H' (moves), 'shuriken', 'rasengan', 'rasengan:big' (full charge),
+ * 'shadowClones:U1' (a shadow clone's strike), 'clones:hit' / 'clones:launch' (the Rush's clones), 'rsh' (Rasenshuriken
+ * impact), 'rsh:b' (its burst ticks), `${jutsu}:${part}` for data-driven kits (J.hits).
  * Returns { dmg, react, stun, kb: [h, v], hitstop, reach, guardBreak, win: [start, end] seconds after the move
  * started (null = projectile/entity: validated by its own spawn), ticks }.
  */
@@ -31,14 +32,19 @@ export function hitSpec(charId, id) {
     s = { ...mv.hit, react: REACT[mv.hit.react], win: [mv.startup * F, (mv.startup + mv.active) * F], move: mv, cls: 'melee' };
   } else {
     const [base, part] = id.split(':');
-    const J = C.jutsu[base === 'clone' ? 'clones' : base === 'rsh' ? 'rasenshuriken' : base];
+    const J = C.jutsu[base === 'rsh' ? 'rasenshuriken' : base];
     if (!J) return null;
-    // data-driven jutsu (Madara's): `${jutsu}:${part}` -> J.hits[part] (cls, area, chip... come with it)
+    // data-driven jutsu (Madara's, Itachi's, the Rush's): `${jutsu}:${part}` -> J.hits[part] (cls, area, chip... come with it)
     if (J.hits) s = J.hits[part || 'main'] ? { ...J.hits[part || 'main'], win: null } : null;
     else if (base === 'shuriken') s = { ...J.hit, win: null };
-    else if (base === 'rasengan' && part === 'g') s = { dmg: J.grind.dmg, react: 'flinch', stun: J.grind.stun, kb: [0, 0], hitstop: 2, reach: J.hit.reach, win: null, grind: true };
-    else if (base === 'rasengan') s = { ...J.hit, win: null };
-    else if (base === 'clone') s = { ...(part === 'last' ? J.last : J.hit), win: null };
+    // Shadow Clone Jutsu: a clone's strike is the caster's own move at the clones' share of its damage, from the
+    // clone (`c`), far from him (the clones roam)
+    else if (J.clone) {
+      const mv = J.clone.string.includes(part) && C.moves[part];
+      s = mv ? { ...mv.hit, dmg: Math.round(mv.hit.dmg * J.clone.dmg), reach: J.clone.reach, win: null, clone: true } : null;
+    }
+    // the Rasengan: held to its full charge, the Big Rasengan (the server checks it was charged that long: minT)
+    else if (base === 'rasengan') s = part === 'big' ? { ...J.hit, ...J.big, win: null, minT: J.charge.full / 60 } : part ? null : { ...J.hit, win: null };
     else if (base === 'rsh' && part === 'b') s = { dmg: J.burst.dmg, react: 'flinch', stun: J.burst.stun, kb: [0, 1.5], hitstop: 2, reach: J.hit.reach, win: null, guardBreak: true };
     else if (base === 'rsh') s = { ...J.hit, win: null };
     if (s) {

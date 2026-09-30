@@ -10,7 +10,7 @@ Multiplayer third-person anime ninja arena fighter (Shinobi Striker style). Brie
 | 2 | Character + locomotion: VRM, Mixamo pipeline, full locomotion set, foot IK, spring bones | **done** (procedural; polish items below) |
 | 3 | Combat core: frame data, light combo, heavy, guard, dash cancels, hurt/hitboxes + F4, hitstop, reactions, knockback, knockdown/get-up, substitution, dummy, combo counter | **done** |
 | 4 | Netcode for combat: lag-compensated validation, server-driven reactions (seq), deterministic knockback, predicted feedback, projectiles | **done** (tests pass at 0 ms and 200/40/1) |
-| 5 | Jutsu: chakra charge, shuriken, Rasengan, Shadow Clone Rush, Rasenshuriken + effects + cooldown UI | **done** |
+| 5 | Jutsu: chakra charge, shuriken, Rasengan, Shadow Clone Rush, Rasenshuriken + effects + cooldown UI; Naruto's Jiraiya-era kit (Q/E/G/X, 2026-09-30) | **done** |
 | 6 | Real map + art pass: toon shading, outlines, hatching, sky, foliage, water, village, forest, cliffs, river, field; performance | **done** |
 | 7 | Full HUD + match loop + audio | **done** (procedural audio; not yet heard by the owner) |
 | 8 | Polish | in progress |
@@ -523,7 +523,137 @@ ground, sword at the end, teleport to continue the combo, perfect hitboxes". Ita
 - Next: judge the looks with the owner in the live game (pace, crow density at the warps, the cloud's size); a heavy
   (hold M1) of his own; coat cloth flare on spins (the reference's flying cloak) would need cloth springs on the rig.
 
+## Naruto's kit, Jiraiya training era (2026-09-30, owner's request)
+
+Naruto (and Sage / Obito, who are his fighter in other bodies) got a new kit on five keys; the ultimate stays the
+Rasenshuriken ("we will do the ultimate later"). A 4th jutsu slot: **X** (keyboard), **LT + RB** (pad), `jutsu4` in
+`C.kit`, the HUD row grew an icon. Data: src/shared/naruto.js (THE numbers); client: src/game/naruto.js (NarutoKit);
+visuals: src/gfx/narutofx.js (afterimages, the blast) + fx.js; clips: src/char/narutomoves.js; server: server/index.js
+(clone records, 'cs' relay, cloneHit, decoyCaught) + server/combat.js (clone victims, clone sources, minT, the decoy
+window).
+
+- **Q Shadow Clone Jutsu** (35 chakra, 18 s): the cross seal, four clones pop out on a ring round him (frames 9-15),
+  fight 9 s. They are real networked entities: only the caster's client runs them (the fighters' body physics, a small
+  AI: target = his lock-on, else his last victim within 3 s, else the nearest enemy within 20 m; one strikes a target
+  at a time (`pack`), the others circle it `stalk` m out; a 0.7 s `gap` after each 3-hit string; formation round
+  him with no enemy near). It streams their states at 20 Hz ('cs': the fighter state + the clip and its time), the
+  server records them (a fighter-like record per clone: history, rewind) and relays them; other screens draw them
+  with RemoteMotion like remote fighters. Their strikes are the caster's hits (`shadowClones:U1`..: his move at 70%,
+  `cs` = the clone, checked against the clone's own history). Anyone can hit them (`vc` = the clone slot): **1 HP**
+  (the owner, 2026-09-30: any hit pops one; `SHINOBI_HP` scales it, floored at 1), 'ch' to everyone, n:2 when one is
+  gone (beaten, its life over, a barrier's answer). Server-applied areas pop them too (`popClones` in server/index.js:
+  Madara's gust and meteor, Itachi's gazes, judged with the same shape + line of sight at the same server time). History:
+  500 HP (nobody could beat one inside its life), then 300, then 1.
+- **E Rasengan** (30 chakra, 9 s): hold to charge (a helper clone shapes it: the Jiraiya-era Rasengan), the mouse aims
+  (turns to the camera, snaps onto an enemy within 30 degrees / 16 m, or the lock-on), release (at 18 frames at the
+  earliest, forced at 96): a 34 m/s dash homing at 9 rad/s for up to 0.38 s (was 24 m/s, 4 rad/s, 0.42 s: the owner
+  wanted it faster with more tracking), homing only while the target stays within `dash.cone` 75 degrees of his facing
+  and `dash.range` 18 m (the limit: a late sidestep still escapes); nothing aimed at the release takes the enemy nearest
+  his facing inside that limit (NarutoKit.dashTarget / dashTracks); contact (a swept sphere on the drawn
+  hurtboxes) = the blast: 130 knockback [17, 7], hitstop 12. Held 48 frames: the Big Rasengan `rasengan:big` (175,
+  [21, 8.5], hitstop 15; the server checks it was held that long: `minT`). The old 5-tick grind + launch is gone (one
+  heavy hit reads better and keeps its full damage).
+- **G Shadow Clone Substitution** (20 chakra, 10 s): his defence. A hit on him within 18 frames of the press is caught
+  by the server (`decoyCaught`): the attacker's hit refused (`hitx decoy`), the clone bursts on every screen (n:2), and
+  against a melee attacker within 8 m he is teleported 1 m behind it by the server (a seq-bumped teleport) and the
+  attacker is staggered (`cloneDefense:counter`, 50 frames): the counter opening. Uncaught he re-forms 6 m away at frame
+  20 (his own spot, n:1, checked like the crow escape). Invulnerable 0.6 s from the press; the invulnerable flag only
+  from the window's end (gotcha 48). The universal log substitution (Shift in hitstun) is unchanged.
+- **X Shadow Clone Rush** (30 chakra, 14 s, a target within 16 m): Uzumaki Barrage. A timeline on the server clock
+  from the press, played on every screen round the target as that screen draws it: four clones appear 3 m round it
+  (0.12 s), three dart in and strike from three sides (0.30 / 0.44 / 0.58: flinches), the fourth slides under and kicks
+  it up (0.74: `clones:launch`, [0.3, 12.5]); if that landed on the caster's screen he vanishes in smoke and drops on it
+  from above at 0.86 s (the NR move: warp above, a flip, a heel drop spike, 100). A substitution (a jump > 3 m) breaks it.
+- Looks: afterimages (frozen ghosts of the body, one draw each: docs/visuals.md 2c), the shadow-clone poof, the
+  charge's spiralling chakra, the dash's wind and afterimages, the blast (sphere + vortex + streaks + ring), the
+  victim's spiral wake, the finisher's trails and landing ring. First looks were too much (a metre-wide sphere, a blast
+  that whited out the screen, walls of smoke): toned down after filming each one.
+- **Tests**: new `scripts/test/naruto.mjs` (clones, rasengan, rush, defense): **26/26 at 0 ms** (:3104), **25/25 + 1
+  n/a at 200/40/1** (:3102: under lag 4 of 16 clone hits were refused as `invuln:down`, swung before the caster heard
+  the server forced a knockdown; and B's hits spread over the clones so none fell inside their life: the burst is
+  checked when one falls). kovis.mjs (the Rush from the victim's screen) and chars.mjs (clones in the caster's body)
+  updated and pass; mp.mjs, mpcombat.mjs (0 ms and lag), madara.mjs (34/34), itachi.mjs (45/45) pass.
+- **Performance** (scripts/debug/clonesperf.mjs, 1080p, vsync off, one client, the stand-in body): idle ~240 fps /
+  104 calls; four clones out ~95-100 fps / 185 calls (each clone ~20 draws with the 13-material stand-in at LOD 1: no
+  outline hull; +0.6 ms logic+anim each); + a Rush ~75-80; + a Rasengan ~93. Clone bodies are pooled (9 per body with
+  the kit, parsed at boot: boot ~14.5 s) and drawn once at the warm-up (first drawn at a Rush's start, their buffers
+  uploaded then: a 150 ms hitch, gotcha 75).
+
+### Rebalance + Rush redesign + smoke (2026-09-30; the owner: the X move is overpowered, the clones are really annoying, reduce the damage of everything, improve the little explosions)
+
+- **X Shadow Clone Rush redesigned.** Why it was too strong: the clones appeared round the target (16 m away, no
+  travel) and were placed relative to the target every frame, so they followed any run or dash; only a substitution
+  broke it; ~190 damage with the finisher. Now (35 chakra, 20 s, range 12): three clones burst out *beside Naruto*
+  (0.14 s) and charge (go 0.30 / 0.38 / 0.46 s; 7 -> 16 m/s, turning at most 2.6 rad/s toward the target as each
+  screen draws it; the flankers start 38 degrees off the line: a pincer). Within 0.95 m a clone strikes (its clip's
+  contact at frame 6; the caster's screen lands it if the target is within 1.8 m); a clone that runs past its target
+  (the target behind its shoulder) or chases 1 s gives up in smoke. Two strikes (18 each) + the launch (24) + the NR
+  finisher (60, 0.12 s after the launch lands): 101 in the test (was ~190). Naruto holds the seal until it resolves
+  (at most 2.2 s): a hit on him bursts the clones (`rushStruck`: his action replaced on his screen, a reaction newer
+  than the press on others). No protocol or server change: the same n:0 (`tg`, `o` = his feet + facing) starts the
+  same clones on every screen (fixed 60 Hz steps from the press on the server clock; a screen that hears late catches
+  up); the server already validates each strike from the clone's own position (`c`).
+- **Q clones nerfed**: 3 clones (was 4), 7 s (9), 9.5 m/s (13: a sprint outruns them), 2-hit strings U1-U2 (3) at 40%
+  (70%), 1.3 s rest (0.8), 1.4 s gap (0.7), range 15 (20), leash 20 (28); 40 chakra, 22 s (35, 18). In the test they
+  landed 2 hits (33 HP) in their life on a passive target.
+- **Damage down on every jutsu**: Rasengan 95 (130), Big 125 (175), cd 11 (9); substitution counter 10 (15); NR 60
+  (100; its only use is the Rush); Rasenshuriken hit 100 (130), burst ticks 24 (40). M1 strings unchanged (Madara and
+  Itachi share Naruto's move table).
+- **Looks**: a new particle kind 7 in fx.js, the toon cloud ball (docs/visuals.md 2c "Smoke"): every poof (shadow
+  clones, the substitution's decoy, the log substitution for everyone) is a back-to-front cluster of them with a shock
+  ring and a flash; the seal's smoke rolls out as them. The Rasengan's blast: the sphere about a body across (was 2 m,
+  hiding everything), a drill of three spiral wind rings with a shock rim along the push, pale cloud balls torn off
+  (grey flat puffs read as rocks). The Rush's clones: afterimages and dust while they sprint, the strike clips start
+  in the sprint's lean (RUNIN) instead of a crouch; nr_rush holds the seal (SEAL_UP/SEAL_DEEP) to 2.2 s, nr_drop starts
+  from CROUCH.
+- **Tests**: naruto.mjs (new rush checks: the clones set off beside A and charge in, the whole Rush <= 130, a sideways
+  dash shakes the charge with no hit, a hit in the seal bursts the clones) **29/29 at 0 ms (:3104) and 29/29 at
+  200,40,1 (:3102)**; kovis.mjs ALL PASS (the victim sees three clones start 8.96 m away and close to 0.78 m);
+  chars.mjs, animcheck.mjs ALL PASS; clipflips-live on cr_/nr_: no flips; clonesperf: 3 clones 169 fps, + a Rush 127,
+  + a Rasengan 217 (1080p vsync off, 164-230 calls).
+
+## Madara buff + Sharingan Genjutsu (2026-09-30, owner's request with 3 reference shots)
+
+- **Buffs** (src/shared/madara.js only): Q Great Fire Annihilation ticks 35 (25), last hit 90 (60), burning field 18
+  (12): 230 raw (160), ~185 after combo scaling; E Wood Release's stakes run 52 m/s (30: 18 m in 0.35 s) and punch up in
+  0.06 s (`line.rise`, was a fixed 0.1). A side dash still dodges the line in the test; a guard now chips 23 on the
+  torrent's last hit.
+- **X: Sharingan Genjutsu** (`sharinganGenjutsu`, kit jutsu4; 30 chakra, 14 s): Itachi's Tsukuyomi recipe (n:0 the
+  press, n:1 at `gaze` frame 16 with his eyes + facing; the server takes the cone: 16 m, 34 degrees, 5 m up/down, line of
+  sight; `REACT.daze` stun 180 = 3 s after an 8-frame hitstop, 20 damage, no guard, no substitution, hits keep it, a
+  launch/knockdown breaks it). Server change: gazeHits picks `main` for any genjutsu (was `m === 'tsukuyomi'`). Client:
+  src/game/madaragenjutsu.js (cast `mad_genjutsu`/`_air`, his Eternal Mangekyō in his eyes and thrown before him on every
+  screen, the capture + an eye over each victim's head), src/game/madaravision.js (the victim's screen), visuals
+  src/gfx/madaravisionfx.js (his eyes in GLSL: Sharingan -> Eternal Mangekyō; `VisionEffect` in the post pass),
+  EyeMarks/SealFx take a `pattern`, sounds `audio.madaraVision`, HUD icon `mgenjutsu`, Madara's `eyes` measured.
+- **The vision** (3 s on the victim's screen; docs/visuals.md 5c): red closes in and the world sinks into the dark; cut
+  to his face up close (a pooled stand-in Madara where the real one stands, filmed from his head bone, graded
+  violet-black by depth), his eyes snap open blazing white with the Sharingan; the face dissolves into the dark until
+  only the eyes are left; they grow, heartbeat ripples, the Sharingan burns into his Eternal Mangekyō, small eyes open
+  all round in the dark; the lids snap shut, and the dark opens back onto the arena as the daze ends.
+- **Tests**: madara.mjs (new `genjutsu`: taken in front (20, daze) on both screens, 3133 ms daze, HP agrees, the vision
+  with the stand-in and the camera ours, it can't walk out, everything given back (camera, bodies, HUD, the pool), no
+  program compiled (92 -> 92), behind him nothing, a launch breaks it in 0.31 s) **ALL PASS at 0 ms (:3107, HP 600) and
+  200,40,1 (:3108)**, the whole suite (fire/wood/counter/meteor with the new numbers) ALL PASS on both; itachi.mjs
+  tsukuyomi 14/14 (the shared eye shaders); clipflips-live on the new clips: no flips. Looks: scripts/debug/mgenshots.mjs.
+
 ## Known issues / next
+
+- Madara's genjutsu (2026-09-30): not yet seen by the owner. The cost of the vision's post effect when idle is one
+  uniform branch per pixel (not measured with perf.mjs against a baseline). Tsukuyomi's exit uses the timing pattern that
+  made the vision outlast its daze (gotcha 81): its world likely stays ~0.45 s past the end of its daze; not changed.
+
+- Rebalance (2026-09-30): not yet played by the owner. The Rush's clones aren't hittable (only their caster is); they
+  home on the target as each screen draws it, so at high ping the victim may see a clone reach it a little earlier or
+  later than the caster's screen decides (like any melee). The dodge needs a dash timed as they close in (~3 m); an
+  early dash lets them re-aim.
+- Naruto's kit (2026-09-30): numbers to tune by feel (clone HP 1, damage 40%, the Rasengan's 34 m/s / 9 rad/s / 75 degree limit, the 0.7 s gap; the Big Rasengan's 18 m
+  throw); audio untested by ear (the blast is new, the rest reuses the old sounds). Clones on screen cost ~20 draws
+  each with the stand-in (the owner's naruto.vrm, fewer materials, will be cheaper): a full lobby with several
+  Narutos' clones out will dip. Clones can't be locked onto; Amaterasu's burn ticks and the barrier's blow/reflection
+  (single-target answers) never reach them; aimed jutsu (shuriken, fireballs...) aim at fighters only, but a projectile in flight should still hit a
+  clone in its path (not covered by a test yet). Not yet reviewed on the owner's own model or by the owner.
+
 
 - Tsukuyomi's world (2026-09-29) awaits the owner's look. Limits: it plays where the victim stood, so right against a
   wall or among trees the camera takes the clearest of 14 sides/angles but may still have something in the first
@@ -576,10 +706,10 @@ it is identical on every screen (the tests measure 0.0 cm differences) and a lat
   opaque with ink outlines, HDR into the bloom) rolling 22 m over the ground, 3 m wide at the mouth fanning out to
   16 m (was 2 -> 10 m until 2026-09-28), in 9 lanes that each stop at their own
   obstacle (thin posts flowed round, low walls rolled over, walls/trunks splash), a glowing then scorched footprint, a
-  burning field (flame tongues, 12 dmg ticks, no reaction), heat haze (High/Ultra), a heat flash. 4 flinch ticks + a
+  burning field (flame tongues, 12 dmg ticks (18 since 2026-09-30), no reaction), heat haze (High/Ultra), a heat flash. 4 flinch ticks + a
   knockback. Air cast: a jet from the mouth down to where the wall starts.
 - **E Wood Release:** palm slam (kneeling key pose), an 18 m line of seeded stakes (instanced, toon, shadowed) erupting
-  at 30 m/s with a racing crack decal, dust and flying debris, holding 1.2 s then splitting and sinking. One launch (90).
+  at 30 m/s (52 since 2026-09-30) with a racing crack decal, dust and flying debris, holding 1.2 s then splitting and sinking. One launch (90).
   From the air: a fast dive, the slam on landing.
 - **G Uchiha Return: the wind barrier** (redesigned 2026-09-28 at the owner's request; the first version was a
   half-second counter stance with a procedural fan that poofed into his hand). The gunbai is the owner's model
@@ -822,3 +952,20 @@ at exactly the same time"). Timeline on the server clock from the press (src/gam
   scorched horizon). Steel-blue conic rims with gold, gold-outlined key caps.
 - Checked: standalone icon sheet at 360 px, in-game close-ups (idle, ult ready, low HP), Itachi's and Naruto's HUDs
   unchanged. Not yet: the owner's review.
+
+## Naruto's HUD theme (2026-09-30, owner's request: "make the naruto hud similar to Itachi and Madara, really good and professional")
+- `hud: 'naruto'` in src/shared/naruto.js (Naruto and Sage Naruto; Obito, built on Naruto's data, sets `hud: null`
+  and keeps the plain HUD). Art: src/ui/naruto.js; css: the shared themed layout now `:is(.t-uchiha, .t-madara,
+  .t-naruto)` (except hiding the face portrait), his colours in their own block. THEMES gained `face` (keep the
+  rendered portrait, the theme's "eye" is overlays) and `cap` (markup for the new `.h-cap` slot at the bar's end).
+- Portrait: his own face under a glass gloss, a black ring with orange hairlines, the Uzumaki crest pinned at its lower
+  left; dark chakra flames with an orange rim and chakra bubbles; with the ultimate ready they crossfade into Kurama's
+  red-orange cloak and the portrait's edge + outer glow pulse orange.
+- Health bar as a headband: navy cloth frame with orange piping, orange chakra fill (red under 30%), a steel plate with
+  the engraved Leaf capping its end; round orange pips; orange metal icon rims, navy key caps.
+- Icons repainted: Q Shadow Clone Jutsu (clones bursting out of smoke round him, rows fading back), E Rasengan (the
+  sphere on his palm, wind orbits), G Substitution (a kunai into the clone's smoke, him slipping away), X Shadow Clone
+  Rush (three clones charging, a fist coming at you), R Rasenshuriken (four wind blades round the core). The shared
+  tool icons (scroll, shuriken) repainted too: every character's HUD shows the new ones.
+- Checked in game (Sage + stand-in Naruto: idle, ult ready, low HP; Itachi, Madara, Obito HUDs still right). Not yet:
+  the owner's review.

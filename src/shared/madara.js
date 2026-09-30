@@ -4,6 +4,7 @@
 //   Q  Great Fire Annihilation  a torrent of fire that rolls ~22 m, fanning out to 16 m wide, and leaves a burning field
 //   E  Wood Release: Cutting    a line of stakes erupting from the ground toward the target
 //   G  Uchiha Return            the gunbai off his back, a spin, a wind barrier: untouchable, everything answered
+//   X  Sharingan Genjutsu       his Eternal Mangekyō meets their eyes: everyone in front of him is stunned for 3 s
 //   R  Tengai Shinsei           a meteor falls on the target's area 1.8 s after the cast
 // Geometry that must match on every screen and the server lives in madarakit.js (built from these numbers).
 import { NARUTO } from './naruto.js';
@@ -16,7 +17,10 @@ export const MADARA = {
   standin: null,
   card: { tag: 'UCHIHA LEGEND', credit: 'Model: “Madara Uchiha” by AJ Studio · Gunbai by Madara.Uchiha.supreme · CC BY 4.0' },
   hud: 'madara', // his HUD: Rinnegan portrait, Susanoo flames, armour-plate bar, painted icons (src/ui/madara.js)
-  kit: { jutsu1: 'fireAnnihilation', jutsu2: 'woodCutting', jutsu3: 'uchihaReturn', ult: 'tengaiShinsei' },
+  kit: { jutsu1: 'fireAnnihilation', jutsu2: 'woodCutting', jutsu3: 'uchihaReturn', jutsu4: 'sharinganGenjutsu', ult: 'tengaiShinsei' },
+  // the eyes' place from the head bone (metres, the fighter's frame: up, forward, apart), measured on his model: the
+  // Eternal Mangekyō glows there through his genjutsu, and its victim's vision films his face from them
+  eyes: { up: 0.075, fwd: 0.095, apart: 0.034 },
 
   jutsu: {
     shuriken: NARUTO.jutsu.shuriken, // tool 1: the same as everyone's
@@ -39,11 +43,11 @@ export const MADARA = {
       ticks: 4, // flinch ticks before the last one
       field: { w: 12, d: 6, time: 2.5, every: 30 }, // the burning field at the wave's end: size, seconds, tick frames
       hits: {
-        // 4 x 25 + 60 = 160 raw, ~129 after combo scaling: under the Rasengan (~193) for 5 more chakra, but ranged
-        tick: { dmg: 25, react: 'flinch', stun: 18, kb: [0.8, 0], hitstop: 2, reach: 26, chip: 0.25, guardChakra: 6, cls: 'area', area: 'fire', kMax: 3 },
-        last: { dmg: 60, react: 'knockback', stun: 0, kb: [11, 5], hitstop: 7, reach: 26, chip: 0.25, guardChakra: 6, cls: 'area', area: 'fire', kOnly: 4 },
+        // 4 x 35 + 90 = 230 raw, ~185 after combo scaling (buffed 2026-09-30 from 160: the torrent is his main damage)
+        tick: { dmg: 35, react: 'flinch', stun: 18, kb: [0.8, 0], hitstop: 2, reach: 26, chip: 0.25, guardChakra: 6, cls: 'area', area: 'fire', kMax: 3 },
+        last: { dmg: 90, react: 'knockback', stun: 0, kb: [11, 5], hitstop: 7, reach: 26, chip: 0.25, guardChakra: 6, cls: 'area', area: 'fire', kOnly: 4 },
         // standing in the embers: small, no reaction, unblockable (you are meant to leave)
-        field: { dmg: 12, react: 'none', stun: 0, kb: [0, 0], hitstop: 0, reach: 30, unblockable: true, cls: 'area', area: 'field' },
+        field: { dmg: 18, react: 'none', stun: 0, kb: [0, 0], hitstop: 0, reach: 30, unblockable: true, cls: 'area', area: 'field' },
       },
     },
 
@@ -54,7 +58,8 @@ export const MADARA = {
       life: 5,
       line: {
         length: 18, // metres of stakes
-        speed: 30, // m/s the front runs
+        speed: 52, // m/s the front runs (buffed 2026-09-30 from 30: 18 m in 0.35 s, hard to outrun)
+        rise: 0.06, // s each stake takes to punch up out of the ground (with an overshoot)
         width: 1.1, // hit half-width
         height: 2.4, // hit height above the ground there
         hMin: 0.8, hMax: 2.6, // stake heights
@@ -88,6 +93,20 @@ export const MADARA = {
         gust: { dmg: 30, react: 'knockback', stun: 0, kb: [8, 4.5], hitstop: 4, reach: 6, unblockable: true, cls: 'area', server: true },
         // a reflected shuriken hits a little harder than a thrown one (40)
         reflect: { dmg: 50, react: 'flinch', stun: 14, kb: [1.5, 0], hitstop: 4, reach: 45, cls: 'proj', server: true },
+      },
+    },
+
+    sharinganGenjutsu: {
+      name: 'Eternal Mangekyō: Genjutsu', key: 'X', cost: 30, cd: 14, icon: 'mgenjutsu',
+      // like Itachi's Tsukuyomi cast: the head lowered 0-10 (the eyes in shadow, a half seal before the chest), raised
+      // at `gaze`: his Eternal Mangekyō meets their eyes (the genjutsu takes hold: phase n:1 with the eyes + facing),
+      // held to 32, let go by `total`. The victim's own screen leaves the fight for his vision (madaravision.js).
+      gaze: 16, total: 40, life: 4,
+      range: 16, cone: 34, height: 5, // metres, degrees either side of his facing, metres up/down
+      hits: {
+        // server-applied (the cone at the gaze, each victim where its own screen had it): 3 s stunned, no guard, no
+        // substitution out of it; hits during it keep the victim in it (a launch or a knockdown breaks it)
+        main: { dmg: 20, react: 'daze', stun: 180, kb: [0, 0], hitstop: 8, reach: 40, unblockable: true, cls: 'area', server: true },
       },
     },
 

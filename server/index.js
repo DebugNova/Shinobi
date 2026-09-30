@@ -209,6 +209,8 @@ function spawnPlayer(p, sp, announce = true) {
   p.burn = null;
   p.escape = null;
   p.cine = null;
+  p.decoy = null;
+  p.clones.clear(); // (his shadow clones are gone: every screen drops them on his spawn)
   // (its caster respawned, e.g. a match starting: a cinematic ends; every screen drops it on his spawn)
   if (cinema?.id === p.id) cinema.to = Math.min(cinema.to, now());
   if (ULT_FULL) p.ult = 100;
@@ -291,6 +293,9 @@ function handleAct(p, msg) {
       // paid first phase of the same instance, so an effect is never free
       const prev = p.acts.get(msg.i | 0);
       if (J.counter && msg.n) return; // (the counter's later phase comes from the server)
+      // Naruto's kit: a later phase belongs to a cast he paid for (the same instance)
+      if (J.kind && msg.n && !(prev && prev.m === m)) return;
+      if (J.kind === 'decoy' && msg.n && msg.n !== 1) return; // (n:2, what was caught, is the server's)
       if ((J.hits || J.escape) && msg.n && !(prev && prev.m === m)) return;
       // Itachi's kit: each later phase once (a fireball per shot, one gaze, one teleport)
       const maxN = J.shots ? J.shots.length : J.gaze !== undefined || J.focus !== undefined || J.escape ? 1 : 0;
@@ -316,6 +321,42 @@ function handleAct(p, msg) {
       if (Number.isFinite(msg.tg)) out.tg = msg.tg | 0;
       if (Number.isFinite(msg.n)) out.n = msg.n | 0;
       if (Number.isFinite(msg.f)) out.f = msg.f & 255; // cast flags (Madara's kit: 1 = cast in the air)
+      if (J.kind === 'clones') {
+        // Shadow Clone Jutsu: n:0 the seal; n:1 the clones appear (c: [[slot, x, y, z, yaw], ...]); n:2 one is gone (s)
+        if (!msg.n) p.acts.set(out.i, { m, at, k: msg.k, life: (J.life + 3) * 1000 });
+        else if (msg.n === 1) {
+          if (!Array.isArray(msg.c) || msg.c.length > J.clone.count) return;
+          const c0 = combat.posAt(p, prev.at, {});
+          out.c = [];
+          p.clones.clear();
+          for (const e of msg.c) {
+            if (!Array.isArray(e) || e.length !== 5 || !e.every(Number.isFinite)) continue;
+            const slot = e[0] | 0;
+            // (they burst out round him: a spot far from where he sealed is refused)
+            if (slot < 0 || slot >= J.clone.count || Math.hypot(e[1] - c0.x, e[3] - c0.z) > J.clone.ring + 3) continue;
+            out.c.push([slot, r3(e[1]), r3(e[2]), r3(e[3]), r3(e[4])]);
+            p.clones.set(slot, cloneRecord(p, slot, out.i, e, J));
+          }
+        } else if (msg.n === 2) {
+          const rec = p.clones.get(msg.s | 0);
+          if (!rec || !rec.alive) return;
+          rec.alive = false;
+          rec.goneAt = t;
+          out.s = msg.s | 0;
+        } else return;
+        p.protectUntil = 0;
+        break;
+      }
+      if (J.kind === 'decoy') {
+        if (!msg.n) {
+          // Shadow Clone Substitution: the window where a hit is caught, the invulnerability after it
+          const F = 1000 / 60;
+          p.decoy = { m, i: out.i, at, w: at + J.window * F, inv: at + J.invuln * 1000, caught: false, moved: false };
+          p.acts.set(out.i, { m, at, k: msg.k, life: 3000 });
+        } else return decoyEvade(p, J, prev, out);
+        p.protectUntil = 0;
+        break;
+      }
       // an aimed area (the meteor) can't land farther than its range from where the caster stood
       if (J.hits && J.range && msg.n && out.o) {
         const c = combat.posAt(p, at, {});
@@ -345,7 +386,7 @@ function handleAct(p, msg) {
           if (out.o && out.d) gazeHits(p, J, m, out, act);
           return;
         }
-        // Itachi's gazes (Tsukuyomi, Amaterasu): who they take is decided here, at the gaze's time
+        // the gazes (Tsukuyomi, Amaterasu, Madara's genjutsu): who they take is decided here, at the gaze's time
         if (msg.n === 1 && (J.gaze !== undefined || J.focus !== undefined) && out.o && out.d) gazeHits(p, J, m, out);
         // the meteor lands on the server's clock whatever happens to its caster's client
         if (act.fx?.kind === 'meteor' && !act.fx.due) {
@@ -363,7 +404,9 @@ function handleAct(p, msg) {
           }
         }
         if (process.env.SHINOBI_DEBUG) log(`  ${p.name} cast ${m} #${out.i} phase ${out.n || 0}${act.fx ? ` (${act.fx.kind} placed)` : ''}`);
-      } else p.acts.set(out.i, { m, at, k: msg.k });
+      } else if (!msg.n || !prev) p.acts.set(out.i, { m, at, k: msg.k });
+      // (a later phase: the Rasengan's release, the Rasenshuriken's throw: the act's time moves on, at0 keeps the press)
+      else p.acts.set(out.i, { m, at, k: msg.k, at0: prev.at0 ?? prev.at });
       p.protectUntil = 0;
       break;
     }
@@ -423,8 +466,10 @@ function handleHit(p, msg) {
   const val = combat.validate(p, msg, { players, dummy, allowed });
   // (inside an ultimate's cinematic nothing lands: every screen was watching it)
   if (val.ok && cinemaAt(val.at)) Object.assign(val, { ok: false, why: 'cinema' });
+  // (Naruto's clone in his place took it: decoyCaught answers)
+  if (!val.ok && val.why === 'decoy' && !cinemaAt(val.at)) return decoyCaught(val.v, p, val, msg);
   if (!val.ok) {
-    if (process.env.SHINOBI_DEBUG) log(`  hit rejected (${p.name} -> ${msg.v} ${msg.m}): ${val.why}`);
+    if (process.env.SHINOBI_DEBUG) log(`  hit rejected (${p.name} -> ${msg.v}${msg.vc !== undefined ? ` clone ${msg.vc}` : ''} ${msg.m}): ${val.why}`);
     send(p, { t: 'hitx', v: msg.v, i: msg.i, k: msg.k | 0, why: val.why });
     return;
   }
@@ -432,10 +477,158 @@ function handleHit(p, msg) {
   // attack it already deflected (a Rasenshuriken's burst, a torrent's ticks: they don't resume when it drops)
   const dk = val.v.deflected?.get(`${p.id}:${msg.i | 0}`);
   if (dk && now() < dk) return send(p, { t: 'hitx', v: val.v.id, i: msg.i, k: msg.k | 0, why: 'counter' });
+  if (val.v.clone) return cloneHit(p, val, msg);
   const ctr = !val.v.dummy && combat.counterFor(val.v, val.spec, val.at);
   if (ctr) return counterHit(val.v, p, val, msg, ctr);
   applyHit(p, val, msg);
 }
+
+// ---------------------------------------------------------------- Naruto's kit: shadow clones, the substitution
+
+/**
+ * A shadow clone on the server: a fighter-like record (the same history, rewind and validation as a fighter: see
+ * server/combat.js) with its own HP. Its states come from its caster's client ('cs', relayed to everyone else).
+ */
+function cloneRecord(p, slot, i, e, J) {
+  const rec = {
+    // (SHINOBI_HP scales the clones with their caster; at least 1: one hit bursts a 1 HP clone whatever the scale)
+    id: `${p.id}c${slot}`, owner: p, slot, inst: i, clone: true, ch: p.ch, alive: true, goneAt: 0, hp: Math.max(1, Math.round((J.clone.hp * maxHp(charOf(p.ch))) / charOf(p.ch).stats.hp)),
+    s: [e[1], e[2], e[3], 0, 0, 0, e[4], ST.loco, 0, 0], at: now(), seq: 0, protectUntil: 0,
+  };
+  combat.init(rec);
+  combat.record(rec, rec.at);
+  return rec;
+}
+
+/**
+ * Clone states from their caster ('cs', i: the cast, c: [[slot, x, y, z, vx, vy, vz, yaw, st, stMs, flags, clip,
+ * clipMs], ...]): recorded (hits on them rewind like a fighter's) and relayed to everyone else, stamped on arrival.
+ */
+function handleCloneStates(p, msg) {
+  if (!Array.isArray(msg.c) || !p.alive || msg.c.length > 8) return;
+  const t = now(), out = [];
+  for (const e of msg.c) {
+    if (!Array.isArray(e) || e.length !== 13) continue;
+    const rec = p.clones.get(e[0] | 0);
+    if (!rec || !rec.alive || rec.inst !== (msg.i | 0)) continue;
+    const n = e.slice(1, 11).map((v) => clean(v));
+    // (a clone runs no faster than a fighter dashes: a jump in its stream is a glitch)
+    if (Math.hypot(n[0] - rec.s[0], n[2] - rec.s[2]) > 32 * Math.max(0.05, (t - rec.at) / 1000) + 2.5) continue;
+    rec.s = [r3(n[0]), r3(clamp(n[1], -6, 80)), r3(n[2]), r3(n[3]), r3(n[4]), r3(n[5]), r3(n[6]), n[7] | 0, clamp(n[8] | 0, 0, 60000), n[9] & 255];
+    rec.at = t;
+    combat.record(rec, t);
+    out.push([e[0] | 0, ...rec.s, String(e[11]).slice(0, 24), clamp(clean(e[12]) | 0, 0, 60000)]);
+  }
+  if (out.length) broadcast({ t: 'cs', id: p.id, i: msg.i | 0, at: Math.round(t * 10) / 10, c: out }, p.id);
+}
+
+/** A validated hit on a shadow clone: HP (no combo, no flight: its caster's client plays the flinch), gone at 0. */
+function cloneHit(att, val, msg) {
+  const v = val.v, t = now(), spec = val.spec;
+  att.hitsAt.push(t);
+  v.hitDone.set(val.key, t);
+  const dmg = Math.max(1, Math.round(spec.dmg));
+  v.hp = Math.max(0, v.hp - dmg);
+  att.ult = Math.min(100, att.ult + dmg * charOf(att.ch).stats.ultDealt * 0.5);
+  sendGauge(att);
+  // kb: the push (m/s) away from the hit's source; the clone's caster applies it
+  const dx = v.s[0] - val.ax, dz = v.s[2] - val.az, l = Math.hypot(dx, dz) || 1, h = Math.min(8, Math.max(2.5, spec.kb?.[0] ?? 3));
+  broadcast({ t: 'ch', a: att.id, o: v.owner.id, s: v.slot, m: msg.m, i: msg.i, k: msg.k | 0, at: Math.round(val.at), d: dmg, hp: v.hp, hs: spec.hitstop || 4, kb: [r3((dx / l) * h), r3((dz / l) * h)] });
+  if (v.hp <= 0) cloneGone(v, 'ko', att.id);
+}
+
+/**
+ * A server-applied area (the gust, a gaze, the meteor) at server time T: every other player's shadow clone whose
+ * position then passes `inside(pos)` bursts (1 HP: any hit takes one).
+ */
+function popClones(att, T, inside) {
+  for (const o of players.values()) {
+    if (o === att) continue;
+    for (const rec of o.clones.values()) if (rec.alive && inside(combat.posAt(rec, T, {}))) cloneGone(rec, 'ko', att.id);
+  }
+}
+
+/** A shadow clone is gone (beaten, or dispelled by a barrier): every screen, its caster's included, bursts it (n:2). */
+function cloneGone(rec, why, by) {
+  if (!rec.alive) return;
+  const t = now();
+  rec.alive = false;
+  rec.goneAt = t;
+  broadcast({ t: 'a', id: rec.owner.id, k: 'jutsu', m: 'shadowClones', i: rec.inst, n: 2, s: rec.slot, why, by, at: Math.round(t), r: Math.round(t) });
+}
+
+/**
+ * Shadow Clone Substitution caught a hit (v: Naruto, att: whoever struck; val: the hit, judged like any other). The
+ * hit is refused; the clone in his place takes it and bursts on every screen (phase n:2, f 0). A melee attacker
+ * within reach: he re-forms behind it (a server teleport: seq, f 1) and it is staggered (hits.counter): his opening.
+ */
+function decoyCaught(v, att, val, msg) {
+  const d = v.decoy, J = charOf(v.ch).jutsu[d.m], t = now();
+  d.caught = true;
+  send(att, { t: 'hitx', v: v.id, i: msg.i, k: msg.k | 0, why: 'decoy' });
+  const out = { t: 'a', id: v.id, k: 'jutsu', m: d.m, i: d.i, n: 2, at: Math.round(val.at), r: Math.round(t), tg: att.id, ai: msg.i | 0, f: 0, p: val.p.map(r3) };
+  const c0 = combat.posAt(v, d.at, {}), ap = combat.posAt(att, t, {});
+  if (val.spec.cls === 'melee' && !val.spec.clone && Math.hypot(ap.x - c0.x, ap.z - c0.z) <= J.counterReach) {
+    const spot = behindSpot(ap, J.behind);
+    if (spot) {
+      d.moved = true;
+      v.seq++;
+      v.s[0] = spot[0];
+      v.s[1] = spot[1];
+      v.s[2] = spot[2];
+      v.s[3] = v.s[4] = v.s[5] = 0;
+      v.s[6] = r3(Math.atan2(-(ap.x - spot[0]), -(ap.z - spot[2])));
+      v.at = t;
+      v.lastState = t;
+      combat.record(v, t);
+      Object.assign(out, { f: 1, o: spot, yaw: v.s[6], sq: v.seq });
+    }
+  }
+  if (process.env.SHINOBI_DEBUG) log(`  ${v.name}'s clone took ${att.name}'s ${msg.m}${out.f ? ' (he re-forms behind)' : ''}`);
+  broadcast(out);
+  // his opening: the attacker staggered where it stands (unless it got away in time)
+  if (out.f && !combat.invulnAt(att, t)) {
+    const spec = hitSpec(v.ch, `${d.m}:counter`);
+    serverHit(v, att, spec, `${d.m}:counter`, d.i, 0, t, [ap.x, ap.y, ap.z], out.o, `${v.id}:${d.i}:0:${att.id}`);
+  }
+}
+
+/** Where to stand behind a fighter (at its back, else beside it): ground near its height, room to stand, no wall between. */
+function behindSpot(ap, dist) {
+  const fx = -Math.sin(ap.yaw), fz = -Math.cos(ap.yaw), k = Math.SQRT1_2;
+  for (const [ux, uz] of [[-fx, -fz], [(-fx - fz) * k, (-fz + fx) * k], [(-fx + fz) * k, (-fz - fx) * k], [-fz, fx], [fz, -fx]]) {
+    const x = ap.x + ux * dist, z = ap.z + uz * dist;
+    const y = world.ground(x, z, ap.y + 1.2, {}).y;
+    if (Math.abs(y - ap.y) > 1.5 || world.solidAt(x, z, y + 0.15, y + 1.6, 0.05)) continue;
+    if (!world.clear(ap.x, ap.y + 1.1, ap.z, x, y + 1.1, z)) continue;
+    return [r3(x), r3(y), r3(z)];
+  }
+  return null;
+}
+
+/**
+ * The substitution's re-forming spot (n:1, o: the spot his client picked when nothing was caught): within reach of
+ * where he pressed, room to stand. Everyone else hears it (his own client has moved him already).
+ */
+function decoyEvade(p, J, prev, out) {
+  const d = p.decoy;
+  if (!d || d.i !== out.i || d.moved) return; // (caught: the server moved him behind the attacker)
+  const o = out.o, c = combat.posAt(p, prev.at, {});
+  if (!o || o.length !== 3 || Math.hypot(o[0] - c.x, o[2] - c.z) > J.maxDist || Math.abs(o[1] - c.y) > 5 || world.solidAt(o[0], o[2], o[1] + 0.15, o[1] + 1.6, 0.05)) {
+    if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s substitution spot refused`);
+    return send(p, { t: 'deny', k: 'jutsu', m: out.m, i: out.i, n: 1 });
+  }
+  d.moved = true;
+  p.s[0] = o[0];
+  p.s[1] = o[1];
+  p.s[2] = o[2];
+  p.s[3] = p.s[4] = p.s[5] = 0;
+  p.at = now();
+  p.lastState = p.at;
+  combat.record(p, p.at);
+  broadcast(out, p.id);
+}
+
 
 /** A validated hit: the result, HP, gauges, the broadcast, a KO. */
 function applyHit(p, val, msg) {
@@ -481,7 +674,12 @@ function counterHit(v, att, val, msg, ctr) {
   // the owner where the attacker saw him; the threat at its own position (a clone, a projectile, a flame), else the attacker
   const vp = val.p, o = [val.ax, val.ay, val.az].map(r3);
   const tb = val.at + J.answer * F; // the answer leaves the wind shell
-  const clone = kind === 1 && String(msg.m).split(':')[0] === 'clone';
+  const clone = kind === 1 && !!val.spec.clone;
+  // (a shadow clone that struck it is dispelled: every screen bursts it)
+  if (clone && msg.cs !== undefined) {
+    const rec = att.clones.get(msg.cs | 0);
+    if (rec) cloneGone(rec, 'barrier', v.id);
+  }
   // the rest of this attack is spent on the barrier too (the attacker's screen hears it from `ai`)
   (v.deflected ||= new Map()).set(`${att.id}:${msg.i | 0}`, t + DEFLECTED_MS);
   for (const [k, until] of v.deflected) if (until < t) v.deflected.delete(k);
@@ -540,6 +738,7 @@ function gustBurst(p, ctr) {
     }
     serverHit(p, v, spec, `${ctr.m}:gust`, ctr.i, 2, T, [vp.x, vp.y, vp.z], [c.x, c.y, c.z], `${p.id}:${ctr.i}:2:${v.id}`);
   }
+  popClones(p, T, (q) => Math.hypot(q.x - c.x, q.z - c.z) <= G.radius + 0.34 && Math.abs(q.y - c.y) <= G.height && world.clear(c.x, c.y + 1.0, c.z, q.x, q.y + 1.0, q.z));
 }
 
 /**
@@ -561,10 +760,11 @@ function serverHit(att, v, spec, m, i, k, at, p, src, key) {
 }
 
 /**
- * Itachi's gaze (Tsukuyomi, Amaterasu) at the caster's gaze time T (his n:1: o = his eyes, d = his facing): everyone
- * inside the cone (itachikit.js inGaze) with a clear line from his eyes to their chest, not invulnerable then, is
- * taken. Each victim is judged where its own screen had it (its states arrive ~half its ping later, like the meteor).
- * Tsukuyomi dazes; Amaterasu ignites, then burns (burnStep) until the flames have taken their share of max HP.
+ * A gaze (Itachi's Tsukuyomi and Amaterasu, Madara's Sharingan Genjutsu) at the caster's gaze time T (his n:1: o = his
+ * eyes, d = his facing): everyone inside the cone (itachikit.js inGaze) with a clear line from his eyes to their chest,
+ * not invulnerable then, is taken. Each victim is judged where its own screen had it (its states arrive ~half its ping
+ * later, like the meteor). Tsukuyomi and the Sharingan Genjutsu daze; Amaterasu ignites, then burns (burnStep) until
+ * the flames have taken their share of max HP.
  */
 function gazeHits(p, J, m, out, act = null) {
   // (a cinematic's pick always reaches every screen, empty or not: they wait for it to know whom the flames take)
@@ -577,7 +777,8 @@ function gazeHits(p, J, m, out, act = null) {
     if (process.env.SHINOBI_DEBUG) log(`  ${p.name}'s ${m}: eyes too far from the body`);
     return tell();
   }
-  const hid = m === 'tsukuyomi' ? `${m}:main` : `${m}:ignite`, spec = hitSpec(p.ch, hid);
+  // (a genjutsu's one hit is main: Tsukuyomi, Madara's Sharingan Genjutsu; Amaterasu's first is its ignition)
+  const hid = J.hits.main ? `${m}:main` : `${m}:ignite`, spec = hitSpec(p.ch, hid);
   for (const v of [...players.values(), dummy]) {
     if (v === p || !v.alive) continue;
     const vp = combat.posAt(v, T + (v.dummy ? 0 : Math.min(METEOR_LEAD, (v.ping || 0) / 2)), {});
@@ -590,6 +791,7 @@ function gazeHits(p, J, m, out, act = null) {
     if (J.cinema) out.v.push(v.id);
     else if (serverHit(p, v, spec, hid, out.i, 0, T, [vp.x, vp.y, vp.z], o, `${p.id}:${out.i}:0:${v.id}`) && J.burn && v.alive) ignite(p, v, J, m, out.i, spec, T);
   }
+  popClones(p, T, (q) => inGaze(J, o, d, [q.x, q.y, q.z]) && world.clear(o[0], o[1], o[2], q.x, q.y + 1.1, q.z));
   if (!J.cinema) return;
   // the cinematic: every screen learns now whom the flames take and when (e); the server lights them on its own clock
   // at the focus, whatever becomes of the caster's client meanwhile
@@ -684,6 +886,7 @@ function meteorImpact(p, act, i) {
     const part = dist <= J.core + 0.34 ? 'core' : 'outer', spec = hitSpec(p.ch, `tengaiShinsei:${part}`), pp = [vp.x, vp.y, vp.z];
     serverHit(p, v, spec, `tengaiShinsei:${part}`, i, 0, T, pp, o, `${p.id}:${i}:0:${v.id}`);
   }
+  popClones(p, T, (q) => Math.hypot(q.x - o[0], q.z - o[2]) <= J.outer + 0.34 && q.y - o[1] <= 9 && q.y >= o[1] - 4 && world.clear(o[0], o[1] + 1.5, o[2], q.x, q.y + 1.0, q.z));
 }
 
 function kill(v, killer, hit) {
@@ -691,6 +894,8 @@ function kill(v, killer, hit) {
   v.alive = false;
   v.respawnAt = t + T.respawn * 1000;
   v.burn = null;
+  v.decoy = null;
+  v.clones.clear(); // (his shadow clones burst with him: every screen drops them on the kill)
   const counts = match.phase === 'live';
   const assists = [];
   for (const [id, rec] of v.dmgFrom) {
@@ -837,6 +1042,9 @@ function onMessage(ws, raw) {
       break;
     case 'hit':
       handleHit(p, msg);
+      break;
+    case 'cs':
+      handleCloneStates(p, msg);
       break;
     case 'name':
       p.name = autoName(msg.name, p.ch, p);

@@ -83,20 +83,20 @@ const bSeesA = await B.evaluate((id, ch) => { const r = __game.remotes.get(id); 
 check(aSeesB.ch === 'naruto' && aSeesB.model && aSeesB.lib, 'A draws B as Naruto', JSON.stringify(aSeesB));
 check(bSeesA.ch === CH && bSeesA.model && bSeesA.lib && bSeesA.name === 'Nova', `B draws A as ${CH} named Nova`, JSON.stringify(bSeesA));
 
-// ---- A casts Shadow Clone Rush next to B: B must see clones in A's body (kits without it, Madara's and Itachi's, skip)
-const hasClones = await A.evaluate(() => __game.ctrl.C.kit.jutsu2 === 'clones');
+// ---- A casts Shadow Clone Jutsu next to B: B must see clones in A's body (kits without it, Madara's and Itachi's, skip)
+const hasClones = await A.evaluate(() => __game.ctrl.C.kit.jutsu1 === 'shadowClones');
 if (hasClones) {
   await A.evaluate(() => __game.teleport(-30, 44, 0));
   await B.evaluate(() => __game.teleport(-30, 40, Math.PI));
   await sleep(1200);
-  await A.evaluate(() => { __game.ctrl.chakra = 100; __game.input.press('jutsu2'); });
+  await A.evaluate(() => { __game.ctrl.chakra = 100; __game.input.press('jutsu1'); });
   let clones = null;
   for (let i = 0; i < 40 && !clones?.n; i++) {
     await sleep(100);
-    clones = await B.evaluate((ch) => { const cs = __game.jutsu.clones.filter((c) => !c.gone); const pool = __game.jutsu.clonePools.get(ch); return { n: cs.length, own: cs.every((c) => pool.includes(c.f.vrm)) }; }, CH);
+    clones = await B.evaluate((ch) => { const cs = [...__game.jutsu.naruto.remote.values()].filter((c) => c.shown && !c.gone); const pool = __game.jutsu.naruto.bodies.by.get(ch).map((e) => e.vrm); return { n: cs.length, own: cs.every((c) => pool.includes(c.f.vrm)) }; }, CH);
   }
   check(clones.n > 0 && clones.own, `B sees A's clones in the ${CH} body`, JSON.stringify(clones));
-} else console.log(`(skip) ${CH}'s kit has no Shadow Clone Rush`);
+} else console.log(`(skip) ${CH}'s kit has no Shadow Clone Jutsu`);
 if (SHOTS) {
   await B.evaluate(() => { __game.studio = { yaw: 0, pitch: 0.1, dist: 7, h: 1, fov: 45 }; });
   await sleep(300);

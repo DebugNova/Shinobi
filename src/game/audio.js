@@ -340,6 +340,16 @@ export class Audio {
     this.tone(o, t, 1.1, { type: 'sawtooth', f0: 160, f1: 420, gain: 0.06, attack: 0.3 });
   }
 
+  /** The Rasengan's blast: a boom under a roar of wind, the sphere's whirr spinning down (the big one deeper, longer). */
+  rasenganBlast(pos = null, big = false) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(pos, big ? 1.35 : 1.15), k = big ? 1.3 : 1;
+    this.noise(o, t, 0.9 * k, { type: 'lowpass', f0: 1400, f1: 60, gain: 0.9, pink: true, attack: 0.004 });
+    this.tone(o, t, 0.7 * k, { f0: 75, f1: 28, gain: 0.8 });
+    this.noise(o, t, 1.1 * k, { f0: 2600, f1: 500, q: 2.5, gain: 0.4, attack: 0.01 });
+    this.tone(o, t, 0.6 * k, { type: 'sawtooth', f0: 520, f1: 90, gain: 0.07 });
+  }
+
   ult(pos = null) {
     if (!this.ok()) return;
     const t = this.ctx.currentTime, o = this.out(pos, 1);
@@ -517,6 +527,35 @@ export class Audio {
     this.noise(o, t, 1.2, { f0: 2400, f1: 900, q: 3, gain: 0.12, attack: 0.3 });
     if (victim) {
       for (const d of [0, 0.22, 0.9, 1.12, 1.8, 2.02]) this.tone(o, t + 0.3 + d, 0.14, { f0: 62, f1: 40, gain: 0.55, attack: 0.01 });
+    }
+  }
+
+  /**
+   * Madara's genjutsu on its victim's screen (madaravision.js): 'in' caught (a sharp sting into a sub drop), 'open' his
+   * eyes snapping open (a metallic ring over a low drone), 'vanish' the face burning away (a hollow reversed rush),
+   * 'beat' a heartbeat (a double thump), 'shut' the lids snapping shut, 'out' the dark opening (a breath out).
+   */
+  madaraVision(k) {
+    if (!this.ok()) return;
+    const t = this.ctx.currentTime, o = this.out(null, 1);
+    if (k === 'in') {
+      this.tone(o, t, 0.25, { type: 'triangle', f0: 1800, f1: 3400, gain: 0.07, attack: 0.01 });
+      this.tone(o, t + 0.12, 0.9, { f0: 64, f1: 30, gain: 0.7, attack: 0.01 });
+      this.noise(o, t + 0.1, 0.7, { type: 'lowpass', f0: 1400, f1: 120, gain: 0.45, pink: true, attack: 0.01 });
+    } else if (k === 'open') {
+      for (const f of [1568, 2349, 3136]) this.tone(o, t, 1.6, { type: 'triangle', f0: f, f1: f * 0.99, gain: 0.05, attack: 0.005 });
+      this.tone(o, t, 2.4, { type: 'sawtooth', f0: 46, f1: 38, gain: 0.08, attack: 0.25 });
+      this.noise(o, t, 0.35, { f0: 5200, f1: 2600, q: 4, gain: 0.12 });
+    } else if (k === 'vanish') {
+      this.noise(o, t, 0.5, { f0: 300, f1: 2400, q: 1.2, gain: 0.3, attack: 0.35 });
+      this.tone(o, t + 0.2, 0.9, { f0: 90, f1: 34, gain: 0.5, attack: 0.02 });
+    } else if (k === 'beat') {
+      for (const d of [0, 0.16]) this.tone(o, t + d, 0.16, { f0: 60, f1: 38, gain: d ? 0.45 : 0.65, attack: 0.008 });
+    } else if (k === 'shut') {
+      this.noise(o, t, 0.12, { f0: 2400, f1: 900, q: 2, gain: 0.35, attack: 0.002 });
+      this.tone(o, t, 0.3, { f0: 110, f1: 45, gain: 0.5, attack: 0.003 });
+    } else if (k === 'out') {
+      this.noise(o, t, 0.6, { f0: 500, f1: 1500, q: 1, gain: 0.2, attack: 0.25 });
     }
   }
 

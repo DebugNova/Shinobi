@@ -27,6 +27,7 @@ export const OBITO = {
   model: '/assets/characters/obito.vrm',
   standin: null,
   card: { tag: 'OBITO', credit: 'Model: “Obito Uchiha (Free Fire)” by AJ Studio · CC BY 4.0' },
+  hud: null, // Naruto's kit, not his HUD theme (orange chakra, the Leaf headband): the plain HUD
 };
 
 // Itachi Uchiha (itachi.js): Naruto's movement with his own M1 strings and jutsu kit (fireballs, Tsukuyomi, crow escape,

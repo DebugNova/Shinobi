@@ -144,7 +144,9 @@ index and other notes refer to it).
     nothing would reach the server to be blown back or reflected. The server answers inside the window instead
     (counterFor) and every client-side check stays off. Its answers are not one-shot: every hit inside the window, and
     every later hit of an attack it answered (`deflected`, 3 s: a Rasenshuriken's burst ticks, a torrent's last
-    tick and its burning field) is refused, or the barrier would "run out" on a multi-hit attack.
+    tick and its burning field) is refused, or the barrier would "run out" on a multi-hit attack. The same holds
+    for Naruto's Shadow Clone Substitution: its catch window keeps the flag down (`ctrl.invulnFrom` = the window's
+    end), the server judges a hit in the window like any other and answers it (decoyCaught).
 49. **A display figure has no body under its clothes; one piece per material costs a draw each:** the Itachi
     download is a head, a closed cloak (its sleeves fused into its sides, the arms hanging inside, not modelled) and
     the shins: no arms, hands, torso or thighs. Render it without the outer garment first (modelview on a stripped
@@ -301,3 +303,58 @@ index and other notes refer to it).
     and trees in front overwrite it. With the default order three sorts opaques front to back and the depth test
     rejects the hidden mountain pixels before they are shaded. Only the sky dome (depthWrite off, at the far plane)
     needs to go first.
+75. **Pooled bodies added to the scene at runtime upload their buffers when first drawn: draw them once at the
+    warm-up:** Naruto's clone bodies (VRMs parsed at boot, their Fighters kept, detached from the scene) were first
+    drawn when a Rush started: four bodies' geometry uploaded in one frame, 153 ms (the p99 of that second). naruto.js
+    `warm()` attaches every pooled body for the warm-up render (main.js warmShaders) and detaches it after: the Rush's
+    worst frame then 29-41 ms (vsync off, back to back with the clones out). Anything kept off the scene until needed
+    (props, stand-ins, bodies) must be drawn once behind the loading screen, not only compiled.
+76. **A target that shares an id needs its own key:** Naruto's shadow clones are targets carrying their caster's id
+    (`id` + `vc` = the clone's slot: the server looks the clone up on its caster). Everything that keyed targets by
+    `id` alone confused them: an attack's hit set (hitting a clone used up its caster), AttackAction.liveTarget (a
+    string tracking a clone followed its caster), and anything aimed by id (a shuriken homes on `tg`: it would fly to
+    the caster). Hit sets use `t.key` (`${id}c${slot}` for a clone), liveTarget compares `vc` too, aimed jutsu
+    (Combat.aimTarget, the Rasengan's aim, the Rush) skip clones; melee tracking (findTarget) keeps them.
+77. **Several AI attackers on one target stunlock it:** the first shadow clones (two striking at once, 0.45 s rests)
+    took a passive target from 1000 to 487 HP in 5 s (26 hits, one juggle after another): no window to hit back.
+    Gate the attackers per target (`pack` 1: the rest circle it) and leave the victim a window after each string
+    (`gap` 0.7 s): the same test then saw 6 hits on the victim in 3.5 s, and the test fighter beat a clone inside its
+    life. The anti-infinite rule (COMBO) caps a combo, not a crowd.
+78. **A new kind of target must join every server-side area loop too:** the shadow clones were hittable by every
+    client-detected hit (they are in Combat.targets()), but the server's own area hits (gustBurst, gazeHits,
+    meteorImpact) loop over `players` + the dummy only, so a meteor or a gust passed through them. Those three now call
+    `popClones` (the same shape and line of sight at the same server time). Grep for `players.values(), dummy` when
+    adding a target type.
+79. **Near-white particles bleed a bloom halo:** the bloom's threshold is 1.05 but its soft knee (luminanceSmoothing
+    0.15) lets colours from ~0.9 linear through, so white smoke at 0.97 glowed like a light (the new cloud balls read
+    as one overexposed blob, their cel bands invisible), and HDR white speed lines flying at the camera, seen end on,
+    bloomed into soft white balls. Keep "white" smoke at <= 0.88 linear (still ~94% white on screen) and give only
+    what should glow HDR colours. The same pass: shade bands written as linear factors (0.7) barely show after the
+    sRGB encode: square the display tone you want (gotcha 50).
+80. **An attack placed round its target and following it cannot be dodged:** the first Shadow Clone Rush put its
+    clones round the target (16 m from the caster, no travel) and re-placed them relative to the target every frame,
+    so running or dashing carried the clones along; only a substitution (a > 3 m jump) broke it. The owner: "the X
+    move is overpowered". Counterplay needs something the victim can see coming and act on: the clones now charge
+    from the caster (visible travel), home with a limited turn rate, are committed (a clone that runs past its target
+    gives up), and the caster is exposed in the seal (a hit on him bursts them). naruto.mjs proves each: a sideways
+    dash as they close in takes no hit, a hit on the caster leaves no clone strike.
+81. **A timeline's exit phases are seconds, not a ratio:** Madara's genjutsu vision starts its exit 0.62 s before the
+    daze ends, but its phases were written as `k * d` with `d = exitDur / exit` (1 for a full exit) and ended at
+    `u >= d`: the exit ran 1 s, so the vision covered the victim's screen 0.4 s after it could move again (the test
+    measured a 3.51 s vision on a 3.13 s daze). Now `d = exitDur` (seconds) and every phase is a fraction of it (the
+    vision ends with the daze: 3.13 s at 0 ms, 2.92 s at 200 ms). Tsukuyomi's exit (tsukuyomi.js) has the same pattern
+    (`d = exitDur / TSU.exit`, phases up to `0.95 * d` s after a 0.5 s exit): not changed yet, check it.
+82. **A glow built from a shape's own edge curves shows their steep ends:** the painted eyes' glow was
+    `exp(-distance past the lids)`, and the lid curves (`pow(1 - x^2, 0.62)`) are vertical at the corners, so the glow's
+    iso-lines turned vertical there: a boxy column of light above and below each corner. Glow from a smooth ellipse
+    round the shape instead, and put an early-out box where the glow has fallen under ~1e-3, not at the shape's own
+    size (a 2.6 half-width box cut the glow of the small eyes into a rectangle).
+83. **A painted thing that closes must stop drawing its outline:** the genjutsu's eyes shut on the exit, but the lash
+    line (a band along the upper lid) still drew with `open` 0, as two thin black slanted lines across the returned
+    arena. Fade every outline with the opening, and turn the layer off when it is shut.
+84. **Judge an icon by what its silhouette reads as at 66 px:** the first Shadow Clone Jutsu icon drew his cross-shaped
+    seal (two fingers up out of a fist, two across behind): at icon size it read as a raised middle finger. The X icon's
+    fist (a round shape with curved lines) read as a bald face. A shape that only makes sense in detail doesn't survive
+    the size: Q became the clone crowd bursting out of the smoke round him, the fist got four knuckle bumps, finger
+    lines and a thumb across. Also in that pass: a regex widening shared `:is(.t-uchiha, .t-madara)` selectors caught
+    the one rule that must stay theirs (hiding the face portrait): widen shared CSS rule by rule, then grep the result.

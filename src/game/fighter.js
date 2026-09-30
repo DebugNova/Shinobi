@@ -112,8 +112,9 @@ export class Fighter {
     for (const m of this.meshes) m.o.material = m.arr ? m.v[key] : m.v[key][0];
   }
 
-  /** 0 near, 1 mid, 2 far (see LOD). */
+  /** 0 near, 1 mid, 2 far (see LOD); never nearer than `lodMin` (Naruto's clones: no outline hull, 30 Hz springs). */
   setLod(l) {
+    l = Math.max(l, this.lodMin || 0);
     if (l === this.lod) return;
     this.lod = l;
     this.applyMaterials();

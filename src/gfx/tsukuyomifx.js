@@ -80,7 +80,8 @@ export const SEAL_GLSL = /* glsl */ `
 const SEALS = 16;
 
 export class SealFx {
-  constructor(scene) {
+  /** pattern: { glsl, fn } another eye for the seal layer (Madara's: madaravisionfx.js madaraSeal); default Itachi's. */
+  constructor(scene, pattern = null) {
     const quad = new THREE.PlaneGeometry(2, 2);
     const g = new THREE.InstancedBufferGeometry();
     g.index = quad.index;
@@ -124,6 +125,7 @@ export class SealFx {
       fragmentShader: /* glsl */ `
         varying vec2 vQ; varying vec4 vA; varying vec4 vB; varying vec4 vC;
         ${SEAL_GLSL}
+        ${pattern?.glsl || ''}
         vec4 acc;
         void over(vec3 c, float a) { a = clamp(a, 0.0, 1.0); acc.rgb = c * a + acc.rgb * (1.0 - a); acc.a = a + acc.a * (1.0 - a); }
         void main() {
@@ -169,7 +171,7 @@ export class SealFx {
           }
           // the seal itself
           if (vB.x > 0.001) {
-            vec4 m = itachiSeal(q / vC.x, spin);
+            vec4 m = ${pattern?.fn || 'itachiSeal'}(q / vC.x, spin);
             // (the iris lets the body show through; the ink is solid)
             float ia = m.a * (m.r > 0.05 ? 0.78 : 0.97);
             over(m.rgb, ia * vB.x);

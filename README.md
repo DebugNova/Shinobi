@@ -39,7 +39,7 @@ Without the VPS: run `npm run share` in a second terminal. It prints a `https://
 | Guard | right click, or C | LB |
 | Chakra charge | hold F | RT |
 | Shuriken | 1 | LT + X |
-| Jutsu (Naruto: Rasengan / Shadow Clone Rush; Madara: fire / wood / gunbai; Itachi: fireballs / Tsukuyomi / crows, see below) | Q / E / G | LT + Y / LT + B / LT + A |
+| Jutsu (Naruto: Shadow Clone Jutsu / Rasengan / Shadow Clone Substitution / Shadow Clone Rush; Madara: fire / wood / gunbai / genjutsu; Itachi: fireballs / Tsukuyomi / crows, see below) | Q / E / G / X | LT + Y / LT + B / LT + A / LT + RB |
 | Ultimate (Naruto: Rasenshuriken; Madara: Tengai Shinsei; Itachi: Amaterasu) | R | LT + RT |
 | Lock on (the camera follows the target; you still run and sprint freely, and face it when you stop; wheel switches target) | T or middle mouse | RB |
 | Zoom in / out | mouse wheel (when not locked on) | |
@@ -91,12 +91,47 @@ smoke and reappear about 6 m away, off to one side and facing your attacker, bri
   your feet (free, no pip).
 - A K.O. can't be substituted: once your HP hits zero you are thrown down and stay down until you respawn.
 
+### Naruto's jutsu (Jiraiya training era)
+
+Naruto (and Sage Naruto and Obito, who share his fighter) is a fast, aggressive close-range fighter: clones to
+overwhelm, the Rasengan for burst damage, a clone substitution to escape and counter. The loop: Shadow Clones for
+pressure, the Rush to extend the combo, the Rasengan to finish, the Substitution to get out. (Rebalanced 2026-09-30:
+every jutsu hits softer, the clones are fewer and slower, and the Rush can be dodged.)
+
+- **Q: Shadow Clone Jutsu** (40 chakra, 22 s). The cross seal: three clones burst out of the smoke around him and
+  fight on their own for 7 seconds. Each goes for your lock-on target, else whoever you hit last, else the nearest
+  enemy within 15 m, runs at it (9.5 m/s: they jump up ledges and roofs like you do, but a sprint outruns them) and
+  throws a short 2-hit combo (the first two hits of your Uzumaki Barrage at 40% damage). One clone strikes a target at
+  a time while the others circle it, and after each combo the target gets a 1.4 s opening before the next clone steps
+  in. With no enemy near they keep formation around you. They go down in one hit: any M1, shuriken or jutsu (a meteor,
+  a gust, a gaze too) pops a clone in a puff of smoke, and they vanish anyway when their time is up. Hit someone
+  yourself and they pile onto them: that is how the clones extend your combos.
+- **E: Rasengan** (30 chakra, 11 s). Press and hold: the sphere forms in your right palm while a shadow clone shapes
+  it (as in the Jiraiya training arc). While you hold, **aim with the mouse**: Naruto turns to where the camera looks
+  and snaps onto an enemy near that line (or your lock-on target). Let go (or hold to the end) and he dashes at the
+  target (34 m/s, up to ~13 m), tracking it while it stays in front of him (within 75 degrees, 18 m): a late sidestep
+  still makes it miss. Nothing aimed at? He picks the enemy nearest his facing inside that limit. On contact: a chakra blast, wind, a hard screen shake,
+  and the enemy is thrown back (95 damage). **Hold it about 0.8 s for the Big Rasengan**: a bigger sphere, 125
+  damage, thrown much farther. Miss and he skids to a stop. It needs you to get close: a dash dodges it.
+- **G: Shadow Clone Substitution** (20 chakra, 10 s). His defence (he has no shield). A clone appears in your place
+  and you vanish in smoke. **Time it just before a hit lands** (within 0.3 s): the clone takes the hit and bursts, you
+  reappear **behind the attacker**, and they are left staggered for a moment (10 damage): hit them. Nothing caught (or a projectile):
+  you reappear 6 m away, the way you were steering (away from the nearest enemy if you weren't). You can't be hurt for
+  0.6 s from the press.
+- **X: Shadow Clone Rush** (35 chakra, 20 s; needs a target within 12 m). Three clones burst out of the smoke beside
+  Naruto and charge the enemy: two curve in from the sides and strike, the third runs straight in, slides underneath
+  and kicks it skyward; then Naruto vanishes in smoke, reappears in the air above it and brings his heel down,
+  spiking it into the ground (about 100 damage for the whole thing). **It can be dodged**: the clones run at you (you
+  see them coming), turn slowly and are committed, so one well-timed dash sideways as they close in makes them run
+  past and vanish. Naruto holds the seal the whole time: hit him and his clones burst. If the launch misses, there is
+  no finisher.
+- **R: Rasenshuriken** (the ultimate: 100 on the hit, the spinning burst's ticks 24 each).
+
 ### Aiming jutsu
 
-Shadow Clone Rush (E), the shuriken (1) and the Rasenshuriken (R) go for **whoever your camera is looking at** (the
-enemy closest to the middle of the screen, within 30 m). No lock-on needed; if you are locked on (T), they go for your
-lock-on target. The clones chase their target the whole time: they jump up to someone on a roof or ledge, drop off
-edges after them, and run after a target that dashes away between hits.
+The Rush (X), the shuriken (1) and the Rasenshuriken (R) go for **whoever your camera is looking at** (the enemy
+closest to the middle of the screen, within 30 m). No lock-on needed; if you are locked on (T), they go for your
+lock-on target. The Rasengan aims while you hold E (see above).
 
 **Zoom:** scroll up to zoom in, down to zoom out; the camera glides in toward your fighter over the shoulder (from
 3.3 m behind down to 1 m) and back out. Fully zoomed out is the normal view; the field of view always stays the one
@@ -110,11 +145,11 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
 - **Q: Great Fire Annihilation** (35 chakra, 10 s). A seal, a deep breath, then a torrent of fire that rolls ~22 m
   along the ground, fanning out to 16 m wide. It flows round thin posts, rolls over fences and low walls, stops at buildings
   and trees (and splashes up them), and leaves a burning field where it comes to rest. Caught in it: 4 burning ticks
-  and a knockback (~130 damage); standing in the embers burns a little every half second. A guard blocks it but still
+  and a knockback (~185 damage); standing in the embers burns a little every half second. A guard blocks it but still
   takes chip damage and extra chakra. Cast in the air, the stream pours down at an angle and the wall rolls on from
   where it lands. Double jump over it, or get out of its way.
 - **E: Wood Release: Cutting Technique** (30 chakra, 9 s). He slams his palm on the ground and a line of wooden
-  stakes erupts toward the target, 18 m long, racing along the ground at 30 m/s (it follows slopes and stops at
+  stakes erupts toward the target, 18 m long, racing along the ground at 52 m/s (it follows slopes and stops at
   walls). Whoever it reaches is launched into the air (90 damage): follow up with an air combo. Side-dash out of the
   line or guard it. From the air he dives down first and slams on landing.
 - **G: Uchiha Return** (20 chakra, 8 s). Madara carries his war fan (the gunbai) on his back all the time, head down
@@ -126,6 +161,13 @@ Madara moves and fights like Naruto (same M1 strings, heavy, shuriken) but has h
   at its thrower (50), and an ultimate, fire, stakes or a meteor are deflected. Whatever hit the wind is spent: a
   Rasenshuriken's burst or the rest of a torrent won't catch him once the wind drops. The spin's gust also throws back
   anyone within ~4 m (30). Once the wind drops he puts the fan back on his back (0.3 s), and there he can be hit.
+- **X: Sharingan Genjutsu** (30 chakra, 14 s). He lowers his head, then looks up: his Eternal Mangekyō meets the eyes
+  of everyone in front of him (16 m, a wide cone, not through walls). Whoever it catches is stunned for 3 seconds (20
+  damage, no guard, no substitution out of it; hits keep them in it, a launch or a knockdown breaks it). On the victim's
+  own screen the fight disappears: the world sinks into the dark, Madara's face appears up close in shadow, his eyes
+  snap open and blaze white, then his face dissolves into the dark until only his eyes are left, growing, the Sharingan
+  turning into his Eternal Mangekyō, heartbeats, more eyes opening all round in the dark, until his eyes snap shut and
+  the dark opens back onto the arena. Everyone else sees his Mangekyō thrown out before him and an eye over the victim.
 - **R: Tengai Shinsei** (ultimate). He raises his arm to the sky: a huge flaming meteor appears high behind him and
   falls onto the target's spot (lock-on target or whoever you look at, up to 60 m). It lands 1.8 seconds later; red
   rings on the ground and the rock's growing shadow show where. The centre (5.5 m) is the heaviest hit in the game
@@ -154,7 +196,12 @@ with a ring when they're ready again.
 
 Madara has his own HUD too: a Rinnegan portrait (ripples run out from the pupil; it turns into the red Rinne Sharingan with
 nine turning tomoe when your ultimate is ready), blue Susanoo flames streaming along a dark-iron plated health bar with a
-crimson fill, and hand-painted icons for the Great Fire Annihilation, Wood Release stakes, the gunbai barrier and the meteor.
+crimson fill, and hand-painted icons for the Great Fire Annihilation, Wood Release stakes, the gunbai barrier, the genjutsu's eyes and the meteor.
+
+Naruto (and Sage Naruto) get theirs as well: his face in an orange-ringed portrait with the Uzumaki crest, chakra flames
+streaming off it that turn into Kurama's red-orange cloak when your ultimate is ready, a health bar styled like his
+headband (navy cloth, orange chakra, the steel Leaf plate at its end) and hand-painted icons for the Shadow Clones,
+Rasengan, the substitution, the Rush and the Rasenshuriken.
 
 - **Q: Fire Style: Phoenix Sage Fire** (30 chakra, 9 s). A seal, two fingers to his lips, and he blows three
   fireballs one after another. They leave spread out and curve in on the target (lock-on target or whoever you look
@@ -223,7 +270,8 @@ Sound starts when you join. F3 shows fps, frame times, draw calls, ping, interpo
 ## Characters
 
 All characters move and fight the same (moves, damage, speed, hitboxes); Naruto, Sage Naruto and Obito also share
-Naruto's jutsu, while Madara and Itachi have their own (see "Madara's jutsu" and "Itachi's jutsu" above).
+Naruto's jutsu (see "Naruto's jutsu"), while Madara and Itachi have their own (see "Madara's jutsu" and "Itachi's jutsu"
+above).
 
 - **Naruto**: your VRoid model once you add it (below); until then the stand-in avatar.
 - **Sage Naruto**: "Naruto Sage" by **ninjatorent13** on Sketchfab

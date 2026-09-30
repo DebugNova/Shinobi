@@ -6,6 +6,7 @@ import { bakeClip } from './keyframes.js';
 import { MADARA_CLIPS } from './madaramoves.js';
 import { ITACHI_CLIPS } from './itachimoves.js';
 import { ITACHI_M1_CLIPS } from './itachim1.js';
+import { NARUTO_CLIPS } from './narutomoves.js';
 
 // shorthand
 const P = (x, y, z, o = {}) => ({ p: [x, y, z], ...o });
@@ -373,6 +374,7 @@ void LEAD;
 /** Bakes every keyed clip for a rig into the library (mocap clips of the same id stay; see ClipLibrary.add). */
 export function bakeMoves(rig, lib, H0) {
   // keyed clips win over mocap of the same id: a Mixamo attack needs a retime map onto the frame data first
-  // (Madara's and Itachi's jutsu clips live in madaramoves.js / itachimoves.js, Itachi's M1 in itachim1.js; every body gets them)
-  for (const [id, def] of Object.entries({ ...MOVE_CLIPS, ...MADARA_CLIPS, ...ITACHI_CLIPS, ...ITACHI_M1_CLIPS })) lib.add(bakeClip(rig, id, def, H0), true);
+  // (Madara's and Itachi's jutsu clips live in madaramoves.js / itachimoves.js, Itachi's M1 in itachim1.js, Naruto's jutsu
+  // in narutomoves.js; every body gets them)
+  for (const [id, def] of Object.entries({ ...MOVE_CLIPS, ...MADARA_CLIPS, ...ITACHI_CLIPS, ...ITACHI_M1_CLIPS, ...NARUTO_CLIPS })) lib.add(bakeClip(rig, id, def, H0), true);
 }

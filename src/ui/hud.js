@@ -12,6 +12,7 @@ import { charOf } from '../shared/characters.js';
 import { renderPortrait } from './portrait.js';
 import { ITACHI_ICONS, sharingan, uchihaFlames, FRAME } from './uchiha.js';
 import { MADARA_ICONS, rinnegan, madaraFlames, MADARA_FRAME } from './madara.js';
+import { NARUTO_ICONS, narutoEye, narutoFlames, NARUTO_FRAME, NARUTO_CAP } from './naruto.js';
 import { gpuInfo, diagnose } from '../gfx/perfcheck.js';
 
 const _v = new THREE.Vector3();
@@ -48,7 +49,11 @@ const ICONS = {
   scroll: `<defs><radialGradient id="gs" cx=".4" cy=".35"><stop offset="0" stop-color="#9fd0ff"/><stop offset="1" stop-color="#1b4c86"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gs)"/><path d="M22 60c10-16 40-24 56-10-8 14-30 22-56 10z" fill="#e9dcc0" stroke="#3a2a1a" stroke-width="3"/><path d="M30 58c12-6 26-8 38-4" stroke="#b33" stroke-width="3" fill="none"/>`,
   shuriken: `<defs><radialGradient id="gh" cx=".4" cy=".35"><stop offset="0" stop-color="#8fc8ff"/><stop offset="1" stop-color="#16365f"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gh)"/><g transform="rotate(20 50 50)"><path d="M50 12 L57 43 L88 50 L57 57 L50 88 L43 57 L12 50 L43 43 Z" fill="#d7dee8" stroke="#1d2530" stroke-width="3"/><circle cx="50" cy="50" r="7" fill="#1d2530"/></g><g stroke="#fff" stroke-width="2" opacity=".7"><path d="M20 28l12 6M18 70l12-4M78 24l-10 8"/></g>`,
   rasengan: `<defs><radialGradient id="gr" cx=".45" cy=".4"><stop offset="0" stop-color="#ffffff"/><stop offset=".35" stop-color="#8fe8ff"/><stop offset=".8" stop-color="#1e7fd8"/><stop offset="1" stop-color="#0b2d60"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="#ffb14a"/><circle cx="50" cy="50" r="36" fill="url(#gr)"/><g fill="none" stroke="#e8fbff" stroke-width="3" opacity=".9"><path d="M26 44c10-18 38-20 48-2"/><path d="M30 62c14 12 34 8 42-8"/><path d="M40 30c16 4 24 20 16 34"/></g>`,
-  clones: `<defs><radialGradient id="gc" cx=".4" cy=".35"><stop offset="0" stop-color="#ffd07a"/><stop offset="1" stop-color="#c2410c"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gc)"/><g fill="#1a1110"><circle cx="34" cy="38" r="9"/><path d="M22 78c0-18 6-28 12-28s12 10 12 28z"/><circle cx="66" cy="38" r="9"/><path d="M54 78c0-18 6-28 12-28s12 10 12 28z"/></g><path d="M50 20c-6 12-6 26 0 38 6-12 6-26 0-38z" fill="#fff4c9" opacity=".9"/>`,
+  // Naruto's kit (Jiraiya training era): Q the clones bursting out of the smoke, X the Rush (clones round one target,
+  // the kick skyward), G the substitution (a clone bursting in smoke, him slipping away)
+  shadowClones: `<defs><radialGradient id="gkb" cx=".5" cy=".35"><stop offset="0" stop-color="#ffe29a"/><stop offset=".6" stop-color="#f08a24"/><stop offset="1" stop-color="#8a2c08"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gkb)"/><g opacity=".8"><path d="M15.2 46.4 L10.4 42.4 L15.2 40.0 L12.0 33.6 L19.2 36.0 L19.2 28.8 L24.0 34.4 L28.0 28.0 L29.6 35.2 L36.0 32.8 L32.8 40.0 L37.6 43.2 L32.8 46.4 Q32.8 53.6 24.0 54.4 Q15.2 53.6 15.2 46.4Z" fill="#3a1a0c"/><path d="M8.0 72.8 Q9.6 56.8 24.0 55.2 Q38.4 56.8 40.0 72.8Z" fill="#3a1a0c"/><path d="M67.2 46.4 L62.4 42.4 L67.2 40.0 L64.0 33.6 L71.2 36.0 L71.2 28.8 L76.0 34.4 L80.0 28.0 L81.6 35.2 L88.0 32.8 L84.8 40.0 L89.6 43.2 L84.8 46.4 Q84.8 53.6 76.0 54.4 Q67.2 53.6 67.2 46.4Z" fill="#3a1a0c"/><path d="M60.0 72.8 Q61.6 56.8 76.0 55.2 Q90.4 56.8 92.0 72.8Z" fill="#3a1a0c"/></g><path d="M38.5 43.1 L32.1 37.9 L38.5 34.8 L34.3 26.4 L43.7 29.5 L43.7 20.1 L50.0 27.4 L55.3 19.0 L57.4 28.4 L65.8 25.3 L61.5 34.8 L67.8 39.0 L61.5 43.1 Q61.5 52.6 50.0 53.6 Q38.5 52.6 38.5 43.1Z" fill="#140a06"/><path d="M29.0 77.8 Q31.1 56.8 50.0 54.7 Q68.9 56.8 71.0 77.8Z" fill="#140a06"/><circle cx="16" cy="96" r="12" fill="#f4f1ea"/><circle cx="32" cy="90" r="14" fill="#f4f1ea"/><circle cx="50" cy="92" r="15" fill="#f4f1ea"/><circle cx="68" cy="89" r="14" fill="#f4f1ea"/><circle cx="84" cy="96" r="12" fill="#f4f1ea"/><g fill="none" stroke="#fff6d8" stroke-width="3" stroke-linecap="round" opacity=".9"><path d="M14 30l8 5M86 30l-8 5M50 10v7"/></g>`,
+  rush: `<defs><radialGradient id="grs" cx=".5" cy=".6"><stop offset="0" stop-color="#fff0b0"/><stop offset=".45" stop-color="#ff9a2e"/><stop offset="1" stop-color="#7a2206"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#grs)"/><g stroke="#fff4d0" stroke-width="2.5" stroke-linecap="round" opacity=".75"><path d="M8 50h16M92 50H76M50 96V80M18 82l10-9M82 82l-10-9M18 18l10 9M82 18l-10 9"/></g><g transform="rotate(-8 50 50)"><path d="M43.2 35.9 L39.5 32.8 L43.2 30.9 L40.7 25.9 L46.3 27.8 L46.3 22.2 L50.0 26.6 L53.1 21.6 L54.3 27.2 L59.3 25.3 L56.8 30.9 L60.5 33.4 L56.8 35.9 Q56.8 41.4 50.0 42.1 Q43.2 41.4 43.2 35.9Z" fill="#1d0e06"/><path d="M37.6 56.3 Q38.8 43.9 50.0 42.7 Q61.2 43.9 62.4 56.3Z" fill="#1d0e06"/></g><g fill="#140a06"><path d="M13.9 61.6 L10.6 58.9 L13.9 57.3 L11.8 52.9 L16.7 54.5 L16.7 49.5 L20.0 53.4 L22.8 49.0 L23.9 54.0 L28.3 52.3 L26.1 57.3 L29.4 59.5 L26.1 61.6 Q26.1 66.6 20.0 67.2 Q13.9 66.6 13.9 61.6Z" fill="#140a06"/><path d="M9.0 79.8 Q10.1 68.8 20.0 67.7 Q29.9 68.8 31.0 79.8Z" fill="#140a06"/><path d="M74.0 61.6 L70.7 58.9 L74.0 57.3 L71.8 52.9 L76.7 54.5 L76.7 49.5 L80.0 53.4 L82.8 49.0 L83.8 54.0 L88.3 52.3 L86.0 57.3 L89.3 59.5 L86.0 61.6 Q86.0 66.6 80.0 67.2 Q74.0 66.6 74.0 61.6Z" fill="#140a06"/><path d="M69.0 79.8 Q70.1 68.8 80.0 67.7 Q89.9 68.8 91.0 79.8Z" fill="#140a06"/></g><path d="M50 92 L44 64 L50 56 L56 64Z" fill="#140a06"/><path d="M50 50v-30" stroke="#fffbe8" stroke-width="4" stroke-linecap="round"/><path d="M42 26l8-10 8 10" fill="none" stroke="#fffbe8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`,
+  cloneDefense: `<defs><radialGradient id="gcd" cx=".4" cy=".4"><stop offset="0" stop-color="#bfe9ff"/><stop offset=".6" stop-color="#2f86c8"/><stop offset="1" stop-color="#0b2a4e"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gcd)"/><g opacity=".45"><path d="M25.6 46.9 L19.9 42.1 L25.6 39.3 L21.8 31.6 L30.3 34.5 L30.3 25.9 L36.0 32.6 L40.8 25.0 L42.6 33.5 L50.3 30.7 L46.5 39.3 L52.1 43.0 L46.5 46.9 Q46.5 55.4 36.0 56.4 Q25.6 55.4 25.6 46.9Z" fill="#0a1624"/><path d="M17.0 78.2 Q18.9 59.2 36.0 57.3 Q53.1 59.2 55.0 78.2Z" fill="#0a1624"/></g><g fill="#f4f1ea"><circle cx="26" cy="58" r="11"/><circle cx="40" cy="50" r="13"/><circle cx="34" cy="70" r="12"/><circle cx="50" cy="64" r="10"/><circle cx="20" cy="74" r="8"/></g><path d="M66.1 52.2 L61.8 48.6 L66.1 46.4 L63.2 40.6 L69.7 42.8 L69.7 36.3 L74.0 41.4 L77.6 35.6 L79.0 42.1 L84.8 39.9 L81.9 46.4 L86.2 49.3 L81.9 52.2 Q81.9 58.6 74.0 59.4 Q66.1 58.6 66.1 52.2Z" fill="#0a1624"/><path d="M59.6 75.9 Q61.0 61.5 74.0 60.1 Q87.0 61.5 88.4 75.9Z" fill="#0a1624"/><path d="M44 28 Q62 10 80 22" fill="none" stroke="#fffbe8" stroke-width="4" stroke-linecap="round"/><path d="M74 14l7 8-10 3" fill="none" stroke="#fffbe8" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>`,
   ult: `<defs><radialGradient id="gu" cx=".5" cy=".5"><stop offset="0" stop-color="#ffffff"/><stop offset=".4" stop-color="#b9f2ff"/><stop offset="1" stop-color="#2a7fd0"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="#0f2345"/><g transform="rotate(15 50 50)"><path d="M50 6 C60 30 62 38 94 50 C62 62 60 70 50 94 C40 70 38 62 6 50 C38 38 40 30 50 6Z" fill="#e8fbff" opacity=".85"/></g><circle cx="50" cy="50" r="20" fill="url(#gu)"/>`,
   // Madara's kit
   fire: `<defs><radialGradient id="gf" cx=".5" cy=".65"><stop offset="0" stop-color="#ffcf6a"/><stop offset=".55" stop-color="#d9420f"/><stop offset="1" stop-color="#3a0a06"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gf)"/><path d="M50 10c6 14 20 20 22 38 2 16-8 32-22 34-14-2-26-12-24-30 1-10 7-16 10-24 2 8 6 12 10 12-2-10 0-20 4-30z" fill="#ff7a1a" stroke="#2a0905" stroke-width="3"/><path d="M52 34c4 10 12 14 12 26 0 10-6 16-14 16s-14-6-13-16c1-6 5-9 7-14 2 5 4 7 6 7-1-7 0-13 2-19z" fill="#ffd35a"/><path d="M50 56c3 6 6 8 6 13 0 5-3 8-6 8s-6-3-6-8c0-4 3-7 6-13z" fill="#fff8e0"/>`,
@@ -57,13 +62,16 @@ const ICONS = {
   meteor: `<defs><radialGradient id="gm" cx=".5" cy=".4"><stop offset="0" stop-color="#6a4a8a"/><stop offset="1" stop-color="#140a22"/></radialGradient></defs><circle cx="50" cy="50" r="50" fill="url(#gm)"/><path d="M8 12 L52 48 L40 60Z" fill="#ff9a2a" opacity=".85"/><path d="M18 14 L54 46 L46 54Z" fill="#ffe28a"/><path d="M44 50c2-12 14-18 26-14 12 4 16 16 12 28-4 12-18 16-28 12-10-4-12-14-10-26z" fill="#4b3a36" stroke="#120a08" stroke-width="3"/><path d="M50 70c6 4 16 4 22-2" stroke="#ff6a1a" stroke-width="3" fill="none"/><circle cx="62" cy="50" r="5" fill="#2c211e"/><circle cx="72" cy="60" r="3" fill="#2c211e"/>`,
   ...MADARA_ICONS, // Madara's kit (madara.js): overrides the plain ones above
   ...ITACHI_ICONS, // Itachi's kit (uchiha.js)
+  ...NARUTO_ICONS, // Naruto's kit + the tools every character carries (naruto.js)
   log: `<circle cx="50" cy="50" r="50" fill="#6a4a2e"/><rect x="24" y="30" width="52" height="40" rx="18" fill="#b07a48" stroke="#3a2412" stroke-width="3"/><ellipse cx="30" cy="50" rx="8" ry="18" fill="#d9a877" stroke="#3a2412" stroke-width="3"/>`,
 };
 
-// per-character HUD themes (C.hud): flames, the portrait's eye, the ring (art: uchiha.js, madara.js; css: #hud.t-<name>)
+// per-character HUD themes (C.hud): flames, the portrait's eye (or overlays on the face: face true), the ring, the bar's
+// end cap (art: uchiha.js, madara.js, naruto.js; css: #hud.t-<name>)
 const THEMES = {
   uchiha: { flames: uchihaFlames, eye: sharingan, frame: FRAME },
   madara: { flames: madaraFlames, eye: rinnegan, frame: MADARA_FRAME },
+  naruto: { flames: narutoFlames, eye: narutoEye, frame: NARUTO_FRAME, cap: NARUTO_CAP, face: true },
 };
 
 export class HUD {
@@ -93,6 +101,7 @@ export class HUD {
         <div class="h-hpwrap">
           <svg viewBox="0 0 400 40" preserveAspectRatio="none" class="h-hp-ink"><path d="M0 12 Q30 2 80 8 L390 6 Q400 8 398 20 L396 34 Q300 38 60 34 Q10 36 4 26 Z" fill="#0d0908"/></svg>
           <div class="h-hp"><s id="h-chip"></s><b id="h-hpb"></b></div>
+          <div class="h-cap" id="h-cap"></div>
           <i class="h-arrow" id="h-arrow"></i>
           <div class="h-subs" id="h-subs"><i></i><i></i><i></i></div>
         </div>
@@ -110,6 +119,7 @@ export class HUD {
       subs: $(this.root, '#h-subs'), pips: $(this.root, '#h-pips'), feed: $(this.root, '#h-feed'), board: $(this.root, '#h-board'),
       results: $(this.root, '#h-results'), dead: $(this.root, '#h-dead'), deadT: $(this.root, '#h-dead-t'), port: $(this.root, '#h-port'),
       me: $(this.root, '#h-me'), theme: $(this.root, '#h-theme'), eye: $(this.root, '#h-eye'), frame: $(this.root, '#h-frame'),
+      cap: $(this.root, '#h-cap'),
     };
     this.setKit(charOf());
     this.toastEl = $(this.root, '#toast');
@@ -143,17 +153,19 @@ export class HUD {
     this.plates.classList.toggle('cine', on);
   }
 
-  /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G (kits with a third jutsu), R; and the
-   *  character's HUD theme (C.hud: 'uchiha' = Sharingan portrait, black flames, red-framed bar and icons). */
+  /** The skill row for a character's kit: scroll, shuriken (1), Q, E, G, X (kits with a third / fourth jutsu), R; and the
+   *  character's HUD theme (C.hud: 'uchiha' = Sharingan portrait, black flames, red-framed bar and icons; 'madara';
+   *  'naruto' = his face in an orange ring, chakra flames turning into Kurama's cloak, a headband bar). */
   setKit(C) {
     const T = THEMES[C.hud];
     this.theme = C.hud || '';
     for (const k of Object.keys(THEMES)) this.root.classList.toggle('t-' + k, k === C.hud);
     this.el.theme.innerHTML = T ? T.flames() : '';
     this.el.eye.innerHTML = T ? T.eye() : '';
+    this.el.cap.innerHTML = T?.cap || '';
     this.el.frame.innerHTML = T ? T.frame : `<path d="${brushRing(60, 60, 50, 14, 2)}" fill="#0d0908" fill-rule="evenodd"/>`;
     const K = C.kit, J = C.jutsu;
-    const row = [['tool', 'scroll', ''], ['shuriken', 'shuriken', '1'], [K.jutsu1, 'Q'], [K.jutsu2, 'E'], [K.jutsu3, 'G']]
+    const row = [['tool', 'scroll', ''], ['shuriken', 'shuriken', '1'], [K.jutsu1, 'Q'], [K.jutsu2, 'E'], [K.jutsu3, 'G'], [K.jutsu4, 'X']]
       .filter(([id]) => id)
       .map(([id, a, b]) => (b === undefined ? [id, J[id]?.icon || id, a] : [id, a, b]));
     row.push(['ult', J[K.ult]?.icon || K.ult, 'R']);
@@ -168,7 +180,7 @@ export class HUD {
   /** A face portrait of the fighter model, rendered once into the portrait circle. face: metres to raise the view
    *  above the head bone (card.face: Itachi's collar hides everything below his eyes). */
   portrait(renderer, vrm, shadows, face = 0) {
-    if (THEMES[this.theme]) return; // the theme's eye stands in for the face
+    if (THEMES[this.theme] && !THEMES[this.theme].face) return; // the theme's eye stands in for the face
     try {
       const url = renderPortrait(renderer, vrm.scene, shadows, {
         w: 256, h: 256, fov: 22,

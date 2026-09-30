@@ -121,7 +121,36 @@ function meteor(id, cx, cy, r, seed, craters = true) {
 /** A wind stroke: a tapered arc (a thick faint pass under a thin bright one). */
 const gust = (d, w, o = 0.85) => `<path d="${d}" stroke="#9fb8ff" stroke-width="${w * 2.2}" opacity="${o * 0.25}"/><path d="${d}" stroke="#eef3ff" stroke-width="${w}" opacity="${o}"/>`;
 
+/**
+ * An eye of the genjutsu icon (w: half its width; side +1: its outer corner to the right): a glowing white almond, the
+ * outer corner up and pointed, a small red iris with his Eternal Mangekyō (the ringed pupil, three petals), the heavy
+ * lash line flicking out past the corner (the reference: eyes blazing out of a face in shadow).
+ */
+function vEye(cx, cy, w, side) {
+  const P = (x, y) => `${f(cx + x * w * side)} ${f(cy - y * w)}`;
+  const almond = `M${P(-1, -0.16)}C${P(-0.55, 0.44)} ${P(0.45, 0.62)} ${P(1, 0.18)}C${P(0.55, -0.24)} ${P(-0.45, -0.44)} ${P(-1, -0.16)}Z`;
+  const lash = `M${P(-1.04, -0.12)}C${P(-0.55, 0.56)} ${P(0.45, 0.76)} ${P(1.28, 0.36)}L${P(1.0, 0.17)}C${P(0.45, 0.58)} ${P(-0.55, 0.4)} ${P(-1.04, -0.12)}Z`;
+  const r = 0.36 * w, ix = cx - 0.02 * w * side, iy = cy - 0.04 * w;
+  const petals = [0, 120, 240].map((d) => `<ellipse cx="${f(ix + r * 0.6)}" cy="${f(iy)}" rx="${f(r * 0.28)}" ry="${f(r * 0.17)}" transform="rotate(${d + 20 * side} ${f(ix)} ${f(iy)})"/>`).join('');
+  return `<ellipse cx="${cx}" cy="${cy}" rx="${f(w * 1.5)}" ry="${f(w * 0.9)}" fill="url(#mx-glow)"/>
+    <path d="${almond}" fill="url(#mx-white)"/>
+    <circle cx="${f(ix)}" cy="${f(iy)}" r="${f(r)}" fill="url(#mx-iris)" stroke="#1a0206" stroke-width="1"/>
+    <g fill="#12020a">${petals}<circle cx="${f(ix)}" cy="${f(iy)}" r="${f(r * 0.14)}"/></g>
+    <circle cx="${f(ix)}" cy="${f(iy)}" r="${f(r * 0.3)}" fill="none" stroke="#12020a" stroke-width="1"/>
+    <circle cx="${f(ix - r * 0.35)}" cy="${f(iy - r * 0.4)}" r="${f(r * 0.12)}" fill="#fff" opacity=".8"/>
+    <path d="${lash}" fill="#07040a"/>`;
+}
+
 export const MADARA_ICONS = {
+  // X: Sharingan Genjutsu, his eyes blazing white out of a face in shadow (the reference shot)
+  mgenjutsu: `<defs><radialGradient id="mx-bg" cx=".5" cy=".5" r=".75"><stop offset="0" stop-color="#2c2040"/><stop offset=".55" stop-color="#120c1c"/><stop offset="1" stop-color="#040208"/></radialGradient>
+    <radialGradient id="mx-glow"><stop offset="0" stop-color="#e8e0ff" stop-opacity=".55"/><stop offset=".5" stop-color="#a07ad0" stop-opacity=".2"/><stop offset="1" stop-color="#6040a0" stop-opacity="0"/></radialGradient>
+    <linearGradient id="mx-white" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8b0cc"/><stop offset=".35" stop-color="#fbfaff"/><stop offset="1" stop-color="#ffffff"/></linearGradient>
+    <radialGradient id="mx-iris"><stop offset="0" stop-color="#ff5a48"/><stop offset=".7" stop-color="#c00a14"/><stop offset="1" stop-color="#4a0006"/></radialGradient></defs>
+    <rect width="100" height="100" fill="url(#mx-bg)"/>
+    <path d="M50 22C36 22 26 30 22 44C20 58 26 74 38 84C44 88 56 88 62 84C74 74 80 58 78 44C74 30 64 22 50 22Z" fill="#1a1226" opacity=".85"/>
+    <path d="M0 0H100V30L92 52L84 30L78 44L72 20L62 34L56 14L50 30L44 12L38 34L28 18L24 44L16 28L8 54L0 34Z" fill="#030206"/>
+    ${vEye(31, 55, 16, -1)}${vEye(69, 55, 16, 1)}`,
   // Q: Great Fire Annihilation, a sea of fire rolling over the horizon, Madara small before it
   fire: `<defs><linearGradient id="mq-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#120203"/><stop offset=".45" stop-color="#5a0e06"/><stop offset=".7" stop-color="#c0360a"/><stop offset="1" stop-color="#ff8a1a"/></linearGradient>
     <radialGradient id="mq-heat" cx=".6" cy=".95" r=".7"><stop offset="0" stop-color="#fff2b0" stop-opacity=".85"/><stop offset=".5" stop-color="#ffb030" stop-opacity=".35"/><stop offset="1" stop-color="#ff6a10" stop-opacity="0"/></radialGradient></defs>

@@ -7,6 +7,7 @@ import { OutlineEffect } from './outline.js';
 import { HazeEffect } from './haze.js';
 import { GenjutsuEffect } from './itachifx.js';
 import { AmaterasuEffect } from './amaterasufx.js';
+import { VisionEffect } from './madaravisionfx.js';
 
 export class Post {
   constructor(renderer, scene, camera) {
@@ -24,8 +25,9 @@ export class Post {
     this.hazeOn = true;
     this.genjutsu = new GenjutsuEffect(); // Tsukuyomi's red-and-black world on its victim's screen (0 = off)
     this.amaterasu = new AmaterasuEffect(); // Amaterasu's cinematic: the negative world, the painted eyes, the black flames (0 = off)
+    this.vision = new VisionEffect(); // Madara's genjutsu on its victim's screen: his face in the dark, then only the eyes (0 = off)
     this.camera = camera;
-    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc, this.genjutsu, this.amaterasu));
+    this.composer.addPass(new EffectPass(camera, this.haze, this.outline, this.bloom, this.tone, this.sat, this.bc, this.genjutsu, this.amaterasu, this.vision));
     this.composer.addPass(new EffectPass(camera, this.smaa));
     this.grade = { bright: 0, sat: 0 };
     this.setSize(innerWidth, innerHeight);
@@ -45,6 +47,7 @@ export class Post {
     this.haze.apply(this.camera, dt, this.hazeOn);
     this.genjutsu.apply(dt);
     this.amaterasu.apply(dt);
+    this.vision.apply(dt);
     this.composer.render(dt);
   }
 }

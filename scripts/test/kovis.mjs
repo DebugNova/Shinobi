@@ -106,7 +106,7 @@ await B.p.evaluate(() => { __game.studio = null; });
 
 // ---- 2. Shadow Clone Rush: the attacker only looks at the victim (no lock-on); the victim sees the clones
 // (a character whose kit has no Shadow Clone Rush, e.g. Madara: scripts/test/madara.mjs covers its jutsu)
-if (!(await A.p.evaluate(() => Object.values(__game.ctrl.C.kit).includes('clones')))) {
+if (!(await A.p.evaluate(() => __game.ctrl.C.kit.jutsu4 === 'clones'))) {
   console.log('SKIP  Shadow Clone Rush (not in this character\'s kit)');
   await A.b.close();
   await B.b.close();
@@ -118,11 +118,12 @@ await sleep(4500); // respawn + spawn protection
 await place(9);
 await sleep(600);
 await A.p.evaluate(() => { __game.ctrl.lockTarget = null; __game.ctrl.chakra = 100; });
-await B.p.evaluate(`window.__cloneHits = 0; window.__cl = []; window.__clOn = true; __game.net.on('hitr', (m) => { if (m.v === __game.net.id && String(m.m).startsWith('clone')) window.__cloneHits++; });
+// (the Rush's three clones burst out beside the attacker and charge the victim on every screen: naruto.js rush)
+await B.p.evaluate(`window.__cloneHits = 0; window.__cl = []; window.__clOn = true; __game.net.on('hitr', (m) => { if (m.v === __game.net.id && String(m.m).startsWith('clones')) window.__cloneHits++; });
   (function loop(){ if (!window.__clOn) return; const g = __game; const me = g.player.pos;
-    for (const c of g.jutsu.clones) if (c.owner === ${idA}) window.__cl.push([g.net.serverNow(), c.idx, Math.hypot(c.x - me.x, c.z - me.z), c.f.root.visible, c.f.anim.key]);
+    for (const R of g.jutsu.naruto.rushes) if (R.owner === ${idA}) for (const c of R.clones) if (c.f && !c.done && c.f.root.visible) window.__cl.push([g.net.serverNow(), c.k, Math.hypot(c.f.pos.x - me.x, c.f.pos.z - me.z), c.f.root.visible, c.f.anim.key]);
     requestAnimationFrame(loop); })(); 0`);
-await A.p.evaluate(`window.__tg = null; const at = __game.combat.aimTarget.bind(__game.combat); __game.combat.aimTarget = (c, r) => { const t = at(c, r); window.__tg = t?.id ?? null; return t; }; __game.input.press('jutsu2'); 0`);
+await A.p.evaluate(`window.__tg = null; const at = __game.combat.aimTarget.bind(__game.combat); __game.combat.aimTarget = (c, r) => { const t = at(c, r); window.__tg = t?.id ?? null; return t; }; __game.input.press('jutsu4'); 0`);
 if (SHOTS) {
   await sleep(450);
   for (let i = 0; i < 5; i++) {
@@ -139,11 +140,11 @@ const idxs = [...new Set(cl.map((c) => c[1]))];
 const closest = Math.min(...cl.map((c) => c[2]));
 const startD = cl.length ? cl[0][2] : 0;
 console.log('  victim sees', cl.length, 'clone frames, clones', idxs.join(','), 'start', startD.toFixed(2), 'm, closest', closest.toFixed(2), 'm, keys', [...new Set(cl.map((c) => c[4]))].join(' '));
-check('the victim sees both clones', idxs.length === 2 && cl.every((c) => c[3]));
-check('the clones run up to the victim on its screen', closest < 1.6 && startD > 5);
-check('the clones attack on the victim\'s screen', cl.some((c) => String(c[4]).startsWith('act:')));
+check('the victim sees all three clones', idxs.length === 3 && cl.every((c) => c[3]));
+check('the clones set off from the attacker (~9 m) and charge in on its screen', closest < 1.3 && startD > 7);
+check('the clones strike on the victim\'s screen', cl.some((c) => /^act:cr\d+\d(cr_punch|cr_kick|cr_launch)/.test(String(c[4]))));
 const ch = await B.p.evaluate(() => window.__cloneHits);
-check('the clones\' hits land on the victim', ch >= 2, `${ch} clone hits`);
+check('the clones\' hits land on the victim (two strikes and the launch)', ch >= 3, `${ch} clone hits`);
 
 await A.b.close();
 await B.b.close();

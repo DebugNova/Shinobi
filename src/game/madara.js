@@ -3,6 +3,7 @@
 // jutsu (the caster detects, the server validates with the same geometry), the counter/reflect events, and everyone
 // else's casts as visuals.
 //   Q  Great Fire Annihilation   E  Wood Release: Cutting Technique   G  Uchiha Return   R  Tengai Shinsei
+//   X  Sharingan Genjutsu (its own module: madaragenjutsu.js; the victim's vision: madaravision.js)
 // Casts come in two phases: n:0 at the press (the server takes the cooldown / gauge, remotes start the pose), n:1
 // when the effect becomes real (the torrent, the slam, the release) with everything that places it. An interrupted
 // cast never sends n:1, so no screen shows an effect that didn't happen. World effects run on the server clock from
@@ -15,6 +16,7 @@ import { r3, fireShape, fireFront, fireTail, fireWidth, fireLane, firePoint, fir
 import { Billows, WaveDecal, FieldFlames, Stakes, CrackDecal, Debris, Gunbai, GUNBAI, gunbaiBack, WindBarrier, MeteorRock, MeteorMark } from '../gfx/madarafx.js';
 import { Trail } from '../gfx/movefx.js';
 import { toon } from '../gfx/toon.js';
+import { MadaraGenjutsu, GENJUTSU_CAST } from './madaragenjutsu.js';
 
 const F = 1 / 60;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -259,6 +261,7 @@ export const MADARA_CASTS = {
   woodCutting: { ok: () => true, start: (J, ctrl) => new WoodAction(J.madara, ctrl) },
   uchihaReturn: { ok: () => true, start: (J, ctrl) => new CounterAction(J.madara, ctrl) },
   tengaiShinsei: { ok: () => true, start: (J, ctrl) => new MeteorAction(J.madara, ctrl) },
+  sharinganGenjutsu: GENJUTSU_CAST,
 };
 
 export class MadaraKit {
@@ -292,6 +295,7 @@ export class MadaraKit {
     this.counterFx = []; // the barrier's answers, their effects waiting to leave the shell
     this.deflected = new Map(); // our attack instances a barrier deflected -> until (performance.now ms): not predicted
     this.reflects = []; // reflected shuriken on their way back
+    this.gen = new MadaraGenjutsu(J); // X: the Sharingan Genjutsu (madaragenjutsu.js), its vision on the victim's screen
     this.skew = 0; // ms the effects' clock runs behind the server's (debug slow motion only)
     this.time = 0;
   }
@@ -303,6 +307,7 @@ export class MadaraKit {
 
   /** Warm-up state: one of everything visible (shader compile), then hidden again. */
   warm(on, p) {
+    this.gen.warm(on, p);
     if (on) {
       for (const B of [this.billows, this.smoke]) {
         B.set(B.take(), p.x, p.y, p.z, 1, 1, 0, 0.3, 0);
@@ -678,8 +683,8 @@ export class MadaraKit {
           }
           if (k % 3 === 0) g.audio?.woodCrack?.({ x: st.x, y: st.y, z: st.z });
         }
-        // scale 0 -> 1.1 -> 1 over ~6 frames (an overshoot: they punch up out of the ground)
-        const x = Math.min(1, te / 0.1);
+        // scale 0 -> 1.1 -> 1 over `rise` s (an overshoot: they punch up out of the ground)
+        const x = Math.min(1, te / (Ln.rise || 0.1));
         sc = x >= 1 ? 1 : 1 + 2.7 * (x - 1) ** 3 + 1.7 * (x - 1) ** 2;
         if (ts > 0) {
           const kk = Math.min(1, ts / Ln.sink);
@@ -961,18 +966,8 @@ export class MadaraKit {
   queueCounter(fighter, m, C) {
     const D = C.jutsu.uchihaReturn;
     this.counterFx.push({ fighter, m, due: m.at + D.answer * F * 1000, R: D.radius });
-    // a shadow clone that struck the barrier is dispelled (its caster's copies stop hitting)
-    if (m.cl) {
-      let best = null, bd = 3;
-      for (const c of this.J.clones) {
-        const d = c.gone || c.owner !== m.tg ? Infinity : Math.hypot(c.x - m.o[0], c.z - m.o[2]);
-        if (d < bd) {
-          bd = d;
-          best = c;
-        }
-      }
-      if (best) this.J.poofClone(best);
-    }
+    // a Rush clone that struck the barrier is dispelled (a shadow clone: the server bursts it, naruto.js hears n:2)
+    if (m.cl && m.o) this.J.naruto.dispel(m.tg, m.o);
   }
 
   /** The fan's face in the world (the middle of the paddle), else in front of the chest. */
@@ -1072,7 +1067,7 @@ export class MadaraKit {
   onDeny(m) {
     if (m.k !== 'jutsu' || !MADARA_CASTS[m.m]) return;
     const g = this.game, a = g.ctrl?.action;
-    if (a && a.inst === m.i && a.K === this) g.ctrl.action = null;
+    if (a && a.inst === m.i && (a.K === this || a.K === this.gen)) g.ctrl.action = null;
     for (const f of this.fires) if (f.mine && f.inst === m.i) this.killFire(f);
     for (const w of this.woods) if (w.mine && w.inst === m.i) this.killWood(w);
     for (const x of this.meteors) if (x.mine && x.inst === m.i) this.killMeteor(x);
@@ -1103,6 +1098,7 @@ export class MadaraKit {
   /** A relayed cast / event of Madara's kit on someone else's fighter. Returns true when handled. */
   onRemote(m, r) {
     if (!MADARA_CASTS[m.m]) return false;
+    if (this.gen.onRemote(m, r)) return true;
     const g = this.game, C = charOf(r.info.ch);
     if (m.m === 'fireAnnihilation') {
       const D = C.jutsu.fireAnnihilation;
@@ -1321,6 +1317,7 @@ export class MadaraKit {
     }
     this.updateCounters(dt);
     this.updateUchiha(dt);
+    this.gen.update(dt);
     this.billows.update(dt, this.game.sky?.sun?.position);
     this.smoke.update(dt, this.game.sky?.sun?.position);
     this.tongues.update(this.time);

@@ -2,7 +2,9 @@
 // animated in the vertex shader from its spawn time (no CPU work per particle after spawning, no allocations).
 // Kinds: 0 smoke puff (toon-banded, expands, fades), 1 impact burst (radial speed-line streaks + a hot core),
 // 2 spark (streak stretched along its velocity), 3 dust puff, 4 ring (water ripple / shockwave, lies flat),
-// 5 flash (a quick soft glow), 6 ember (rises, wanders and flickers: fire). HDR colours above 1 feed the bloom.
+// 5 flash (a quick soft glow), 6 ember (rises, wanders and flickers: fire), 7 cloud (a ball of toon smoke: bursts out
+// and slows, shaded as a sphere in three cel bands with an ink rim, then breaks up into holes as it dissolves: the
+// shadow clone "poof"). HDR colours above 1 feed the bloom.
 import * as THREE from 'three';
 
 const MAX = 1024;
@@ -22,8 +24,10 @@ const vert = /* glsl */ `
     // motion: sparks and dust fall, smoke drifts up and slows
     if (kind == 2.0) p += aVel * t + vec3(0.0, -uGravity * 0.5 * t * t, 0.0);
     else if (kind == 0.0 || kind == 3.0) p += aVel * (1.0 - exp(-t * 4.0)) / 4.0;
+    // (a cloud bursts out hard and stops: most of its travel in the first tenth of a second, then a slow rise)
+    else if (kind == 7.0) p += aVel * (1.0 - exp(-t * 9.0)) / 9.0 + vec3(0.0, 0.3 * t, 0.0);
     else if (kind == 6.0) p += aVel * (1.0 - exp(-t * 1.5)) / 1.5 + vec3(sin(t * 4.3 + aKind.y * 40.0) * 0.35, 0.9 * t, cos(t * 3.1 + aKind.y * 27.0) * 0.35) * t;
-    float size = mix(aTime.z, aTime.w, kind == 1.0 ? 1.0 - pow(1.0 - age, 3.0) : sqrt(age));
+    float size = mix(aTime.z, aTime.w, kind == 1.0 ? 1.0 - pow(1.0 - age, 3.0) : kind == 7.0 ? 1.0 - pow(1.0 - min(age * 1.6, 1.0), 3.0) : sqrt(age));
     if (kind == 4.0) {
       // flat on the ground (xz plane)
       vec3 wp = p + vec3(position.x, 0.0, position.y) * size;
@@ -51,6 +55,12 @@ const vert = /* glsl */ `
 const frag = /* glsl */ `
   varying vec2 vUv; varying vec4 vColor; varying float vAge; varying float vKind; varying float vSeed;
   float hash(float n) { return fract(sin(n) * 43758.5453); }
+  float vnoise(vec2 x) {
+    vec2 i = floor(x), f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float n = i.x + i.y * 57.0;
+    return mix(mix(hash(n), hash(n + 1.0), f.x), mix(hash(n + 57.0), hash(n + 58.0), f.x), f.y);
+  }
   void main() {
     vec2 q = vUv * 2.0 - 1.0;
     float r = length(q);
@@ -63,6 +73,22 @@ const frag = /* glsl */ `
       float band = step(0.0, q.x * 0.35 + q.y * 0.6 + 0.15);
       col *= mix(0.72, 1.0, band);
       a = body * (1.0 - smoothstep(0.55, 1.0, vAge));
+    } else if (vKind == 7.0) {
+      // cloud: a lumpy ball lit from above and toward the camera, three cel bands (the shade cool), an ink rim; it
+      // dissolves from its thin edges inward (noise threshold rising with age) instead of fading out. The band factors
+      // are display tones squared into linear light (the post runs in linear: 0.7 there is 0.85 on screen, no band)
+      float ang = atan(q.y, q.x);
+      float edge = 0.84 + 0.06 * sin(ang * 3.0 + vSeed * 40.0) + 0.04 * sin(ang * 7.0 + vSeed * 17.0);
+      float rr = r / edge;
+      if (rr > 1.0) discard;
+      vec3 n = vec3(q / edge, sqrt(max(0.0, 1.0 - rr * rr)));
+      float l = dot(n, normalize(vec3(-0.42, 0.72, 0.55)));
+      vec3 shade = col * vec3(0.36, 0.42, 0.6);
+      col = l > 0.42 ? col : l > -0.1 ? col * vec3(0.66, 0.69, 0.78) : shade;
+      col *= mix(1.0, 0.3, smoothstep(0.88, 0.98, rr));
+      float grain = vnoise(q * 3.2 + vSeed * 13.0) * 0.65 + vnoise(q * 7.0 - vSeed * 7.0) * 0.35;
+      float thick = (1.0 - rr) * 0.9 + grain * 0.55;
+      a = step(smoothstep(0.3, 1.0, vAge) * 1.5, thick);
     } else if (vKind == 1.0) {
       // impact: radial speed lines of random length + a hot core
       float ang = atan(q.y, q.x) / 6.2831 + 0.5;
@@ -79,7 +105,7 @@ const frag = /* glsl */ `
     } else if (vKind == 2.0) {
       a = (1.0 - smoothstep(0.0, 1.0, abs(q.x))) * (1.0 - smoothstep(0.2, 1.0, abs(q.y))) * (1.0 - vAge);
     } else if (vKind == 4.0) {
-      a = smoothstep(0.08, 0.0, abs(r - 0.85)) * (1.0 - vAge);
+      a = (1.0 - smoothstep(0.0, 0.08, abs(r - 0.85))) * (1.0 - vAge); // (edges in order: gotcha 62)
     } else if (vKind == 6.0) {
       // a hot speck that flickers out
       float fl = 0.55 + 0.45 * sin(vAge * 40.0 + vSeed * 60.0);
@@ -130,11 +156,12 @@ export class FX {
     scene.add(this.glow);
     this.next = 0;
     this.time = 0;
+    this.eye = null; // the camera's position (main.js): poof clusters are emitted back to front
     this.dirty = [MAX, 0];
     // kinds drawn by each mesh: smoke/dust/ring normal-blended, the rest additive (the alpha test in the shader
     // discards the other set: a particle is written into both, each material shows its own kinds)
     this.mat.onBeforeCompile = (s) => (s.fragmentShader = s.fragmentShader.replace('if (a < 0.01) discard;', 'if (a < 0.01 || vKind == 1.0 || vKind == 2.0 || vKind == 5.0 || vKind == 6.0) discard;'));
-    this.addMat.onBeforeCompile = (s) => (s.fragmentShader = s.fragmentShader.replace('if (a < 0.01) discard;', 'if (a < 0.01 || vKind == 0.0 || vKind == 3.0 || vKind == 4.0) discard;'));
+    this.addMat.onBeforeCompile = (s) => (s.fragmentShader = s.fragmentShader.replace('if (a < 0.01) discard;', 'if (a < 0.01 || vKind == 0.0 || vKind == 3.0 || vKind == 4.0 || vKind == 7.0) discard;'));
     this.mat.customProgramCacheKey = () => 'fx-normal';
     this.addMat.customProgramCacheKey = () => 'fx-add';
   }
@@ -174,13 +201,28 @@ export class FX {
     }
   }
 
-  /** Smoke poof (substitution, shadow clones). */
+  /**
+   * Smoke poof (substitution, shadow clones): a cluster of cloud balls bursting out of the body's middle, a ring of
+   * smaller ones rolling out low, drawn back to front from the camera (`eye`: one draw, no sorting inside it).
+   */
   poof(p, scale = 1) {
-    for (let k = 0; k < 9; k++) {
-      const th = (k / 9) * 6.283, sp = 1.5 * scale;
-      this.emit(0, p.x + Math.cos(th) * 0.2, p.y + 0.6 + Math.random() * 0.8 * scale, p.z + Math.sin(th) * 0.2, Math.cos(th) * sp, 0.8 + Math.random(), Math.sin(th) * sp, 0.55 + Math.random() * 0.25, 0.4 * scale, 1.0 * scale, 0.95, 0.95, 0.97);
+    const L = (this._poof ||= []);
+    L.length = 0;
+    for (let k = 0; k < 8; k++) {
+      // a squashed shell round the chest: wider than tall
+      const th = (k / 8) * 6.283 + Math.random() * 0.5, u = Math.random() * 1.4 - 0.5, sq = Math.sqrt(Math.max(0, 1 - u * u));
+      const sp = (1.3 + Math.random() * 1.1) * scale;
+      L.push([p.x + Math.cos(th) * sq * 0.25 * scale, p.y + (0.85 + u * 0.35) * scale, p.z + Math.sin(th) * sq * 0.25 * scale, Math.cos(th) * sq * sp, u * sp * 0.7 + 0.4, Math.sin(th) * sq * sp, 0.55 + Math.random() * 0.2, 0.3 * scale, (0.62 + Math.random() * 0.22) * scale]);
     }
-    this.emit(0, p.x, p.y + 0.9, p.z, 0, 0.6, 0, 0.6, 0.6 * scale, 1.4 * scale, 1, 1, 1);
+    L.push([p.x, p.y + 0.95 * scale, p.z, 0, 0.5, 0, 0.62, 0.45 * scale, 1.0 * scale]);
+    for (let k = 0; k < 6; k++) {
+      const th = (k / 6) * 6.283 + Math.random() * 0.6, sp = (2.6 + Math.random()) * scale;
+      L.push([p.x + Math.cos(th) * 0.3, p.y + 0.18, p.z + Math.sin(th) * 0.3, Math.cos(th) * sp, 0.15, Math.sin(th) * sp, 0.45 + Math.random() * 0.15, 0.18 * scale, 0.45 * scale]);
+    }
+    const e = this.eye;
+    if (e) for (const x of L) x[9] = -((x[0] - e.x) ** 2 + (x[1] - e.y) ** 2 + (x[2] - e.z) ** 2);
+    if (e) L.sort((a, b) => a[9] - b[9]);
+    for (const x of L) this.emit(7, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8], 0.88, 0.88, 0.9); // (under the bloom's soft knee: 0.97 bled a halo)
   }
 
   /** Dust kicked up on stops, landings and dashes. */

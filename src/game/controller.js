@@ -69,6 +69,7 @@ export class Controller {
     this.airCombo = false;
     this.events = []; // things that happened this step, for net/fx/audio: { k, ... }
     this.invulnUntil = 0;
+    this.invulnFrom = 0; // (the flag goes up from here: Naruto's substitution keeps it down through its catch window)
     this.water = false;
     this.speed = 0;
     this.prevX = p[0];
@@ -691,7 +692,7 @@ export class Controller {
     let f = 0;
     if (this.sprint) f |= FLAG.sprint;
     if (this.lockTarget) f |= FLAG.lock;
-    if ((this.t || 0) < this.invulnUntil) f |= FLAG.invuln;
+    if ((this.t || 0) < this.invulnUntil && (this.t || 0) >= this.invulnFrom) f |= FLAG.invuln;
     if (this.water) f |= FLAG.water;
     if (this.jumps >= 2) f |= FLAG.doubleJumped;
     if (this.skid > 0 && this.body.ground) f |= FLAG.skid;

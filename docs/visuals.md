@@ -60,6 +60,71 @@ The owner sends Shinobi Striker screenshots and wants it "exactly like the image
   model with the hitbox and the dummy's hurtbox), then `scripts/test/itachicombo.mjs` at 0 and 200 ms (every hit
   confirmed, the distance at each first active frame, the warps' end spots).
 
+## 2c. Naruto's Jiraiya-era kit (2026-09-30: src/game/naruto.js, src/gfx/narutofx.js, src/char/narutomoves.js)
+
+- **Afterimages** (narutofx.js `Afterimages`): a frozen copy of a body at one instant. Per model, a template: every
+  skinned primitive merged into ONE geometry (plain typed copies of position / normal / skinIndex / skinWeight: glTF
+  attributes can be interleaved or normalized, and the merge refuses mixed types), sharing the combined skeleton's
+  indices (VRMUtils.combineSkeletons). A ghost = that geometry on its own `Skeleton` of dummy bones with
+  `update = () => {}` (the renderer calls it every frame) and a bone texture computed once; a snapshot writes
+  `bone.matrixWorld * boneInverse` of the live fighter's bones into it (after the fighter's update that frame) and
+  flags the texture. In "attached" bind mode at an identity transform the ghost draws exactly where the body was. The
+  shader is skinning chunks + a rim-lit silhouette (fresnel^1.6, a faint body, thinning toward the feet), additive,
+  fading `(1 - k)^1.4` over 0.18-0.22 s. One draw per ghost whatever the model (the stand-in is 13 primitives). Used on
+  the Rasengan dash (blue, every 34 ms), the Rush's clones darting in (warm orange, every 28 ms), the finisher's vanish.
+- **The Rasengan's size** is set against the body, not by eye in a close film: RasenganFX at 1 is a 0.3 m shell, drawn
+  at 0.55 (about a head across), the Big Rasengan 1.45 times that. A first pass at 1.1 read as a beach ball.
+- **Charging**: streaks spawned on a shell 0.55-0.9 m round the sphere with velocity pointing into it plus a tangential
+  part (a spiral in), ~55/s scaled by quality; a wind puff now and then; the big one crackles (small flashes). The
+  **helper clone** (the Jiraiya-era Rasengan: a clone shapes it) stands before him on the far side of the sphere, 0.5 m
+  out along his facing (a little to his right), facing it, both hands cupped round it churning (`ras_helper` loops two
+  hands round a circle); at 0.46 m off his right side it stood inside his hips.
+- **The blast** (`RasenganBlasts` + NarutoKit.blast; reworked 2026-09-30): a swirl-shaded sphere (the Rasengan's own
+  material) bursting out (ease-out cubic) to 0.48 m radius (0.62 big), thinning at once (amount 0.36 -> 0) and gone by
+  70% of the life, and a **drill of three spiral wind rings** along the push (`RINGS` in narutofx.js: ring k starts
+  0/35/70 ms late, travels 0.2/0.75/1.3 m out along the push and spreads to 1/0.8/0.62 of 1.15 m (1.5 big)). Each ring
+  is the vortex disc (arms wound on log(r), spinning, torn at the rim) with a thin **shock rim**: a gaussian band at
+  r 0.9 (`exp(-((r-0.9)/0.035)^2)`) modulated by the arms, brightest early. Around it: wind streaks along the push and
+  flung round it, four pale-blue cloud balls (fx kind 7) torn off along it, a ground ring + dust when low, a hard
+  shake near; the victim trails a spiral of blue streaks while it flies (a "wake"). History: a 2.4 m sphere at 0.9
+  amount whited out the screen from 4 m; then a 0.75-1.0 m sphere still covered the victim and hid the vortex: one
+  big bubble reads as generic; the spiral is what says Rasengan.
+- **Smoke: the toon cloud ball** (fx.js kind 7, 2026-09-30; every poof uses it): a camera-facing quad shaded as a
+  sphere: the normal from the disc coordinates (`n = (q, sqrt(1 - r^2))`) under a fixed light from up-left toward the
+  camera, three cel bands (lit white, mid `x (0.66, 0.69, 0.78)`, shade `x (0.36, 0.42, 0.6)`: cool lavender), an ink
+  rim darkening the last 10% of the radius, a lumpy edge (`sin(3a)`, `sin(7a)` with small amplitudes: at 5 lobes
+  and 0.09 small balls read as white stars). It bursts out and stops (`(1 - exp(-9t)) / 9` of its velocity, then a
+  slow rise; size ease-out cubic over the first 60% of its life) and **dissolves instead of fading**: alpha is a step
+  of `thickness = (1 - r) * 0.9 + noise * 0.55` against a threshold rising with age, so it breaks up from its thin
+  edges into holes, like anime smoke. The band factors are display tones squared into linear light (0.7 in linear is
+  0.85 on screen: no visible band; gotcha 50), the white is 0.88 linear, not 0.97 (gotcha 79).
+  **The poof** (fx.poof): 8 balls on a squashed shell round the chest bursting out 1.3-2.4 m/s, one big core ball, a
+  ring of 6 small ones rolling out low; emitted **back to front from the camera** (`fx.eye`: one instanced draw has
+  no sorting inside it, and a far ball drawn over a near one breaks the volume). NarutoKit.poof adds a flat shock ring
+  at the feet, a flash (1.2 HDR, no bigger) and four white speed lines (not HDR: streaks flying at the camera are seen
+  end on as dots and bloom into soft balls); `light` (the Rush's clones) is five small balls and the flash. The seal's
+  smoke is ten balls rolling out along the ground plus a shock ring.
+- **The Rush on every screen** (redesigned 2026-09-30, the owner: "overpowered"): three clones burst out of a light
+  poof beside him (`from` [left, forward] in his frame at the press), crouch (`cr_ready`) facing out along their
+  first heading (the flankers 38 degrees off the line: they curve in, a pincer), and set off at `go`: the gait's
+  ninja sprint (the view's speed 7 -> 16 m/s, `sprint`, `combat` off), a warm afterimage every 70 ms (0.14 s, alpha
+  0.18: every 50 ms at 0.26 smeared yellow-green over the grass, additive on green) and dust at the feet. Each screen
+  steps them in fixed 1/60 s steps from the press on the server clock, homing turn-limited on the target as it draws
+  it; within reach the strike clip plays (it starts in the sprint's lean, `RUNIN`: arms swept back, mid-stride; a
+  crouch key at frame 0 read as stopping) and a light poof takes them `gone` s after the contact. Naruto's
+  `nr_rush` holds the seal (two seal keys breathing) until it resolves; the finisher starts from `CROUCH`.
+- **The finisher** (`nr_drop`, the NR move): hidden frames 6-16 (naruto.js hides the body; a ghost and a poof where he
+  vanished, a poof where he re-forms over the victim), a tucked flip into the raised heel (Itachi's Crow Descent keys:
+  proven reach), the chop at 34, speed lines on the dive, the landing ring (`slam`, not the dust dome: less smoke).
+- **The substitution**: the decoy is a pooled clone body in the seal's pose where he was drawn at `vanish`; struck, it
+  reels (`hit_body` 0.14 s) and bursts; he re-forms out of a poof in a crouched ready pose (`cd_appear`).
+- Checks: `scripts/test/film.mjs` strips in slow motion from the side (studio `at: [x, y, z]` orbits a fixed point:
+  the target of a Rush; the HUD hidden: `document.getElementById('hud').style.display = 'none'`); a poof alone:
+  `__game.jutsu.naruto.poof(p, 1)` at `__game.timeScale = 0.3` in front of the studio camera, then
+  `scripts/test/crop.mjs` at 2-3x (the cel bands and the halo only show up close); the Rush films at real speed (its
+  clones run on the server clock: slow motion doesn't slow them). `scripts/test/naruto.mjs` for sync,
+  `scripts/debug/clonesperf.mjs` for the cost.
+
 ## 3. Effect building blocks (all in src/gfx/)
 
 - **Instanced quads, weights from JS, shapes in the shader**: SealFx (tsukuyomifx.js), EyeMarks (itachifx.js). One
@@ -178,6 +243,50 @@ The owner sends Shinobi Striker screenshots and wants it "exactly like the image
   (`AudioBufferSourceNode.start(when, offset)`), never by starting it on a frame; subtract `outputLatency` (~50 ms
   here), add a frame of display lag. Prove it with the scheduled times (amavoice.mjs), not by ear.
 
+## 5c. A genjutsu vision on the victim's screen (Madara's X, 2026-09-30, from two anime reference shots)
+
+The references: Madara's face in deep shadow with only his eyes lit (big glowing whites, small red Sharingan irises),
+and a close-up of his Eternal Mangekyō. The owner: see his eyes, then the face suddenly disappears and only the eyes
+are left, the whole screen dark, 3 s. Files: src/game/madaravision.js (the timeline `VIS`, the stand-in, the camera),
+src/gfx/madaravisionfx.js (his eyes as GLSL + `VisionEffect`), src/game/madaragenjutsu.js (the cast on every screen).
+
+- **The caster's side reuses Itachi's recipe with his eye swapped in:** EyeMarks and SealFx take a `pattern` (GLSL that
+  defines their eye function; another pattern = another program, compiled at the warm-up). His eyes are one GLSL block
+  (`MADARA_EYE_GLSL`): `mdTomoe` (a thin ring, three commas: a disc head + a tail tapering along the ring behind it),
+  `mdEms` (the ringed pupil, three petals = ellipses in polar coordinates leaning with the radius, Izuna's three thin
+  blades curving out between them, the rim), `madaraInk(q, rot, ems)` crossfading them from the pupil out behind a
+  thin burning front (`r < ems * 1.12`), and the two slots (`mangekyo` for EyeMarks, `madaraSeal` for SealFx: the iris
+  plus three wavy red ripple rings out to r 1.6). The cast clip `mad_genjutsu` is Itachi's gaze keys with his half
+  seal kept off his chest plate (z >= 0.3).
+- **A real face, graded, instead of a painted one:** a stand-in Madara from the model pool (warmed +1 for it) is put
+  where the real one stands, facing the victim, in a still looping clip (`mgj_stare`: chin down, eyes up), and the
+  camera films his face from its normalized head bone (+z = where the face looks): 0.5 -> 0.3 m in front of his eyes,
+  0.08 x that below them looking up, FOV 30, a breath of drift. The real fighters are hidden in `late()` each frame.
+- **Depth separates the face from the world:** the effect reads depth (it runs before tone mapping, gotcha 64);
+  within `iso + 0.3..0.8` m of the camera (`iso` = the distance to his eyes) is the face, graded by perceived
+  lightness onto a dark violet-grey ramp (near black / #292535-ish / a cold lilac grey: the reference's face in shadow,
+  a first, more saturated purple read as a costume); everything past it is black with a slow violet smoke.
+- **Painted eyes on the real eyes:** each frame the eye points (`eyes()` from the head bone, `C.eyes` measured on his
+  model) are projected to screen heights; the eye's half width = `eyeW / (2 * dist * tan(fov / 2))` (eyeW 0.023 m,
+  larger than the model's own: the reference's eyes are exaggerated); A = the one on the screen's left, its outer
+  corner toward -x (the shader mirrors x per eye), the roll from the line between them. The eye: an almond from two lid
+  functions of x (the outer corner pointed and higher than the inner; shut = both on the slant line), glowing white
+  darkening under the upper lid, a small iris (0.36 of the half width) with a glint, a heavy lash line flicking out
+  past the outer corner; the glow from a smooth ellipse round it (gotcha 82), white-violet with a little red.
+- **The face disappears:** a black flicker (50 ms), then a dissolve keyed by fbm noise + the distance from the eyes
+  (it eats in from the edges toward them, 0.18 s), soft (+-0.07) with a faint violet ember line (bright red embers
+  read as scribbles). The eyes flare as it goes.
+- **The void:** the eye positions ease from where the face had them to a fixed layout (+-0.31, half width 0.19: the
+  reference's proportions), the Sharingan spins up and burns into the Eternal Mangekyō from the pupil out, heartbeat
+  thumps shake the frame a hair and send thin red rings out of both eyes (a 0.012-wide ring at 0.9 strength was far
+  too loud: 0.005 at 0.4), and ten small eyes open one after another round the dark (fixed spots, half-lit, watching).
+- **The exit** (the last 0.62 s, in seconds: gotcha 81): the lids snap shut (and the layer turns off, gotcha 83),
+  black, the camera is given back under it, a hole opens from the middle with a noisy inky rim onto the arena, a red
+  edge fading. A launch or a knockdown breaks it: the same exit in 0.3 s.
+- Review: `scripts/debug/mgenshots.mjs` (the victim's clock held at each time: `vision.hold`, exact frames; LIVE=1
+  real time); gameplay: `scripts/test/madara.mjs genjutsu`. Icon: two glowing eyes under spiky hair in a violet dark
+  (madara.js `vEye`), reviewed standalone at 360 px.
+
 ## 6. HUD art and per-character themes (src/ui/)
 
 - The HUD is DOM + inline SVG (crisp at any size). A character's `hud` field names a theme: `HUD.setKit` sets
@@ -209,6 +318,20 @@ The owner sends Shinobi Striker screenshots and wants it "exactly like the image
   to light + a heat radial; stakes = a quadratic-curve outline + a shade half + grain lines + a pale cut tip (`stake()`);
   a meteor = a seeded bumpy `rock()` outline, clipped fissures and craters, a hot-face gradient rect clipped to the
   rock, a halo and a trail wedge; wind = a thin bright stroke over a wide faint one (`gust()`).
+- **A theme that keeps the face** (Naruto, src/ui/naruto.js, 2026-09-30): THEMES `face: true` keeps the rendered
+  portrait and fills `#h-eye` with overlays instead of an eye: a glass gloss (edge vignette + a curved sheen), a Kurama
+  edge glow (radial gradient, pulsing with the ult), and a clan crest pinned to the ring (the Uzumaki swirl: a spiral
+  of r = 0.08 + 0.62 t over 2.1 turns in red on an orange disc). The flames are TWO full sets (his chakra: near-black
+  body, orange rim; Kurama's cloak: red-orange body, gold rim) in wrappers, the second crossfading in on `.h-me.ult`
+  (the layers animate their own opacity, so the switch is the wrapper's opacity). Bubbles instead of shards: circle
+  rings with a faint translucent fill (dark-filled they read as holes). The bar is a headband: a thicker frame band
+  (navy cloth, 1.5 px orange piping top and bottom), an orange chakra fill, and a steel plate as the bar's end cap
+  (`.h-cap`, a slot any theme can fill: brushed-steel gradients, rivets, the Leaf mark engraved = a dark stroke over
+  a pale one offset down-right). The Leaf (`leafMark`): a 290-degree arc closed into a point at the upper right by two
+  quadratics, a stem triangle at the lower left, a spiral inside. Icons: a spiky-haired bust generator (`bust`: hair
+  spikes, face, neck, shoulders, headband tails), cel smoke clusters (`smoke`: every ball's ink outline first, then
+  every shade disc over the inner outlines, then lit caps offset up-left: one outline round the whole cloud), manga
+  focus lines (`speedLines`: thin wedges converging on a point), log-spiral wind clipped into a sphere (`spiralArcs`).
 - **Review icons standalone** (render the SVG strings at 360 px in a page): in the game the cooldown sweep and the
   not-ready filter dim them (an empty ultimate gauge = a 72% black cover), which read as a muddy icon.
 

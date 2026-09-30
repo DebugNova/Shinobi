@@ -31,6 +31,8 @@ export class Combat {
     p.escape = null; // Itachi's Crow Clone Escape: [start, end] ms, invulnerable (index.js)
     p.cine = null; // Itachi's Amaterasu: [the press, its cinematic's end] ms, invulnerable (index.js)
     p.burn = null; // Amaterasu burning on this fighter: { att, i, left, next, k, every } (index.js)
+    p.decoy = null; // Naruto's Shadow Clone Substitution: { m, i, at, w (window end), inv (invulnerable to), caught } ms (index.js)
+    p.clones = new Map(); // Naruto's shadow clones: slot -> a fighter-like record (index.js cloneRecord): HP, history
   }
 
   /** Records a state (feet position etc.) at server time `at`. */
@@ -95,6 +97,7 @@ export class Combat {
     if (t >= p.subAt && t <= p.subAt + C.react.sub.invuln * 1000) return 'sub';
     if (p.escape && t >= p.escape[0] && t <= p.escape[1]) return 'crow';
     if (p.cine && t >= p.cine[0] && t <= p.cine[1]) return 'cinema'; // (his Amaterasu's cinematic: index.js)
+    if (p.decoy && t >= p.decoy.at && t <= p.decoy.inv) return 'decoy'; // (Naruto's clone in his place)
     const r = p.react;
     if (r && r.land && t >= r.land && t <= r.end) return 'down';
     return null;
@@ -127,8 +130,10 @@ export class Combat {
    */
   validate(att, msg, ctx) {
     const t = this.now();
-    const v = msg.v === 0 ? ctx.dummy : ctx.players.get(msg.v);
-    if (!v || v === att) return { ok: false, why: 'victim' };
+    let v = msg.v === 0 ? ctx.dummy : ctx.players.get(msg.v);
+    // a shadow clone (vc: its slot): a fighter-like record with its own history and HP (never its own caster's)
+    if (v && msg.vc !== undefined) v = v.clones?.get(msg.vc | 0);
+    if (!v || v === att || v.owner === att) return { ok: false, why: 'victim' };
     if (!att.alive || !v.alive || !ctx.allowed) return { ok: false, why: 'alive' };
     const spec = hitSpec(att.ch, String(msg.m));
     // (the barrier's blow, gust and reflection are the server's own hits: a client never reports them)
@@ -145,8 +150,18 @@ export class Combat {
     const inst = att.acts.get(msg.i);
     const base = String(msg.m).split(':')[0];
     if (!inst) return { ok: false, why: 'instance' };
-    if (inst.m !== msg.m && !(inst.k === 'jutsu' && inst.m === base) && !(base === 'clone' && inst.m === 'clones') && !(base === 'rsh' && inst.m === 'rasenshuriken')) return { ok: false, why: 'mismatch' };
+    if (inst.m !== msg.m && !(inst.k === 'jutsu' && inst.m === base) && !(base === 'rsh' && inst.m === 'rasenshuriken')) return { ok: false, why: 'mismatch' };
     if (spec.win && !activeAt(spec, (at - inst.at) / 1000, 0.08)) return { ok: false, why: 'window' };
+    // held long enough (the Big Rasengan: its full charge from the press, inst.at0)
+    if (spec.minT && (at - (inst.at0 ?? inst.at)) / 1000 < spec.minT - 0.06) return { ok: false, why: 'early' };
+    // a shadow clone's strike comes from that clone: alive (or gone a moment ago: its hit was on the way), and where
+    // the caster's stream had it then
+    let src = null;
+    if (spec.clone && msg.cs !== undefined) {
+      const rec = att.clones.get(msg.cs | 0);
+      if (!rec || (!rec.alive && t - rec.goneAt > 300)) return { ok: false, why: 'clone' };
+      src = this.posAt(rec, at, {});
+    } else if (spec.clone && String(msg.m).startsWith('shadowClones')) return { ok: false, why: 'clone' };
     // a homing shot (Itachi's fireballs, spec.dodge) is shaken off by a dash or a substitution while it flies: the
     // victim's own timing on the server clock decides (at 200 ms the attacker's screen sees the dash too late to drop
     // the lock itself, and would hit where the victim was)
@@ -158,7 +173,9 @@ export class Combat {
     if (v.hitDone.has(key)) return { ok: false, why: 'dup' };
     // invulnerability at the hit time: a dodge that started before the hit wins
     const inv = this.invulnAt(v, at);
-    if (inv) return { ok: false, why: `invuln:${inv}` };
+    // (inside the substitution's window the clone takes the hit: judged like a hit below, answered by index.js)
+    const caught = inv === 'decoy' && at <= v.decoy.w && !v.decoy.caught;
+    if (inv && !caught) return { ok: false, why: `invuln:${inv}` };
     // geometry: the victim where the attacker saw it vs where the server's history had it at that view time
     const rew = this.posAt(v, Math.max(vt, t - NET.rewindCap - NET.interpMax), {});
     const p = Array.isArray(msg.p) && msg.p.length >= 3 && msg.p.every(Number.isFinite) ? msg.p : [rew.x, rew.y, rew.z];
@@ -173,6 +190,7 @@ export class Combat {
     if (a && Math.hypot(a[0] - ap.x, a[2] - ap.z) > 2.5 + warp + (t - at) * 0.012) return { ok: false, why: 'attacker-pos' };
     // a clone or projectile hit comes from its own position (must be near the caster's reach)
     const c = !spec.win && Array.isArray(msg.c) && msg.c.length >= 4 && msg.c.every(Number.isFinite) ? msg.c : null;
+    if (src && (!c || Math.hypot(c[0] - src.x, c[2] - src.z) > 3)) return { ok: false, why: 'clone-pos' };
     if (spec.area) {
       // an area jutsu (fire, stakes, meteor): the victim must be inside the effect at the hit time, measured with the
       // same geometry the caster used (placed on this server from the cast's payload)
@@ -187,6 +205,7 @@ export class Combat {
     }
     // line of sight from the attacker's chest to the victim's chest (no hits through walls)
     if (spec.win && !this.world.clear(ax, ay + 1.1, az, p[0], p[1] + 1.0, p[2])) return { ok: false, why: 'wall' };
+    if (caught) return { ok: false, why: 'decoy', v, spec, at, p, ax: c ? c[0] : ax, ay: c ? c[1] : ay, az: c ? c[2] : az, key };
     return { ok: true, v, spec, at, p, rw: [r3(rew.x), r3(rew.y), r3(rew.z)], ax: c ? c[0] : ax, ay: c ? c[1] : ay, az: c ? c[2] : az, ayaw: c ? c[3] : ayaw, key };
   }
 
@@ -289,6 +308,7 @@ export class Combat {
     if (p.react && t > p.react.end + 2000) p.react = null;
     if (p.combo && t / 1000 > p.combo.until + 1.5) p.combo = null;
     if (p.counter && t > p.counter.w[1] + 1000) p.counter = null;
+    if (p.decoy && t > p.decoy.inv + 2000) p.decoy = null;
   }
 }
 

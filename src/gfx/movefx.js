@@ -55,6 +55,14 @@ export const MOVE_FX = {
   it_air_heel: { trails: [{ a: 'leftLowerLeg', b: 'leftFoot', ext: 0.12, from: 6, to: 17, color: WHITE }], kunai: [0, 99] },
   it_air_ambush: { trails: [{ a: 'rightLowerArm', b: 'rightHand', ext: 0.1, from: 14, to: 22, color: WHITE }], kunai: [0, 99], hide: [3, 11] },
   it_air_drop: { trails: [{ a: 'rightLowerArm', b: 'rightHand', ext: 0.16, from: 13, to: 22, color: ORANGE }], lines: [21, 31], slam: 30, slamKind: 'cloud' },
+
+  // Naruto's jutsu (narutomoves.js): the Rush's clones' strikes (contact at 6), the finisher's heel (hidden in smoke
+  // 6-16: naruto.js draws the vanishing), its dive and landing
+  cr_punch: { trails: [{ a: 'rightLowerArm', b: 'rightHand', ext: 0.1, from: 3, to: 10, color: WHITE }] },
+  cr_kick: { trails: [{ a: 'rightLowerLeg', b: 'rightFoot', ext: 0.14, from: 3, to: 11, color: ORANGE }] },
+  cr_knee: { trails: [{ a: 'rightUpperLeg', b: 'rightLowerLeg', ext: 0.06, from: 3, to: 10, color: WHITE }] },
+  cr_launch: { trails: [{ a: 'rightLowerLeg', b: 'rightFoot', ext: 0.14, from: 3, to: 12, color: CHAKRA }], ev: [[3, 'dust']] },
+  nr_drop: { trails: [{ a: 'rightLowerLeg', b: 'rightFoot', ext: 0.16, from: 30, to: 40, color: ORANGE }], hide: [6, 16], ev: [[4, 'leap']], lines: [37, 44], slam: 44 },
 };
 
 /** Is the body of a fighter drawing `clip` at frame `fr` crows (hidden) right now? (itachi.js) */
@@ -307,6 +315,8 @@ export class MoveFX {
     };
     each(g.player);
     for (const r of g.remotes.values()) each(r.fighter);
+    // (Naruto's clones strike with his moves: their trails too)
+    if (g.jutsu) for (const f of g.jutsu.naruto.fighters()) each(f);
     // fighters that left: give their objects back
     for (const [f, e] of this.by) if (!seen.has(f)) this.release(f, e);
     for (const tr of this.trails) if (tr.owner && !tr.update(this.time)) tr.owner = null;

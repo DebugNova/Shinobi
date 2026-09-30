@@ -1,18 +1,17 @@
 // Jutsu and ninja tools for the local fighter, and the visuals of everyone else's:
 //   1  Shuriken        an upper-body throw (the legs keep running), a fast projectile with mild homing, 3 charges
-//   Q  Rasengan        wind-up (the sphere forms in the palm), a 9 m lunge; on contact a 5-tick grind, then a launch
-//   E  Shadow Clone Rush  two clones poof out and rush the target, each doing a 3-hit string
 //   R  Rasenshuriken   (full ultimate gauge) a spinning wind-shuriken that bursts into a big multi-hit sphere
 //   F  Chakra charge   (combat.js ChargeAction) the blue aura
+// Naruto's Q / E / G / X (Shadow Clone Jutsu, Rasengan, Shadow Clone Substitution, Shadow Clone Rush) live in
+// naruto.js, Madara's in madara.js, Itachi's in itachi.js; this file owns the slots, cooldowns and chakra for all.
 // Every cast is an event (net `jutsu` / `tool` with the origin, direction and target), so every client plays it at
-// once; the caster detects the hits (clip-sampled for clones, swept spheres for projectiles and the Rasengan) and
+// once; the caster detects the hits (swept spheres for projectiles) and
 // the server validates them like melee hits.
 import * as THREE from 'three';
-import { ST, FLAG, SIM } from '../shared/config.js';
-import { makeBody, stepBody } from '../shared/physics.js';
+import { ST } from '../shared/config.js';
 import { segSeg } from './hurtbox.js';
 import { ChakraAura, RasenganFX, RasenshurikenFX, shurikenMesh } from '../gfx/jutsufx.js';
-import { Fighter } from './fighter.js';
+import { NARUTO_CASTS, NarutoKit } from './naruto.js';
 import { MADARA_CASTS, MadaraKit } from './madara.js';
 import { ITACHI_CASTS, ItachiKit } from './itachi.js';
 
@@ -57,120 +56,6 @@ class ThrowAction {
   }
 }
 
-class RasenganAction {
-  constructor(J, ctrl, target) {
-    this.J = J;
-    this.jutsu = true;
-    this.owns = true;
-    this.netState = ST.jutsu;
-    this.D = ctrl.C.jutsu.rasengan;
-    this.t = 0;
-    this.phase = 'wind';
-    this.inst = ++instSeq;
-    this.target = target;
-    this.tick = 0;
-    this.hitT = 0;
-    const b = ctrl.body;
-    if (target) ctrl.yaw = Math.atan2(-(target.x - b.x), -(target.z - b.z));
-    this.dir = [-Math.sin(ctrl.yaw), -Math.cos(ctrl.yaw)];
-    this.physicsOpts = { ...ctrl.opts, gravity: ctrl.opts.gravity * 0.3 };
-    J.game.net.act('jutsu', { m: 'rasengan', i: this.inst, tg: target?.id });
-    J.game.audio?.rasengan?.();
-  }
-
-  anim() {
-    // wind-up 0-18, strike pose held through the lunge and the grind, then the recovery keys
-    const f = this.t / F;
-    let ct;
-    if (this.phase === 'wind') ct = f;
-    else if (this.phase === 'lunge' || this.phase === 'grind') ct = Math.min(40, 18 + (f - 18) * 1.5);
-    else ct = 60 + (this.t - this.recT) / F;
-    return { clip: 'rasengan', t: ct * F, key: `ras${this.inst}` };
-  }
-
-  /** The sphere's size (0..1) for the effect. */
-  get sphere() {
-    if (this.phase === 'wind') return clamp(this.t / (this.D.windup * F), 0.15, 1);
-    if (this.phase === 'rec') return Math.max(0, 1 - (this.t - this.recT) * 5);
-    return 1;
-  }
-
-  step(ctrl, input, dt) {
-    const b = ctrl.body, D = this.D;
-    this.t += dt;
-    b.vx *= 0.8;
-    b.vz *= 0.8;
-    if (this.phase === 'wind') {
-      if (this.target) ctrl.yaw = Math.atan2(-(this.target.x - b.x), -(this.target.z - b.z));
-      this.dir = [-Math.sin(ctrl.yaw), -Math.cos(ctrl.yaw)];
-      if (this.t >= D.windup * F) {
-        this.phase = 'lunge';
-        this.lungeT = 0;
-        this.J.game.fx.dust(b, 6, 1.2);
-      }
-    } else if (this.phase === 'lunge') {
-      this.lungeT += dt;
-      let sp = D.lunge.speed;
-      if (this.target) {
-        const d = Math.hypot(this.target.x - b.x, this.target.z - b.z);
-        if (d < 0.9) sp = 0;
-      }
-      b.vx = this.dir[0] * sp;
-      b.vz = this.dir[1] * sp;
-      b.vy = Math.max(b.vy, 0);
-      if (this.lungeT >= D.lunge.time) this.rec(ctrl);
-    } else if (this.phase === 'grind') {
-      b.vx = b.vz = 0;
-      b.vy = 0;
-      this.hitT += dt;
-      // ticks every D.grind.every frames, then the launch
-      if (this.hitT >= D.grind.every * F) {
-        this.hitT = 0;
-        this.J.rasenganTick(this);
-      }
-    } else if (this.t - this.recT >= D.recovery * F) return false;
-    return true;
-  }
-
-  rec() {
-    this.phase = 'rec';
-    this.recT = this.t;
-  }
-}
-
-class ClonesAction {
-  constructor(J, ctrl, target) {
-    this.J = J;
-    this.jutsu = true;
-    this.owns = true;
-    this.netState = ST.jutsu;
-    this.t = 0;
-    this.inst = ++instSeq;
-    this.target = target;
-    this.cast = ctrl.C.jutsu.clones.cast;
-    this.done = false;
-    const b = ctrl.body;
-    if (target) ctrl.yaw = ctrl.moveYaw = Math.atan2(-(target.x - b.x), -(target.z - b.z));
-    J.game.audio?.handsign?.();
-  }
-
-  anim() {
-    return { clip: 'handsign', t: this.t, key: `sign${this.inst}` };
-  }
-
-  step(ctrl, input, dt) {
-    const b = ctrl.body;
-    this.t += dt;
-    b.vx *= 0.8;
-    b.vz *= 0.8;
-    if (!this.done && this.t >= this.cast * F) {
-      this.done = true;
-      this.J.spawnClones(ctrl, this.inst, this.target, true);
-    }
-    return this.t < (this.cast + 6) * F;
-  }
-}
-
 class RasenshurikenAction {
   constructor(J, ctrl, target) {
     this.J = J;
@@ -211,13 +96,12 @@ class RasenshurikenAction {
 
 // ---------------------------------------------------------------- the kit
 
-// input actions -> the character's kit slots (C.kit: { jutsu1, jutsu2, jutsu3, ult } = jutsu ids)
-export const SLOTS = ['jutsu1', 'jutsu2', 'jutsu3', 'ult'];
-// jutsu id -> { ok(J, ctrl): can it start now, start(J, ctrl): the action }. Madara's come from madara.js, Itachi's
-// from itachi.js.
+// input actions -> the character's kit slots (C.kit: { jutsu1, jutsu2, jutsu3, jutsu4, ult } = jutsu ids: Q, E, G, X, R)
+export const SLOTS = ['jutsu1', 'jutsu2', 'jutsu3', 'jutsu4', 'ult'];
+// jutsu id -> { ok(J, ctrl): can it start now, start(J, ctrl, slot): the action, why: the refusal's toast }. Naruto's
+// come from naruto.js, Madara's from madara.js, Itachi's from itachi.js.
 const CASTS = {
-  rasengan: { ok: () => true, start: (J, ctrl) => new RasenganAction(J, ctrl, J.game.combat.findTarget(ctrl, 10)) },
-  clones: { ok: () => true, start: (J, ctrl) => new ClonesAction(J, ctrl, J.game.combat.aimTarget(ctrl, 30)) },
+  ...NARUTO_CASTS,
   rasenshuriken: { ok: () => true, start: (J, ctrl) => new RasenshurikenAction(J, ctrl, J.game.combat.aimTarget(ctrl, 30)) },
   ...MADARA_CASTS,
   ...ITACHI_CASTS,
@@ -239,13 +123,17 @@ export class Jutsu {
       return m;
     });
     this.projectiles = []; // { kind, owner (id), mine, inst, pos, vel, tgt, t, life, mesh | fx, r }
-    this.clones = []; // { fighter, owner, mine, inst, idx, tgt, t, state, move, hitSet }
-    this.clonePools = new Map(); // character id -> VRM instances for clones (a clone looks like its caster)
     this.ready = {}; // jutsu id -> seconds (performance clock) when usable again
     this.time = 0;
     this.fxBy = new Map(); // fighter -> { aura, ras, rsh }
     this.madara = new MadaraKit(this); // Madara's kit: fire, wood, gunbai counter, meteor (madara.js)
     this.itachi = new ItachiKit(this); // Itachi's kit: fireballs, Tsukuyomi, crow escape, Amaterasu (itachi.js)
+    this.naruto = new NarutoKit(this); // Naruto's kit: shadow clones, Rasengan, substitution, the Rush (naruto.js)
+  }
+
+  /** Every clone body on screen ({ f, gone }: shadow casters, Tsukuyomi hiding them). */
+  get clones() {
+    return this.naruto.drawables();
   }
 
   /** A new cast / projectile instance id (unique per client, sent with every cast and hit). */
@@ -253,14 +141,9 @@ export class Jutsu {
     return ++instSeq;
   }
 
-  /** Extra VRM instances for clones, n per character (parsed behind the loading screen). */
+  /** Clone bodies, n per character with a clone jutsu (parsed behind the loading screen: naruto.js Bodies). */
   async warmClones(n) {
-    for (const [id, e] of this.game.chars) {
-      if (!e.C.jutsu.clones) continue; // (a kit without Shadow Clone Rush needs no clone bodies)
-      const pool = [];
-      for (let i = 0; i < n; i++) pool.push(await e.model.parse());
-      this.clonePools.set(id, pool);
-    }
+    await this.naruto.bodies.warm(n);
   }
 
   now() {
@@ -316,7 +199,8 @@ export class Jutsu {
       const id = C.kit[slot];
       if (!id || !input.take(slot, 0.12)) continue;
       const J = C.jutsu[id], cast = CASTS[id];
-      if (!J || !cast || !cast.ok(this, ctrl)) return this.nope();
+      if (!J || !cast) return this.nope();
+      if (!cast.ok(this, ctrl)) return this.nope(cast.why);
       if (J.ult) {
         if ((g.gauge?.u || 0) < 99.5) return this.nope();
         g.gauge.u = 0;
@@ -326,14 +210,14 @@ export class Jutsu {
         this.ready[id] = t + J.cd;
       }
       this.endHold(ctrl);
-      ctrl.action = cast.start(this, ctrl);
+      ctrl.action = cast.start(this, ctrl, slot);
       return true;
     }
     return false;
   }
 
-  nope() {
-    this.game.hud.toast?.('Not ready', 700);
+  nope(why = 'Not ready') {
+    this.game.hud.toast?.(why, 700);
     return false;
   }
 
@@ -480,265 +364,6 @@ export class Jutsu {
     }
   }
 
-  // ---------------------------------------------------------------- rasengan
-
-  rasenganTick(a) {
-    const g = this.game, D = a.D;
-    const t = a.victim;
-    if (!t) return;
-    const last = a.tick >= D.grind.ticks;
-    const p = _v.set(t.x, t.y + 1.1, t.z).clone();
-    g.combat.landHit({ id: last ? 'rasengan' : 'rasengan:g', inst: a.inst, k: a.tick, onHit: () => {} }, t, p);
-    g.fx.impact(p, last ? 4 : 1, [1.6, 2.6, 4.0]);
-    a.tick++;
-    if (last) {
-      g.cam.addTrauma(0.6);
-      a.rec();
-    }
-  }
-
-  detectRasengan(a) {
-    const g = this.game, ctrl = g.ctrl, b = ctrl.body;
-    if (a.phase !== 'lunge') return;
-    const L = a.D.hit.box.local;
-    const fx = -Math.sin(ctrl.yaw), fz = -Math.cos(ctrl.yaw);
-    const cx = b.x + fx * L[2], cy = b.y + L[1], cz = b.z + fz * L[2];
-    _v.set(cx, cy, cz);
-    for (const t of g.combat.targets()) {
-      if (!t.hurt?.valid) continue;
-      if (!t.dummy && (t.entry.view?.flags ?? 0) & FLAG.invuln) continue;
-      let hit = false;
-      for (const c of t.hurt.caps) {
-        if (segSeg(_v, _v, c.a, c.b, _c1, _c2) <= (a.D.hit.box.r + c.r) ** 2) {
-          hit = true;
-          break;
-        }
-      }
-      if (!hit) continue;
-      a.phase = 'grind';
-      a.victim = t;
-      a.hitT = a.D.grind.every * F; // the first tick right away
-      break;
-    }
-  }
-
-  // ---------------------------------------------------------------- clones
-
-  spawnClones(ctrl, inst, target, mine, origin = null, ownerId = null) {
-    const g = this.game;
-    const b = origin || ctrl.body;
-    // the caster's character: its body, its clip library, its data
-    const owner = ownerId ?? g.net.id;
-    const OC = this.ownerC(owner), C = OC.jutsu.clones.clone;
-    const ch = g.charModel(owner === g.net.id ? g.me?.ch : g.remotes.get(owner)?.info.ch);
-    const pool = this.clonePools.get(ch.C.id) || [];
-    const yaw = origin ? origin.yaw : ctrl.yaw;
-    if (mine) g.net.act('jutsu', { m: 'clones', i: inst, tg: target?.id, o: [b.x, b.y, b.z, yaw].map((v) => Math.round(v * 1000) / 1000) });
-    for (let k = 0; k < C.count; k++) {
-      // the oldest clone gives up its body when the pool is empty
-      let vrm = pool.find((v) => !v.taken);
-      if (!vrm) {
-        const old = this.clones.find((c) => !c.gone && pool.includes(c.f.vrm));
-        if (old) this.poofClone(old);
-        vrm = pool.find((v) => !v.taken);
-      }
-      if (!vrm) break;
-      vrm.taken = true;
-      const side = k ? -1 : 1;
-      let x = b.x + Math.cos(yaw) * side * 1.1, z = b.z - Math.sin(yaw) * side * 1.1;
-      // not inside a wall or a trunk next to the caster
-      const pos = { x, z };
-      g.world.pushOut(pos, ctrl.opts.r, b.y, b.y + ctrl.opts.h, 0.45, null);
-      x = pos.x;
-      z = pos.z;
-      const gr = g.world.ground(x, z, b.y + 1, {});
-      const air = b.y - gr.y > 0.3; // cast in the air: the clones start there too and drop
-      const y = air ? b.y : gr.y;
-      const body = makeBody(x, y, z);
-      body.ground = !air;
-      const f = new Fighter({ id: `clone${inst}${k}`, name: '', slot: 0, local: false, vrm, rig: ch.model.rig, lib: ch.lib, world: g.world, scene: g.scene });
-      f.noRing = true; // a clone is not a player: no ring under it
-      f.snap(x, y, z, yaw);
-      g.fx.poof({ x, y, z }, 0.9);
-      this.clones.push({
-        f, C: OC, owner: ownerId ?? g.net.id, mine, inst, idx: k, tgt: target?.id, b: body, opts: ctrl.opts, x, y, z, yaw, t: 0,
-        state: 'rush', move: 0, moveT: 0, hitSet: new Set(), view: {}, life: C.life, airT: 0, landT: 9, landV: 0, hardLand: false, jumps: air ? 1 : 0, flipT: -1,
-      });
-    }
-    g.audio?.poof?.();
-  }
-
-  poofClone(c) {
-    const g = this.game;
-    c.gone = true;
-    g.fx.poof({ x: c.x, y: c.y + 0.9, z: c.z }, 0.9);
-    c.f.dispose();
-    c.f.vrm.taken = false;
-    c.f.vrm.scene.removeFromParent();
-  }
-
-  /**
-   * Clones run the same body physics as fighters (walls, ledges, slopes), so they fall off edges, jump up to a
-   * target on a roof or in the air (a flip for the second jump) and land with the landing squash. Every screen runs
-   * them from the cast event toward the target's drawn position; only the caster's copies land hits.
-   */
-  updateClones(dt) {
-    for (const c of this.clones) {
-      if (c.gone) continue;
-      const C = c.C, CL = C.jutsu.clones.clone;
-      c.t += dt;
-      if (c.t > c.life) {
-        this.poofClone(c);
-        continue;
-      }
-      // fixed-size steps: the physics is tuned for the 60 Hz sim
-      for (let left = dt; left > 1e-6 && !c.gone; left -= SIM.dt) this.stepClone(c, Math.min(SIM.dt, left), C, CL);
-      if (c.gone) continue;
-      const b = c.b, v = c.view;
-      c.x = b.x;
-      c.y = b.y;
-      c.z = b.z;
-      const s = Math.sin(c.yaw), co = Math.cos(c.yaw);
-      Object.assign(v, {
-        x: b.x, y: b.y, z: b.z, yaw: c.yaw, vf: -b.vx * s - b.vz * co, vl: -b.vx * co + b.vz * s, vy: b.vy, speed: Math.hypot(b.vx, b.vz),
-        yawRate: c.yawRate || 0, st: b.ground ? ST.loco : ST.air, stT: b.ground ? c.t : c.airT, sprint: c.state === 'rush' && b.ground, skid: 0,
-        ground: b.ground, flipT: c.flipT, landT: c.landT, landV: c.landV, hardLand: c.hardLand, wall: null, stepUp: c.stepUp || 0, combat: true,
-      });
-      c.stepUp = 0;
-      if (c.state !== 'attack') v.act = null;
-      c.f.update(dt, v);
-    }
-    this.clones = this.clones.filter((c) => !c.gone);
-  }
-
-  stepClone(c, dt, C, CL) {
-    const g = this.game, b = c.b;
-    const tp = this.targetPos(c.tgt, _v);
-    let d = 99, dy = 0, tx = 0, tz = 0;
-    if (tp) {
-      tx = tp.x;
-      tz = tp.z;
-      d = Math.hypot(tx - b.x, tz - b.z);
-      dy = tp.y - 1.1 - b.y;
-    }
-    const yaw0 = c.yaw;
-    let opts = c.opts;
-    if (c.state === 'rush') {
-      let dx = -Math.sin(c.yaw), dz = -Math.cos(c.yaw);
-      if (tp && d > 0.05) {
-        dx = (tx - b.x) / d;
-        dz = (tz - b.z) / d;
-        // the two clones come in from either side, converging as they arrive
-        const side = c.idx ? -1 : 1, k = 0.3 * Math.min(1, d / 4);
-        const ex = dx - dz * side * k, ez = dz + dx * side * k, l = Math.hypot(ex, ez);
-        dx = ex / l;
-        dz = ez / l;
-      }
-      c.yaw = turn(c.yaw, Math.atan2(-dx, -dz), 16, dt);
-      // accelerate toward the wanted velocity (full control on the ground, some in the air, braking as the target
-      // comes under it: at full speed a jump carried the clone a metre past a target on a ledge)
-      const sp = b.ground || !tp ? CL.speed : Math.min(CL.speed, Math.max(3, (d - 0.6) * 4));
-      const wx = dx * sp - b.vx, wz = dz * sp - b.vz, wl = Math.hypot(wx, wz), a = (b.ground ? 110 : 40) * dt;
-      if (wl > a) {
-        b.vx += (wx / wl) * a;
-        b.vz += (wz / wl) * a;
-      } else {
-        b.vx += wx;
-        b.vz += wz;
-      }
-      // jumps: up to a target above (a roof, a juggle), over something in the way; a second jump (a flip) to reach
-      if (tp) {
-        const wallAhead = b.ground && b.contacts > 0 && b.cnx * dx + b.cnz * dz < -0.5 && Math.hypot(b.vx, b.vz) < CL.speed * 0.5;
-        if (b.ground && ((dy > 0.9 && d < 6) || wallAhead)) {
-          this.cloneJump(c, Math.sqrt(2 * c.opts.gravity * (Math.max(dy, 1.2) + 0.5)));
-          // the horizontal speed that reaches the target a little after the top of the arc
-          if (!wallAhead) {
-            const hs = Math.min(CL.speed, Math.max(3, (d - 0.7) / ((b.vy / c.opts.gravity) * 1.3)));
-            b.vx = dx * hs;
-            b.vz = dz * hs;
-          }
-        } else if (!b.ground && c.jumps === 1 && b.vy < 1 && dy > 0.8 && d < 5) {
-          this.cloneJump(c, 9);
-          c.flipT = 0;
-        }
-      }
-      if (tp ? d < 1.05 && Math.abs(dy) < 1.4 : c.t > 0.45) {
-        c.state = 'attack';
-        c.moveT = 0;
-      }
-    } else {
-      const id = CL.string[c.move], M = C.moves[id];
-      if (tp) c.yaw = turn(c.yaw, Math.atan2(-(tx - b.x), -(tz - b.z)), 24, dt);
-      // stick to the target through the string (a short step-in), braking otherwise
-      if (tp && d > 0.8 && d < 2.5) {
-        const sp = Math.min(6, (d - 0.8) * 10);
-        b.vx = ((tx - b.x) / d) * sp;
-        b.vz = ((tz - b.z) / d) * sp;
-      } else {
-        const k = Math.max(0, 1 - dt * 14);
-        b.vx *= k;
-        b.vz *= k;
-      }
-      // strikes in the air hang there (like the fighters' air attacks)
-      if (!b.ground) {
-        opts = c.hover ||= { ...c.opts, gravity: c.opts.gravity * 0.3, fallMul: 1 };
-        if (b.vy > 0) b.vy *= Math.max(0, 1 - dt * 10);
-      }
-      c.moveT += dt;
-      const f = c.moveT / F;
-      // clone hits: the move's contact frame
-      if (c.mine && f >= M.startup && !c.hitSet.has(c.move)) {
-        c.hitSet.add(c.move);
-        this.cloneHit(c, M, id === CL.string[CL.string.length - 1]);
-      }
-      if (f >= M.startup + M.active + (c.move < CL.string.length - 1 ? 4 : M.recovery)) {
-        c.move++;
-        c.moveT = 0;
-        if (c.move >= CL.string.length) return this.poofClone(c);
-        // the target got away between two hits: chase it again (the string carries on where it was)
-        if (tp && (d > 2.2 || Math.abs(dy) > 1.6)) c.state = 'rush';
-      }
-      if (c.state === 'attack') c.view.act = { clip: M.anim, t: c.moveT, key: `c${c.inst}${c.idx}${c.move}` };
-    }
-    c.yawRate = wrap(c.yaw - yaw0) / dt;
-    const was = b.ground;
-    stepBody(g.world, b, opts, dt);
-    c.stepUp = (c.stepUp || 0) + b.stepUp;
-    if (c.flipT >= 0) c.flipT = c.flipT + dt > 0.5 ? -1 : c.flipT + dt;
-    if (b.ground) {
-      if (!was) {
-        c.landT = 0;
-        c.landV = b.landV;
-        c.hardLand = b.landV > C.move.hardLand;
-        c.jumps = 0;
-        c.flipT = -1;
-        g.fx.dust(b, 4, 0.8);
-      } else c.landT += dt;
-    } else {
-      c.airT = was ? 0 : c.airT + dt;
-      if (was && c.jumps === 0) c.jumps = 1; // ran off a ledge: one jump left
-    }
-  }
-
-  cloneJump(c, vy) {
-    const b = c.b;
-    b.vy = clamp(vy, 7, 16);
-    b.ground = false;
-    c.jumps++;
-    c.airT = 0;
-    if (c.jumps === 1) this.game.fx.dust(b, 5, 1);
-  }
-
-  cloneHit(c, M, last) {
-    const g = this.game;
-    let pick = null;
-    for (const t of g.combat.targets()) {
-      if (Math.hypot(t.x - c.x, t.z - c.z) > 1.9 || Math.abs(t.y - c.y) > 1.5) continue;
-      if (!pick || t.id === c.tgt) pick = t; // the clone's own target first
-    }
-    if (pick) g.combat.landHit({ id: last ? 'clone:last' : 'clone', inst: c.inst, k: c.idx * 10 + c.move, from: { x: c.x, y: c.y, z: c.z, yaw: c.yaw } }, pick, _v.set(pick.x, pick.y + 1.1, pick.z).clone());
-  }
-
   // ---------------------------------------------------------------- rasenshuriken throw
 
   throwRasenshuriken(ctrl, a) {
@@ -760,15 +385,10 @@ export class Jutsu {
     const g = this.game;
     const f = r.fighter;
     if (!f) return;
-    if (this.madara.onRemote(m, r) || this.itachi.onRemote(m, r)) return;
+    if (this.naruto.onRemote(m, r) || this.madara.onRemote(m, r) || this.itachi.onRemote(m, r)) return;
     if (m.k === 'tool' && m.m === 'shuriken' && m.o && m.d) {
       r.act = { clip: 'throw', r: m.r, key: `throw${m.i}`, dur: 19 * F, pause: 0, upper: true };
       this.addProjectile('shuriken', m.id, false, m.i, _v.fromArray(m.o).clone(), _w.fromArray(m.d).clone(), m.tg);
-    } else if (m.m === 'rasengan') {
-      r.act = { clip: 'rasengan', r: m.r, key: `ras${m.i}`, dur: 84 * F, pause: 0, jutsu: 'rasengan' };
-    } else if (m.m === 'clones' && m.o) {
-      r.act = { clip: 'handsign', r: m.r, key: `sign${m.i}`, dur: 26 * F, pause: 0 };
-      this.spawnClones(g.ctrl, m.i, m.tg !== undefined ? { id: m.tg } : null, false, { x: m.o[0], y: m.o[1], z: m.o[2], yaw: m.o[3] }, m.id);
     } else if (m.m === 'rasenshuriken') {
       if (!m.n) r.act = { clip: 'rasenshuriken', r: m.r, key: `rsh${m.i}`, dur: 64 * F, pause: 0, jutsu: 'rsh' };
       else if (m.n === 1 && m.o && m.d) {
@@ -816,12 +436,10 @@ export class Jutsu {
     const g = this.game;
     this.time += dt;
     const ctrl = g.ctrl, a = ctrl.action;
-    if (a instanceof RasenganAction) this.detectRasengan(a);
-    // per fighter: charge aura, the Rasengan in the palm, the Rasenshuriken overhead, wall-run chakra at the feet
-    const each = (f, charging, rasSize, rshSize) => {
+    // per fighter: charge aura, the Rasenshuriken overhead, wall-run chakra at the feet (the Rasengan: naruto.js)
+    const each = (f, charging, rshSize) => {
       const e = this.fxFor(f);
       e.aura?.update(dt, f.pos, charging, this.time);
-      if (e.ras) e.ras.update(dt, rasSize > 0 ? bonePos(f, 'rightHand', _v).add(_w.set(0, 0.02, 0)) : f.pos, rasSize);
       if (rshSize > 0) {
         e.rshFx ||= this.rsh.find((x) => !x.busy);
         if (e.rshFx) {
@@ -840,25 +458,21 @@ export class Jutsu {
         }
       }
     };
-    each(g.player, a?.netState === ST.charge, a instanceof RasenganAction ? a.sphere : 0, a instanceof RasenshurikenAction ? a.size : 0);
+    each(g.player, a?.netState === ST.charge, a instanceof RasenshurikenAction ? a.size : 0);
     for (const r of g.remotes.values()) {
       if (!r.fighter) continue;
       const v = r.view || {};
       const act = r.act;
-      let ras = 0, rsh = 0;
-      if (act?.jutsu && v.act) {
-        const t = v.act.t;
-        if (act.jutsu === 'rasengan') ras = t < 0.3 ? clamp(t / 0.3, 0.15, 1) : t < 1.0 ? 1 : Math.max(0, 1 - (t - 1.0) * 5);
-        if (act.jutsu === 'rsh' && !r.rshThrown) rsh = clamp(t / (40 * F), 0.1, 1);
-      }
+      let rsh = 0;
+      if (act?.jutsu === 'rsh' && v.act && !r.rshThrown) rsh = clamp(v.act.t / (40 * F), 0.1, 1);
       if (!act) r.rshThrown = false;
-      each(r.fighter, v.st === ST.charge, ras, rsh);
+      each(r.fighter, v.st === ST.charge, rsh);
     }
     this.madara.update(dt);
     this.itachi.update(dt);
+    this.naruto.update(dt);
     this.updateProjectiles(dt);
     this.updateBursts(dt);
-    this.updateClones(dt);
     for (const x of this.rsh) if (!x.busy) x.update(dt, _v, 0);
   }
 }

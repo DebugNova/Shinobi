@@ -147,6 +147,40 @@ const meteor = {
   ],
 };
 
+// Sharingan Genjutsu (40 f): the head lowers, the eyes in shadow, the right hand rising to a half seal before the chest
+// plate (0-10); at 16 the head snaps up and his Eternal Mangekyō meets their eyes (the gaze), held (16-32), let go
+const CALM = { lf: { p: [0.15, 0, 0.12], pole: [0.2, 0, 1], yaw: -8 }, rf: { p: [-0.16, 0, -0.14], yaw: 18 } };
+const HALF = (y, z) => P(-0.04, y, z, { pole: [-1, -0.6, 0], wrist: [0, 50, -70], fingers: [0, 0, 1, 1], thumb: 0.7 });
+const LOW = {
+  h: [0, -0.03, 0], hips: [0, 6, 0], spine: [3, 0, 0], chest: [2, 0, 0], neck: [11, 0, 0], head: [17, 0, 0], ...CALM,
+  rh: HALF(1.17, 0.31), lh: P(0.21, 0.84, 0.05, { pole: [1, 0.2, -0.4], open: 0.35 }),
+};
+const GAZE = { ...LOW, h: [0, -0.02, 0.01], spine: [-2, 0, 0], chest: [-3, 0, 0], neck: [-5, 0, 0], head: [-6, 0, 0], rh: HALF(1.21, 0.32) };
+const genjutsu = {
+  keys: [
+    [0, {}],
+    [10, LOW, 'io'],
+    [13, { ...LOW, neck: [13, 0, 0], head: [19, 0, 0] }, 'io'],
+    [16, GAZE, 'snap'],
+    [22, { ...GAZE, h: [0, -0.025, 0.02], head: [-8, 0, 0] }, 'out'],
+    [32, { ...GAZE, h: [0, -0.03, 0.01] }, 'io'],
+    [40, {}, 'io'],
+  ],
+};
+// Inside his genjutsu (its victim's own screen, madaravision.js): the stand-in Madara the camera films up close, the
+// chin down and the eyes up at the victim through his bangs, breathing, dead still otherwise (a 3 s loop)
+const STARE = { h: [0, -0.02, 0], hips: [0, 4, 0], spine: [2, 0, 0], chest: [1, 0, 0], neck: [6, 0, 0], head: [9, -3, 2], ...CALM,
+  lh: P(0.22, 0.83, 0.05, { pole: [1, 0.2, -0.4], open: 0.3 }), rh: P(-0.22, 0.83, 0.05, { pole: [-1, 0.2, -0.4], open: 0.3 }) };
+const stare = {
+  loop: true,
+  base: STARE,
+  keys: [
+    [0, {}],
+    [90, { h: [0, -0.012, 0.004], chest: [0, 0, 0], upperChest: [-1.5, 0, 0], head: [10, -3, 2] }, 'io'],
+    [180, {}, 'io'],
+  ],
+};
+
 /** The same upper-body keys hanging in the air: legs tucked, the body pitched so the torrent angles down. */
 function airVariant(def, pitch) {
   const AIR = { h: [0, 0.05, 0], lf: { p: [0.12, 0.3, 0.2], pole: [0, 0.3, 1], pitch: 20 }, rf: { p: [-0.12, 0.18, -0.15], pole: [0, 0.3, 1], pitch: 30 } };
@@ -174,4 +208,7 @@ export const MADARA_CLIPS = {
   mad_counter_air: airVariant(counter, 0),
   mad_meteor: meteor,
   mad_meteor_air: airVariant(meteor, 0),
+  mad_genjutsu: genjutsu,
+  mad_genjutsu_air: airVariant(genjutsu, 0),
+  mgj_stare: stare,
 };

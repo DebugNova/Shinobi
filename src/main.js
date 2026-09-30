@@ -138,6 +138,7 @@ class Game {
     this.scene.add(this.greybox);
     this.post = new Post(this.renderer, this.scene, this.camera);
     this.fx = new FX(this.scene);
+    this.fx.eye = this.camera.position; // (poof clusters are emitted back to front from here)
     this.debugDraw = new DebugDraw(this.scene); // F4
     this.debug = null; // = debugDraw while F4 is on (Combat reports hitboxes to it)
     this.logs = new Logs(this.scene);
@@ -149,9 +150,12 @@ class Game {
 
     // ---- more fighter instances behind the loading screen (a join never parses a VRM mid-fight): enough of every
     // character for a full room of it
-    // (+1 for a Tsukuyomi caster's body: its victim's genjutsu draws both stand-ins from these pools)
-    for (const e of this.chars.values()) await e.model.warm(NET.maxPlayers + 1 + (e.C.jutsu.tsukuyomi ? 1 : 0));
-    await this.jutsu.warmClones(4);
+    // (+1 for a genjutsu caster's body: Tsukuyomi's victim draws both stand-ins from these pools, the Sharingan
+    // Genjutsu's victim a stand-in Madara)
+    for (const e of this.chars.values()) await e.model.warm(NET.maxPlayers + 1 + (e.C.jutsu.tsukuyomi || e.C.jutsu.sharinganGenjutsu ? 1 : 0));
+    // clone bodies (naruto.js): four shadow clones, four for a Rush, the Rasengan's helper or the substitution's decoy
+    // (a second caster of the same body takes the oldest in use)
+    await this.jutsu.warmClones(9);
 
     // ---- gameplay objects
     this.input = new Input(canvas);
@@ -202,6 +206,7 @@ class Game {
     const J = this.jutsu, jfx = [...J.auras.map((a) => a.group), ...J.rasengans.map((a) => a.group), ...J.rsh.flatMap((a) => [a.group, a.boom]), ...J.shuriken, ...this.movefx.warmObjects()];
     this.jutsu.madara.warm(true, sp); // Madara's kit: fire blobs, footprint decals, field flames (world-space, not moved)
     this.jutsu.itachi.warm(true, sp); // Itachi's kit: black flames, Mangekyō marks, crows, feathers
+    this.jutsu.naruto.warm(true, sp); // Naruto's kit: afterimages (skinned ghost material), the Rasengan's blast
     this.post.genjutsu.amt = 0.5; // (its branch compiles either way; this just shows it once)
     for (const o of jfx) {
       o.visible = true;
@@ -241,6 +246,7 @@ class Game {
     for (const o of jfx) o.visible = false;
     this.jutsu.madara.warm(false);
     this.jutsu.itachi.warm(false);
+    this.jutsu.naruto.warm(false);
     for (const t of this.art.textures) this.renderer.initTexture(t);
     for (const { e, f, vrm } of warm) {
       f.dispose();
@@ -520,6 +526,7 @@ class Game {
     });
     n.on('spawn', (m) => {
       this.jutsu.itachi.cine.drop(m.id); // (its caster respawned, e.g. a match starting: the cinematic ends)
+      this.jutsu.naruto.dropOwner(m.id); // (his shadow clones, Rush, decoy end with a respawn)
       if (m.id === n.id) {
         n.seq = m.seq;
         this.hp = m.hp;
@@ -533,6 +540,7 @@ class Game {
         this.player?.snap(m.p[0], m.p[1], m.p[2], m.yaw);
         this.cam.reset(m.p[0], m.p[1], m.p[2], m.yaw);
         this.jutsu.itachi.world.abort(); // (a respawn ends a Tsukuyomi on this screen at once)
+        this.jutsu.madara.gen.vision.abort(); // (and Madara's genjutsu)
       } else {
         const r = this.remotes.get(m.id);
         if (r) {
@@ -552,6 +560,9 @@ class Game {
       this.combat.onHitr(m);
     });
     n.on('hitx', (m) => this.combat.onHitx(m));
+    // Naruto's shadow clones: their states from their caster, hits on them
+    n.on('cs', (m) => this.jutsu.naruto.onCloneStates(m));
+    n.on('ch', (m) => this.jutsu.naruto.onCloneHit(m));
     n.on('gauge', (m) => (this.gauge = m));
     n.on('dev', (m) => this.devbar.onAnswer(m));
     n.on('match', (m) => {
@@ -559,6 +570,7 @@ class Game {
       this.hud.matchPhase?.(m);
     });
     n.on('kill', (m) => {
+      this.jutsu.naruto.dropOwner(m.v);
       if (m.v === n.id) {
         this.ctrl.dead = true;
         this.player.dead = true;
@@ -587,6 +599,7 @@ class Game {
       this.hud.deny?.(m);
       this.jutsu.madara.onDeny(m); // (a denied cast takes its local effect back)
       this.jutsu.itachi.onDeny(m);
+      this.jutsu.naruto.onDeny(m);
     });
     n.on('rejoined', (m) => {
       for (const id of [...this.remotes.keys()]) this.removeRemote(id);
@@ -616,6 +629,7 @@ class Game {
     const r = this.remotes.get(id);
     if (!r) return;
     this.remotes.delete(id);
+    this.jutsu.naruto.dropOwner(id);
     if (r.fighter) {
       this.jutsu.release(r.fighter);
       r.fighter.dispose(this.scene);
@@ -740,6 +754,7 @@ class Game {
     const others = this._others ||= [];
     others.length = 0;
     for (const r of this.remotes.values()) if (r.fighter && !r.fighter.dead) others.push({ x: r.fighter.pos.x, y: r.fighter.pos.y, z: r.fighter.pos.z, r: 0.34 });
+    this.jutsu.naruto.pushers(others); // (others' shadow clones stand in the way like fighters)
 
     // fixed-step simulation
     this.acc = Math.min(this.acc + dt, 0.25);
@@ -796,9 +811,11 @@ class Game {
     const tw = this.jutsu.itachi.world, inWorld = tw.late(this.camera);
     // (Amaterasu's cinematic films with its own camera on every screen)
     const cine = this.jutsu.itachi.cine, inCine = cine.late(this.camera);
+    // (inside Madara's genjutsu the view films his face, then the dark)
+    const mv = this.jutsu.madara.gen.vision, inVision = mv.late(this.camera);
     this.sky.update(dt, this.camera);
     this._focus ||= new THREE.Vector3();
-    updateToon(this.sky.sun, this.camera, inCine ? cine.focus : inWorld ? tw.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
+    updateToon(this.sky.sun, this.camera, inCine ? cine.focus : inWorld ? tw.focus : inVision ? mv.focus : this._focus.copy(this.player.pos).setY(this.player.pos.y + 1.0), dt);
     this.art.update(dt, this.fx, this.camera);
     if (this.debug) {
       const hurts = (this._hurts ||= []);
@@ -889,6 +906,7 @@ class Game {
       else if (m.k === 'jutsu') {
         this.jutsu.madara.onOwn(m);
         this.jutsu.itachi.onOwn(m);
+        this.jutsu.naruto.onOwn(m);
       }
       return;
     }
@@ -1014,7 +1032,8 @@ class Game {
 
   /** Debug: a tight orbit around the local fighter (animation checks). */
   studioCam() {
-    const S = this.studio, p = this.player.pos, cam = this.camera;
+    // (at: [x, y, z] orbits a fixed point instead of the fighter: effects round someone else)
+    const S = this.studio, p = S.at ? (this._sat ||= new THREE.Vector3()).fromArray(S.at) : this.player.pos, cam = this.camera;
     const yaw = (S.abs ? 0 : this.ctrl.yaw) + (S.yaw || 0);
     const d = S.dist ?? 3, h = S.h ?? 0.9, pitch = S.pitch ?? 0;
     cam.position.set(p.x - Math.sin(yaw) * Math.cos(pitch) * d, p.y + h + Math.sin(pitch) * d, p.z - Math.cos(yaw) * Math.cos(pitch) * d);

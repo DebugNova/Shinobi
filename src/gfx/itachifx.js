@@ -39,7 +39,8 @@ export const MANGEKYO = /* glsl */ `
 const MARKS = 40; // (two eyes per Itachi, one mark per dazed victim)
 
 export class EyeMarks {
-  constructor(scene) {
+  /** pattern: GLSL defining `vec4 mangekyo(vec2 q, float rot)` (default Itachi's; Madara's: madaravisionfx.js). */
+  constructor(scene, pattern = MANGEKYO) {
     const quad = new THREE.PlaneGeometry(2, 2);
     const g = new THREE.InstancedBufferGeometry();
     g.index = quad.index;
@@ -66,7 +67,7 @@ export class EyeMarks {
         }`,
       fragmentShader: /* glsl */ `
         varying vec2 vQ; varying vec4 vData;
-        ${MANGEKYO}
+        ${pattern}
         void main() {
           vec2 q = vQ * 2.0; // the eye spans -1..1 in the middle of the quad
           float open = vData.x, alpha = vData.y, rot = vData.z, halo = vData.w;

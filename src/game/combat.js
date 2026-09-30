@@ -22,7 +22,7 @@ const wrap = (a) => {
 };
 const F = 1 / 60;
 // hits the server applies itself (no client detects them, so the attacker's screen never predicted them)
-const SERVER_HIT = /^(uchihaReturn|tengaiShinsei|tsukuyomi|amaterasu):/;
+const SERVER_HIT = /^(uchihaReturn|tengaiShinsei|tsukuyomi|amaterasu|sharinganGenjutsu|cloneDefense):/;
 const TURN = 40; // rad/s an attack turns toward its target (180 degrees in under 5 ticks)
 let instSeq = Math.floor(Math.random() * 1000) * 1000;
 
@@ -98,7 +98,7 @@ export class AttackAction {
   liveTarget() {
     const T = this.target;
     if (!T || T.dead) return null;
-    for (const t of this.game.combat.targets()) if (t.id === T.id) return t;
+    for (const t of this.game.combat.targets()) if (t.id === T.id && t.vc === T.vc) return t;
     return null;
   }
 
@@ -281,7 +281,7 @@ export class AttackAction {
     }
     // cancels once the move has hit: dash, jump (juggle follow-ups), jutsu
     if (this.hit && f >= M.hitCancel) {
-      if (input.peek('dash', 0.2) || input.peek('jutsu1', 0.2) || input.peek('jutsu2', 0.2) || (ctrl.C.kit.jutsu3 && input.peek('jutsu3', 0.2)) || input.peek('tool', 0.2)) return false;
+      if (input.peek('dash', 0.2) || input.peek('jutsu1', 0.2) || input.peek('jutsu2', 0.2) || (ctrl.C.kit.jutsu3 && input.peek('jutsu3', 0.2)) || (ctrl.C.kit.jutsu4 && input.peek('jutsu4', 0.2)) || input.peek('tool', 0.2)) return false;
       if (input.peek('jump', 0.2) && ctrl.grounded) return false;
     }
     if (this.t >= this.total) {
@@ -489,15 +489,17 @@ export class Combat {
     out.length = 0;
     for (const r of g.remotes.values()) {
       if (!r.fighter || r.fighter.dead || r.react?.ko) continue;
-      out.push({ id: r.info.id, x: r.fighter.pos.x, y: r.fighter.pos.y, z: r.fighter.pos.z, hurt: r.fighter.hurt, entry: r });
+      out.push({ id: r.info.id, key: r.info.id, x: r.fighter.pos.x, y: r.fighter.pos.y, z: r.fighter.pos.z, hurt: r.fighter.hurt, entry: r });
     }
     const d = g.dummy;
-    if (d) out.push({ id: 0, x: d.pos.x, y: d.pos.y, z: d.pos.z, hurt: d.hurt, entry: d, dummy: true });
+    if (d) out.push({ id: 0, key: 0, x: d.pos.x, y: d.pos.y, z: d.pos.z, hurt: d.hurt, entry: d, dummy: true });
+    // others' shadow clones (naruto.js): hittable, their caster's id plus the clone's slot (vc)
+    g.jutsu?.naruto.cloneTargets(out);
     return out;
   }
 
-  /** The best target in front of the fighter within `range` (the lock-on target first). */
-  findTarget(ctrl, range) {
+  /** The best target in front of the fighter within `range` (the lock-on target first; shadow clones too unless `fighters`). */
+  findTarget(ctrl, range, fighters = false) {
     const b = ctrl.body;
     if (ctrl.lockTarget && !ctrl.lockTarget.dead) {
       const L = ctrl.lockTarget;
@@ -507,6 +509,7 @@ export class Combat {
     const fx = -Math.sin(ctrl.yaw), fz = -Math.cos(ctrl.yaw);
     const wx = ctrl.wish > 0.3 ? ctrl.wishX : fx, wz = ctrl.wish > 0.3 ? ctrl.wishZ : fz;
     for (const t of this.targets()) {
+      if (fighters && t.clone) continue;
       const dx = t.x - b.x, dz = t.z - b.z, d = Math.hypot(dx, dz);
       if (d > range || Math.abs(t.y - b.y) > 2.5) continue;
       const facing = d > 0.1 ? (dx * wx + dz * wz) / d : 1;
@@ -532,6 +535,8 @@ export class Combat {
     const cam = g.camera, fwd = cam.getWorldDirection(_aim), cp = cam.position;
     let best = null, bs = Infinity;
     for (const t of this.targets()) {
+      // (aimed jutsu go for fighters: a projectile homes on an id, and a clone shares its caster's)
+      if (t.clone) continue;
       const d = Math.hypot(t.x - b.x, t.z - b.z);
       if (d > range) continue;
       const dx = t.x - cp.x, dy = t.y + 1 - cp.y, dz = t.z - cp.z, l = Math.hypot(dx, dy, dz) || 1;
@@ -544,7 +549,7 @@ export class Combat {
         best = t;
       }
     }
-    return best || this.findTarget(ctrl, Math.min(range, 12));
+    return best || this.findTarget(ctrl, Math.min(range, 12), true);
   }
 
   // ---- input -> actions (called inside the controller's fixed step)
@@ -614,7 +619,7 @@ export class Combat {
     }
     B.f = f;
     const targets = this.targets().filter((t) => {
-      if (act.hitSet.has(t.id) || !t.hurt?.valid) return false;
+      if (act.hitSet.has(t.key) || !t.hurt?.valid) return false;
       if (!t.dummy && (t.entry.react?.invuln?.(g.net.serverNow()) || (t.entry.view?.flags ?? 0) & FLAG.invuln)) return false;
       return Math.hypot(t.x - ctrl.body.x, t.z - ctrl.body.z) < 4.5;
     });
@@ -631,13 +636,13 @@ export class Combat {
       B.b.copy(_b1);
       B.has = true;
       for (const t of targets) {
-        if (act.hitSet.has(t.id)) continue;
+        if (act.hitSet.has(t.key)) continue;
         const p = sweptHit(_a0, _b0, _a1, _b1, box.r, t.hurt, _hit);
         if (!p) continue;
         // no hits through walls
         const b = ctrl.body;
         if (!g.world.clear(b.x, b.y + 1.1, b.z, p.x, p.y, p.z)) continue;
-        act.hitSet.add(t.id);
+        act.hitSet.add(t.key);
         this.landHit({ id: act.id, inst: act.inst, k: 0, onHit: (hs) => act.onHit(hs) }, t, p.clone());
       }
     }
@@ -679,12 +684,30 @@ export class Combat {
     const inReact = !t.dummy && e.react && at < e.react.end;
     const vt = t.dummy || inReact ? at : n.renderTime();
     this.stats.sent++;
-    this.log?.push({ m: act.id, v: t.id, at: Math.round(at), d: Math.hypot(t.x - b.x, t.z - b.z).toFixed(2) });
+    this.log?.push({ m: act.id, v: t.id, vc: t.vc, at: Math.round(at), d: Math.hypot(t.x - b.x, t.z - b.z).toFixed(2) });
     // the hit's source (a clone, a projectile): the knockback pushes away from it, not from the caster
     const src = act.from ? [act.from.x, act.from.y, act.from.z, act.from.yaw ?? ctrl.yaw].map((v) => Math.round(v * 1000) / 1000) : null;
-    n.send({ t: 'hit', v: t.id, m: act.id, i: act.inst, k: act.k || 0, at: Math.round(at), vt: Math.round(vt), p: [t.x, t.y, t.z].map((v) => Math.round(v * 1000) / 1000), a: [b.x, b.y, b.z, ctrl.yaw].map((v) => Math.round(v * 1000) / 1000), ...(src ? { c: src } : {}) });
+    // (vc: the victim is a shadow clone; cs: our shadow clone struck)
+    n.send({ t: 'hit', v: t.id, m: act.id, i: act.inst, k: act.k || 0, at: Math.round(at), vt: Math.round(vt), p: [t.x, t.y, t.z].map((v) => Math.round(v * 1000) / 1000), a: [b.x, b.y, b.z, ctrl.yaw].map((v) => Math.round(v * 1000) / 1000), ...(src ? { c: src } : {}), ...(t.clone ? { vc: t.vc } : {}), ...(act.cs !== undefined ? { cs: act.cs } : {}) });
     // prediction with the same rules the server uses
     const spec = hitSpec(ctrl.C.id, act.id);
+    // a shadow clone: a burst and a flash (its HP and flinch come back from the server: 'ch')
+    if (t.clone) {
+      act.onHit?.(Math.min(spec.hitstop || 4, 6));
+      this.feedback(point, { react: spec.react, kb: [0, 0, 0] }, spec, true);
+      e.fighter?.flash();
+      g.hud.damage?.(e.fighter.pos, Math.round(spec.dmg), 0);
+      return;
+    }
+    if (!t.dummy) this.lastVictim = g.jutsu.naruto.lastVictim = { id: t.id, at: performance.now() };
+    else g.jutsu.naruto.lastVictim = { id: 0, at: performance.now() };
+    // Naruto's substitution window: his clone will take it (the server decides and tells everyone): no flinch to undo
+    const dcy = !t.dummy && g.jutsu?.naruto.decoying(t.id, at);
+    if (dcy) {
+      g.jutsu.naruto.decoyStruck(dcy, point);
+      g.audio?.impact?.(point, 1, false);
+      return;
+    }
     // Madara's wind barrier will answer it (the server decides; its n:1 brings the answer's effects): no predicted
     // flinch to undo, just sparks where it struck
     if (!t.dummy && g.jutsu?.madara.countering(e, at, spec, act.inst)) {
@@ -740,8 +763,9 @@ export class Combat {
     if (res.blocked) g.fx.block(point);
     else {
       g.fx.impact(point, w);
-      // (a launcher's or a finisher's own impact: Itachi's chakra sphere)
+      // (a launcher's or a finisher's own impact: Itachi's chakra sphere; the Rasengan's blast)
       if (spec.fx === 'sphere') g.movefx?.sphere(point);
+      if (spec.fx === 'rasengan' || spec.fx === 'bigRasengan') g.jutsu?.naruto.blast(point, res.kb, spec.fx === 'bigRasengan');
     }
     if (mine) g.cam.addTrauma(res.blocked ? 0.12 : 0.1 + w * 0.07);
     g.audio?.impact?.(point, w, res.blocked);
@@ -865,8 +889,9 @@ export class Combat {
   onHitr(m) {
     const g = this.game;
     const h = { m: m.m, a: m.a, v: m.v, r: m.r, t0: m.t0, p: m.p, kb: m.kb, st: m.st, hs: m.hs, land: m.l, end: m.e, n: m.n, ko: !!m.ko, dz: m.dz || 0, key: `${m.i}:${m.v}:${m.k || 0}`, blocked: m.b };
-    // Itachi's kit: the Tsukuyomi mark, the black flames (every victim, the dummy included)
+    // Itachi's kit: the Tsukuyomi mark, the black flames; Madara's genjutsu (every victim, the dummy included)
     g.jutsu?.itachi.onHitr(m);
+    g.jutsu?.madara.gen.onHitr(m);
     const black = /^amaterasu:/.test(m.m);
     if (m.v === 0) {
       g.dummy?.confirm(m);
@@ -929,7 +954,9 @@ export class Combat {
         if (m.b) g.fx.block(hb);
         else {
           g.fx.impact(hb, w);
-          if (hitSpec(att?.info.ch, String(m.m))?.fx === 'sphere') g.movefx?.sphere(hb);
+          const hfx = hitSpec(att?.info.ch, String(m.m))?.fx;
+          if (hfx === 'sphere') g.movefx?.sphere(hb);
+          if (hfx === 'rasengan' || hfx === 'bigRasengan') g.jutsu?.naruto.blast(hb, m.kb, hfx === 'bigRasengan');
         }
       }
       g.audio?.impact?.(hb, w, !!m.b);
@@ -950,7 +977,7 @@ export class Combat {
     // someone else's hit (or ours, confirmed): show it
     if (m.a !== g.net.id) {
       const p = e.fighter?.hurt?.center;
-      if (p) this.feedback(p, { blocked: !!m.b, react: m.r }, { hitstop: m.hs, fx: hitSpec(g.remotes.get(m.a)?.info.ch, String(m.m))?.fx }, false);
+      if (p) this.feedback(p, { blocked: !!m.b, react: m.r, kb: m.kb }, { hitstop: m.hs, fx: hitSpec(g.remotes.get(m.a)?.info.ch, String(m.m))?.fx }, false);
       // the attacker's own hitstop on their side
       const att = g.remotes.get(m.a);
       if (att) att.hitstopUntil = performance.now() + m.hs * (1000 / 60);

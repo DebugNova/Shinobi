@@ -4,7 +4,7 @@
 
 const KEYS = {
   KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right',
-  Space: 'jump', ShiftLeft: 'dash', ShiftRight: 'dash', KeyF: 'charge', Digit1: 'tool', KeyQ: 'jutsu1', KeyE: 'jutsu2', KeyG: 'jutsu3',
+  Space: 'jump', ShiftLeft: 'dash', ShiftRight: 'dash', KeyF: 'charge', Digit1: 'tool', KeyQ: 'jutsu1', KeyE: 'jutsu2', KeyG: 'jutsu3', KeyX: 'jutsu4',
   KeyR: 'ult', KeyT: 'lock', Tab: 'score', KeyC: 'guard', KeyV: 'heavy',
 };
 const MOUSE = { 0: 'attack', 1: 'lock', 2: 'guard' };
@@ -230,13 +230,14 @@ export class Input {
     const set = (a, on) => (on ? this.padDown.add(a) : this.padDown.delete(a));
     const lt = b[PAD.LT], rt = b[PAD.RT];
     if (b.some(Boolean) || lx || ly) this.device = 'pad';
-    // LT held turns the face buttons into tool / jutsu (X tool, Y Q, B E, A G); both triggers = ultimate
+    // LT held turns the face buttons into tool / jutsu (X tool, Y Q, B E, A G, RB X); both triggers = ultimate
     if (lt && rt && (edge(PAD.LT) || edge(PAD.RT))) this.press('ult');
     if (lt) {
       if (edge(PAD.X)) this.press('tool');
       if (edge(PAD.Y)) this.press('jutsu1');
       if (edge(PAD.B)) this.press('jutsu2');
       if (edge(PAD.A)) this.press('jutsu3');
+      if (edge(PAD.RB)) this.press('jutsu4');
     } else {
       if (edge(PAD.A)) this.press('jump');
       if (edge(PAD.B)) this.press('dash');
@@ -248,7 +249,7 @@ export class Input {
     set('attack', !lt && b[PAD.X]);
     set('guard', b[PAD.LB]);
     set('charge', rt && !lt);
-    if (edge(PAD.RB) || edge(PAD.RS)) this.press('lock');
+    if ((edge(PAD.RB) && !lt) || edge(PAD.RS)) this.press('lock');
     set('score', b[PAD.BACK]);
     if (edge(PAD.START) && this.enabled) this.onPause?.();
     this._padPrev = b;
